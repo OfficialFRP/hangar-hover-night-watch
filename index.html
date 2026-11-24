@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="styles.css">
 
 <main>
-<header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
+<header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
 <button data-page="flight" aria-pressed="true">01 Flight</button><button data-page="missions" aria-pressed="false">02 Missions</button><button data-page="hangar" aria-pressed="false">03 Hangar</button><button data-page="upgrades" aria-pressed="false">04 Upgrades</button>
 </nav>
@@ -23,13 +23,13 @@
 <h2>Missions</h2><nav id="mission-list" aria-label="Mission list"></nav>
 <div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
 </section>
-<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div id="fleet"></div></section>
-<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><output id="funds"></output><div id="mods"></div></section>
+<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet"></div></section>
+<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><p id="purchaseStatus" role="status"></p></section>
 </div>
 </main>
 <script src="game.js"></script>
-<!-- Embedded display font: DejaVu Sans Bold Oblique (subset)
-Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. 
+<!-- Embedded display font: DejaVu Sans Mono Bold (subset)
+Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.
  DejaVu changes are in public domain.
 License: bitstream-vera

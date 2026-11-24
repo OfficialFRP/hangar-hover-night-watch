@@ -14,6 +14,7 @@ Stay inside each numbered reticle until its scan finishes. Green camera
 coverage speeds up scans. Red coverage drains battery faster. Collect
 purple battery cells for up to four seconds of extra flight time, then
 hold a steady hover over the extraction pad after recording every target.
+In the final Gale Warehouse mission, fly east through the open loading door.
 
 MISSIONS, HANGAR, AND UPGRADES
 Use the top buttons to switch pages. The mission list has two pages.

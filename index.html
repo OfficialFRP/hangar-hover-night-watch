@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hangar Hover | Night Watch</title>
+<link rel="stylesheet" href="styles.css">
+
+<main>
+<header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
+<nav class="pages" aria-label="Game pages">
+<button data-page="flight" aria-pressed="true">01 Flight</button><button data-page="missions" aria-pressed="false">02 Missions</button><button data-page="hangar" aria-pressed="false">03 Hangar</button><button data-page="upgrades" aria-pressed="false">04 Upgrades</button>
+</nav>
+<div class="layout"><section id="page-flight" aria-label="Flight deck">
+<div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
+<div id="field">
+<canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><button id="action"></button></div></div>
+</div>
+<div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
+<div class="help"><span>WASD / arrows to fly · Space to brake · C to jam · P to pause · R to restart</span><div class="keys" aria-label="Touch flight controls"><button data-key="ArrowLeft" aria-label="Fly left">←</button><button data-key="ArrowUp" aria-label="Fly up">↑</button><button data-key="ArrowDown" aria-label="Fly down">↓</button><button data-key="ArrowRight" aria-label="Fly right">→</button><button data-key=" " aria-label="Brake">Brake</button><button id="jam" aria-label="Jam cameras">Jam</button><button id="pause" aria-label="Pause or resume">Pause</button></div></div>
+</section>
+<section id="page-missions" class="panel game-menu" hidden>
+<h2>Missions</h2><nav id="mission-list" aria-label="Mission list"></nav>
+<div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
+</section>
+<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div id="fleet"></div></section>
+<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><output id="funds"></output><div id="mods"></div></section>
+</div>
+</main>
+<script src="game.js"></script>
+<!-- Embedded display font: DejaVu Sans Bold Oblique (subset)
+Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. 
+ Bitstream Vera is a trademark of Bitstream, Inc.
+ DejaVu changes are in public domain.
+License: bitstream-vera
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of the fonts accompanying this license ("Fonts") and associated
+ documentation files (the "Font Software"), to reproduce and distribute the
+ Font Software, including without limitation the rights to use, copy, merge,
+ publish, distribute, and/or sell copies of the Font Software, and to permit
+ persons to whom the Font Software is furnished to do so, subject to the
+ following conditions:
+ .
+ The above copyright and trademark notices and this permission notice shall
+ be included in all copies of one or more of the Font Software typefaces.
+ .
+ The Font Software may be modified, altered, or added to, and in particular
+ the designs of glyphs or characters in the Fonts may be modified and
+ additional glyphs or characters may be added to the Fonts, only if the fonts
+ are renamed to names not containing either the words "Bitstream" or the word
+ "Vera".
+ .
+ This License becomes null and void to the extent applicable to Fonts or Font
+ Software that has been modified and is distributed under the "Bitstream
+ Vera" names.
+ .
+ The Font Software may be sold as part of a larger software package but no
+ copy of one or more of the Font Software typefaces may be sold by itself.
+ .
+ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT,
+ TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL BITSTREAM OR THE GNOME
+ FOUNDATION BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, INCLUDING
+ ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES,
+ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+ THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM OTHER DEALINGS IN THE
+ FONT SOFTWARE.
+ .
+ Except as contained in this notice, the names of Gnome, the Gnome
+ Foundation, and Bitstream Inc., shall not be used in advertising or
+ otherwise to promote the sale, use or other dealings in this Font Software
+ without prior written authorization from the Gnome Foundation or Bitstream
+ Inc., respectively. For further information, contact: fonts at gnome dot
+ org.
+-->
+
+</html>

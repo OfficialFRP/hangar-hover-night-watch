@@ -110,7 +110,22 @@ Object.assign(campaignReveals,{
     ['mateo','I’m calling from the freighter Orison. There are people below deck. I heard them asking for water. Please tell me someone’s coming.'],
     ['leena','We’re coming, Mateo. Stay where you’re safe. Rook, we need eyes on the deck before we move.']
   ]},
-  25:{title:'The Orison · All Accounted For',lines:[
+  27:{title:'The Orison · Voices Below Deck',lines:[
+    ['mateo','I called through the bulkhead. Someone answered. They wanted to know if we could hear everyone on their side.'],
+    ['leena','Tell them we heard. We’re still here.'],
+    ['reed','The records and Mateo’s account confirm we’re investigating trafficking. The rescue stays our priority.']
+  ]},
+  30:{title:'The Orison · The Missing Names',lines:[
+    ['cipher','The company logs omit the people below deck. Mateo kept his own notes. We can use them to check who’s accounted for.'],
+    ['mateo','Some of them gave me names. Some didn’t want to. I wrote down what they trusted me with.'],
+    ['leena','We’ll protect that list. The medics are ready.']
+  ]},
+  33:{title:'The Orison · Before Dawn',lines:[
+    ['vey','You can have the ship. My name doesn’t appear anywhere on it.'],
+    ['reed','The records connect him to the voyage. Our partners are ready to take him into custody.'],
+    ['leena','Waves are breaking over the bow. We’ll move as soon as Rook confirms the last passage.']
+  ]},
+  36:{title:'The Orison · All Accounted For',lines:[
     ['rook','Last marker confirmed. The passage to the rescue station is clear.'],
     ['leena','We have everyone from the hold. The medics are with them now. One woman asked me to stay until she fell asleep. I told her I would.'],
     ['reed','Dorian Vey is in custody. Our international partners are preserving the ship’s records. We’ll take statements when people are ready.'],
@@ -122,7 +137,7 @@ Object.assign(campaignReveals,{
 });
 
 const carrierFinale = {
-  name:'Orison at Sea', seconds:64, start:[76,247], exit:[250,137], wind:148,
+  name:'Orison at Sea', seconds:74, start:[76,247], exit:[250,154], wind:132,
   sea:true,sentinels:2,
   gates:[[212,129],[382,327],[557,139],[740,337],[876,247]],
   walls:[
@@ -134,4 +149,46 @@ const carrierFinale = {
   cameras:[[233,165,1.09,'red'],[521,192,-1.08,'green'],[716,276,.7,'red']],
   intro:'Cross the Orison’s exposed deck. Verify five rescue markers, then fly through the bow opening. Sentinels patrol the deck.'
 };
-campaignBriefs.push(['The Orison','leena','Vey built a network that moved people across borders and erased their names from the records. Right now, the people on this ship need us. Mark the access points and find a clear route to the rescue station.']);
+// Authored lane centers and hazard budgets keep each deck crossing readable.
+const orisonPlans = [
+  {name:'Weather Deck', chapter:'Distress Call', speaker:'leena', line:'Start with the open deck. I need to know where the rescue crew can stand safely.', lanes:[217,261,230], seconds:62, wind:22, cameras:0},
+  {name:'Container Rows', chapter:'Distress Call', speaker:'rook', line:'I can see the stacked containers. Mateo, keep talking. I’m checking the passages between them.', lanes:[196,278,224], seconds:62, wind:32, cameras:1},
+  {name:'Crew Passage', chapter:'Distress Call', speaker:'mateo', line:'I can hear people on the other side of the bulkhead. The marked passage will take your team toward them.', lanes:[266,200,278], seconds:64, wind:39, cameras:1},
+  {name:'Ventilation Deck', chapter:'The Missing Names', speaker:'patch', line:'Stay clear of the fan housings. They’re shaking hard enough to rattle the feed.', lanes:[194,276,211], seconds:62, wind:49, cameras:1},
+  {name:'Ballast Gallery', chapter:'The Missing Names', speaker:'cipher', line:'The deck drawings and the actual ship disagree here. Mark the route you can see.', lanes:[278,211,272], seconds:64, wind:53, cameras:1},
+  {name:'Service Hatches', chapter:'The Missing Names', speaker:'mateo', line:'Someone inside asked if their sister was coming too. Tell the rescue crew to check both hatches.', lanes:[193,280,205,262], seconds:65, wind:60, cameras:1},
+  {name:'Rescue Stations', chapter:'Before Dawn', speaker:'leena', line:'Pick out the clear deck space beside the lifeboats. The medics need somewhere safe to work.', lanes:[251,185,276,214], seconds:65, wind:68, cameras:1},
+  {name:'Crane Traverse', chapter:'Before Dawn', speaker:'rook', line:'The crane blocks the short route. I’ll take the wider turn and keep the camera steady.', lanes:[190,282,213,280], seconds:66, wind:74, cameras:2},
+  {name:'Bridge Approach', chapter:'Before Dawn', speaker:'reed', line:'We have people ready for the bridge and the hold. Give us one more look at the approach.', lanes:[288,193,281,222], seconds:68, wind:83, cameras:2},
+  {name:'Forward Winches', chapter:'The Rescue', speaker:'patch', line:'The wind’s stronger forward of the bridge. Brake before the winches and use the battery pack if you need it.', lanes:[193,292,201,277], seconds:69, wind:101, cameras:2},
+  {name:'Evacuation Lane', chapter:'The Rescue', speaker:'mateo', line:'I’m at the muster point. I’ll stay here so the people coming up can see a familiar face.', lanes:[285,188,294,208], seconds:70, wind:116, cameras:2}
+];
+const orisonDeckGear = ['deckCargo','shipVent','lifeboat','shipCrane','anchorWinch','ballastPump'];
+const orisonMissions = orisonPlans.map((plan,index) => {
+  const gates = [];
+  const walls = [];
+  const cameras = [];
+  const columns = plan.lanes.length === 3 ? [218,460,710] : [183,376,568,759];
+  const gap = index < 3 ? 108 : index < 9 ? 99 : 92;
+  for (const [lane,y] of plan.lanes.entries()) {
+    const x = columns[lane];
+    const width = 62+((index*7+lane*5)%15);
+    const north = orisonDeckGear[(index+lane*2)%orisonDeckGear.length];
+    const south = orisonDeckGear[(index+lane*2+3)%orisonDeckGear.length];
+    gates.push([x,y]);
+    walls.push([x-width/2,46,width,y-gap-46,north],[x-width/2,y+gap,width,454-y-gap,south]);
+    if (lane < plan.cameras) {
+      const offset = lane%2 ? -1 : 1;
+      cameras.push([x+54,y+offset*(gap-16),offset*-1.3,index<2 ? 'green' : 'red']);
+    }
+  }
+  const exitY = Math.round((plan.lanes.at(-1)+250)/2);
+  gates.push([872,exitY]);
+  return {
+    name:plan.name,seconds:plan.seconds,start:[76,plan.lanes[0]],exit:[exitY,index < 9 ? 168 : 152],
+    wind:plan.wind,sea:true,gates,walls,cameras,
+    intro:'Verify the rescue markers in order, then fly through the bow opening.'
+  };
+});
+orisonMissions.push(carrierFinale);
+campaignBriefs.push(...orisonPlans.map(({chapter,speaker,line}) => [chapter,speaker,line]),['The Rescue','leena','The team is at the hatch. Mark the last safe passage across the bow, then bring the drone home.']);

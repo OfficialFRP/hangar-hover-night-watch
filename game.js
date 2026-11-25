@@ -25,7 +25,7 @@ const courses = [
    intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'},
   ...chapters,
   ...northQuayMissions,
-  carrierFinale
+  ...orisonMissions
 ];
 
 const fleet = [
@@ -44,10 +44,16 @@ const upgrades = [
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
 function loadProgress() {
-  const initial = {credits:100, cleared:[], selected:0, ownedFrames:[], activeLevels:fleet.map(() => [0,0,0]), levels:fleet.map(() => [0,0,0])};
+  const initial = {orisonExpanded:true,credits:100, cleared:[], selected:0, ownedFrames:[], activeLevels:fleet.map(() => [0,0,0]), levels:fleet.map(() => [0,0,0])};
   try {
     const saved = JSON.parse(localStorage.getItem(saveKey));
     if (!saved) return initial;
+    // The original one-mission Orison finale occupied slot 25.
+    if (!saved.orisonExpanded) {
+      saved.cleared = saved.cleared?.filter(index => index !== 24) ?? [];
+      if (saved.campaignNext > 24) saved.campaignNext = 24;
+      if (saved.campaignCursor > 24) saved.campaignCursor = 24;
+    }
     const levels = fleet.map((_,frame) => upgrades.map(({max},index) =>
       Math.max(0,Math.min(max,Math.trunc(saved.levels?.[frame]?.[index]) || 0))));
     const activeLevels = levels.map((modules,frame) => modules.map((owned,index) => {
@@ -421,7 +427,7 @@ function renderHangar() {
 }
 
 function storedBest() {
-  try { return Number(localStorage.getItem('hangar-hover-best-' + courseIndex)) || 0; }
+  try { return Number(localStorage.getItem('hangar-hover-best-' + (course.sea ? 'orison-' : '') + courseIndex)) || 0; }
   catch { return 0; }
 }
 function clearInputs() {
@@ -480,7 +486,7 @@ function finish(won, message) {
   sound(won ? 'complete' : 'crash');
   if (won && (!record || elapsed < record)) {
     record = elapsed;
-    try { localStorage.setItem('hangar-hover-best-' + courseIndex, String(record)); } catch {}
+    try { localStorage.setItem('hangar-hover-best-' + (course.sea ? 'orison-' : '') + courseIndex, String(record)); } catch {}
   }
   if (won) {
     const firstClear = !progress.cleared.includes(courseIndex);

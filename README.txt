@@ -30,9 +30,10 @@ All gameplay and assets run locally. Browser storage saves upgrades and times
 when available. The atlas is a transparent 3 × 3 sheet. Sprite rectangles
 are listed in game.js. The display font license is included in index.html.
 
-STORY MODE
-Open Story for a four-chapter investigation. Read the crew's briefings,
-fly through the warehouse to record intel, and extract through the east
-shutter. The mission list offers the same maps for practice. The Gold
-Aurel G7 and Blue Vector B9 are available immediately in the Hangar.
-Story dialogue and maps live in story.js; artwork is in assets/.
+STORY AND PRACTICE
+Story is the main campaign. Fly all twelve missions in order. Every three
+missions unlock a chapter reveal. The final epilogue includes the case
+outcome, thank-you slides, and production credits. Practice offers all maps
+without advancing the story. Campaign progress is saved separately from
+practice clears and credits. The Gold Aurel G7 and Blue Vector B9 are
+available immediately in the Hangar. Dialogue and maps live in story.js.

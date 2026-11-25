@@ -25,7 +25,6 @@ const courses = [
    intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'},
   ...chapters
 ];
-const storyStart = courses.length-chapters.length;
 
 const fleet = [
   {name:'Scout S1', color:'#8fffd2', thrust:455, battery:0, brake:9, size:17, exposure:1, arms:10, rotor:5, windResponse:1, desc:'Balanced handling'},
@@ -128,44 +127,70 @@ let currentPage = 'flight';
 let storyFlight = false;
 let storyLines = [];
 let lineIndex = 0;
-let storyChapter = 0;
+let sceneTitle;
 let afterDialogue;
+let lastLineAction;
+
 function renderStory() {
-  const [name,role,portrait] = crew[storyLines[lineIndex][0]];
-  get('#storyTitle').textContent = storyChapter === chapters.length ? 'Debrief' : chapters[storyChapter].name;
+  const [speaker,dialogue] = storyLines[lineIndex];
+  get('#storyTitle').textContent = sceneTitle;
   const image = get('#portrait');
-  image.src = 'assets/crew-' + portrait + '.webp';
-  image.alt = name + ', ' + role;
-  get('#speaker').textContent = name + ' · ' + role;
-  get('#dialogue').textContent = storyLines[lineIndex][1];
+  image.hidden = !speaker;
+  get('.story-scene').classList.toggle('credits-scene',!speaker);
+  if (speaker) {
+    const [name,role,portrait] = crew[speaker];
+    image.src = 'assets/crew-' + portrait + '.webp';
+    image.alt = name + ', ' + role;
+    get('#speaker').textContent = name + ' · ' + role;
+  } else {
+    get('#speaker').textContent = '';
+  }
+  get('#dialogue').textContent = dialogue;
   get('#storyStep').textContent = (lineIndex+1) + ' / ' + storyLines.length;
   get('#storyBack').disabled = lineIndex === 0;
-  get('#storyNext').textContent = lineIndex < storyLines.length-1 ? 'Continue' : storyChapter === chapters.length ? 'Mission list' : 'Fly mission';
+  get('#storyNext').textContent = lineIndex < storyLines.length-1 ? 'Continue' : lastLineAction;
 }
-function briefing(chapter) {
-  storyChapter = chapter;
-  storyLines = briefings[chapter] || epilogue;
+function presentScene(title,lines,label,callback) {
+  sceneTitle = title;
+  storyLines = lines;
   lineIndex = 0;
-  afterDialogue = chapter < chapters.length ? () => {
-    reset(storyStart+chapter,false,true);
-    showPage('flight');
-  } : () => showPage('missions');
+  lastLineAction = label;
+  afterDialogue = callback;
   showPage('story');
 }
-function resumeStory() {
-  if (!storyLines.length) briefing(Math.min(progress.storyChapter || 0,chapters.length));
-  else showPage('story');
+function startBriefing(index) {
+  const [chapter,speaker,line] = campaignBriefs[index];
+  presentScene(chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
+    reset(index,false,true);
+    showPage('flight');
+  });
 }
-
+function resumeCampaign() {
+  const index = Math.min(progress.campaignNext || 0,courses.length);
+  if (campaignReveals[index] && (index === courses.length || progress.campaignRevealed !== index)) {
+    const {title,lines} = campaignReveals[index];
+    presentScene(title,lines,index === courses.length ? 'Mission select' : 'Next chapter',() => {
+      if (index === courses.length) {showPage('missions'); return;}
+      progress.campaignRevealed = index;
+      saveProgress();
+      startBriefing(index);
+    });
+  } else if (storyFlight && courseIndex === index && (state === 'ready' || state === 'paused' || state === 'flying' || state === 'lost')) {
+    showPage('flight');
+  } else {
+    startBriefing(index);
+  }
+}
 
 function showPage(page) {
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
-    const selected = button.dataset.page === page;
+    const selected = button.dataset.page === (page === 'flight' && storyFlight ? 'story' : page);
     button.setAttribute('aria-pressed',selected);
-    get('#page-' + button.dataset.page).hidden = !selected;
+    get('#page-' + button.dataset.page).hidden = button.dataset.page !== page;
   });
+  get('#page-flight').hidden = page !== 'flight';
   if (page === 'flight') hud();
   if (page === 'story') renderStory();
   if (page === 'missions') {
@@ -286,22 +311,23 @@ function finish(won, message) {
     const payout = firstClear ? 150 : 50;
     if (firstClear) progress.cleared.push(courseIndex);
     progress.credits += payout;
-    if (storyFlight) progress.storyChapter = Math.max(progress.storyChapter || 0,courseIndex-storyStart+1);
+    if (storyFlight) progress.campaignNext = Math.max(progress.campaignNext || 0,courseIndex+1);
     saveProgress();
     message += ' +' + payout + ' credits.';
   }
   renderHangar();
   const hasNext = won && courseIndex < courses.length - 1;
   if (won && storyFlight) {
-    const nextChapter = courseIndex-storyStart+1;
-    menu(nextChapter === chapters.length ? 'MISSION ACCOMPLISHED' : 'Intel secured',message,
-      nextChapter === chapters.length ? 'Debrief' : 'Next briefing',() => briefing(nextChapter));
-  } else if (won && course.exit && (courseIndex === storyStart-1 || !hasNext)) {
-    menu('MISSION ACCOMPLISHED',message,'Mission list',() => {reset(courseIndex); showPage('missions');});
+    const reveal = campaignReveals[courseIndex+1];
+    const title = hasNext ? 'Intel secured' : 'MISSION ACCOMPLISHED';
+    menu(title,message,reveal ? (hasNext ? 'Chapter reveal' : 'Epilogue') : 'Next briefing',resumeCampaign);
   } else {
     menu(won ? (course.exit ? 'Intel secured' : 'Touchdown!') : 'Flight ended',
-      message,hasNext ? 'Next course' : 'Fly again',
-      () => reset(hasNext ? courseIndex+1 : courseIndex,!hasNext,storyFlight && !won));
+      message,won ? 'Mission select' : 'Fly again',
+      () => {
+        if (won) showPage('missions');
+        else reset(courseIndex,true,storyFlight);
+      });
   }
 }
 function togglePause() {
@@ -424,6 +450,14 @@ function structure(ctx,[x,y,w,h,type]) {
   ctx.beginPath();
   ctx.roundRect(6,8,w,h,rounding);
   ctx.fill();
+  const flank = ctx.createLinearGradient(0,h-8,w,h+8);
+  flank.addColorStop(0,'#293843');
+  flank.addColorStop(.65,'#0d1b29');
+  flank.addColorStop(1,'#111020');
+  ctx.fillStyle = flank;
+  ctx.beginPath();
+  ctx.roundRect(2,7,w+4,h,rounding);
+  ctx.fill();
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
@@ -436,6 +470,10 @@ function structure(ctx,[x,y,w,h,type]) {
   ctx.fillRect(0,0,w,h);
   ctx.fillStyle = '#fff2e32e';
   ctx.fillRect(3,3,w-6,4);
+  ctx.fillStyle = '#3cf8f061';
+  ctx.fillRect(5,7,3,Math.max(0,h-20));
+  ctx.fillStyle = '#ed55d54a';
+  ctx.fillRect(w-7,8,3,Math.max(0,h-20));
   ctx.fillStyle = '#07070c88';
   ctx.fillRect(3,h-8,w-6,5);
   ctx.strokeStyle = '#98b5bc88';
@@ -595,9 +633,9 @@ function paintTerrain() {
   background.height = 500;
   const floor = background.getContext('2d');
   const concrete = floor.createLinearGradient(20,0,960,500);
-  concrete.addColorStop(0,'#203d40');
-  concrete.addColorStop(.55,'#1b3037');
-  concrete.addColorStop(1,'#111c29');
+  concrete.addColorStop(0,'#262047');
+  concrete.addColorStop(.55,'#152a39');
+  concrete.addColorStop(1,'#190f25');
   floor.fillStyle = concrete;
   floor.fillRect(0,0,960,500);
   for (let n=0;n<4800;n++) {
@@ -902,16 +940,19 @@ for (const button of touchButtons) {
   button.addEventListener('pointerup',release);
   button.addEventListener('lostpointercapture',release);
 }
-pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'story' ? resumeStory() : showPage(button.dataset.page)));
+pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'story' ? (currentPage === 'story' ? renderStory() : resumeCampaign()) : showPage(button.dataset.page)));
+get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
 get('#storyNext').addEventListener('click',() => {
   if (lineIndex < storyLines.length-1) {lineIndex++; renderStory();}
   else afterDialogue();
 });
 get('#restartStory').addEventListener('click',() => {
-  progress.storyChapter = 0;
+  progress.campaignNext = 0;
+  progress.campaignRevealed = 0;
+  storyFlight = false;
   saveProgress();
-  briefing(0);
+  startBriefing(0);
 });
 get('#prevMission').addEventListener('click',() => {missionPage--; renderMissionPage();});
 get('#nextMission').addEventListener('click',() => {missionPage++; renderMissionPage();});
@@ -932,6 +973,7 @@ get('#pause').addEventListener('click',togglePause);
 action.addEventListener('click',() => nextAction());
 reset(0);
 renderMissionPage();
+resumeCampaign();
 storyAtlas.addEventListener('load',renderLoadout);
 atlas.addEventListener('load',() => {
   terrain = paintTerrain();

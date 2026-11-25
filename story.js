@@ -3,7 +3,10 @@ const crew = {
   rook: ['Mara “Rook” Vale','Drone pilot',0],
   cipher: ['Jun “Cipher” Sato','Signals specialist',1],
   patch: ['Rafael “Patch” Reyes','Drone technician',2],
-  director: ['Elena Voss','Investigation lead',3]
+  director: ['Elena Voss','Investigation lead',3],
+  sable: ['Adrian Sable','Freight company director',4],
+  iman: ['Iman Cruz','Warehouse dispatcher',5],
+  reed: ['Special Agent Simone Reed','FBI',6]
 };
 const chapters = [
   {name:'Intake Dock', seconds:42, start:[75,250], exit:[250,160], wind:0,
@@ -27,22 +30,41 @@ const chapters = [
    cameras:[[383,248,-1.45,'red'],[575,188,1.52,'red'],[719,237,-1.38,'red'],[872,281,-1.3,'red']],
    intro:'Recover the master manifest and fly it out through the east shutter. The narrow exit is exposed to strong gusts.'}
 ];
-const briefings = [
-  [['director','The warehouse reports empty trailers. Its outbound weights tell a different story. I need eyes inside.'],
-   ['cipher','I can read our drone feed. The building’s cameras will show up as red arcs on your display.'],
-   ['rook','I’ll record the freight labels from inside the dock. If the manifests are wrong, we’ll have proof.']],
-  [['rook','Those crates are warm on the camera, but the labels say frozen produce. What’s in Cold Storage?'],
-   ['patch','Refrigeration ducts will shove the airframe sideways. The gold Aurel is our endurance build.'],
-   ['director','Record the temperature logs. One mislabeled crate could be a mistake. A whole shipment is a pattern.']],
-  [['cipher','The cold-room log lists a second destination. The sorting floor is routing pallets to a bay the public plans leave blank.'],
-   ['patch','Take the blue Vector if the turns are giving you trouble. It settles quickly when you let go of the controls.'],
-   ['rook','I’ll follow the pallets. If they cross under a red sweep, I’ll wait for a gap.']],
-  [['director','Your scans identify the cargo. The master manifest tells us who ordered it.'],
-   ['cipher','We have one clear route out. The east shutter. The last camera overlooks it.'],
-   ['rook','Understood. Six scans, then straight through the door. Keep the recorder running.']]
+
+const campaignBriefs = [
+  ['The Empty Trailers','director','Sable Freight reports empty trailers. Their outbound weights say otherwise. Rook, calibrate the workshop drone. We’ll start with what it can see.'],
+  ['The Empty Trailers','rook','The recorder is steady. I’m moving to the loading bay to film the labels before the night shift clears them.'],
+  ['The Empty Trailers','patch','Wind cuts straight across the service road. Brake early. The far scan should show us where those trailers really go.'],
+  ['The Second Route','cipher','The phantom trailers lead to a rail siding. Record the transfer marks and I’ll compare them with the dock footage.'],
+  ['The Second Route','iman','Dispatch has two schedules. Mine says the pumps shut down at midnight. The private schedule starts a shift at the same time.'],
+  ['The Second Route','rook','The relay feeds link both schedules. I’ll get close enough to record what’s being moved.'],
+  ['Eyes Inside','reed','We’re opening a federal investigation. Your job is the camera feed. I’ll handle the evidence and the people.'],
+  ['Eyes Inside','patch','The warehouse fans will shove you sideways. The gold Aurel and blue Vector both stay steadier in gusts.'],
+  ['Eyes Inside','director','We finally have eyes past the intake. Record the freight labels as they come off the line.'],
+  ['The Outbound Order','iman','That metal cabinet on the old plans is missing. The cold room is where Sable keeps the records he doesn’t show dispatch.'],
+  ['The Outbound Order','cipher','The rail marks and the cold-room records point to the same account. Follow the pallet route to the outbound vault.'],
+  ['The Outbound Order','reed','The team is in position. Fly the last pass, bring the drone out, and leave the arrest to us.']
 ];
-const epilogue = [
-  ['rook','Drone is clear. Recorder held all the way to extraction.'],
-  ['cipher','I matched the outbound order numbers to the intake footage. The warehouse can’t explain those away.'],
-  ['director','We have the chain of evidence. Send it to the review team. Good work, everyone.']
-];
+const campaignReveals = {
+  3: {title:'Chapter 1 · The Phantom Freight', lines:[
+    ['cipher','Every trailer is booked twice. One record says empty. The other has a private routing number.'],
+    ['sable','If anyone asks about the second record, tell them it belongs to a different company. They don’t need to know which one.']
+  ]},
+  6: {title:'Chapter 2 · A Witness Comes Forward', lines:[
+    ['iman','I saw the contents during a damaged shipment inspection. Those weren’t produce crates. I think the warehouse is moving illegal drugs.'],
+    ['reed','The information you’ve gathered supports that suspicion. Keep recording what you can see. The bureau will take it from here when we have enough evidence.']
+  ]},
+  9: {title:'Chapter 3 · Sable’s Signature', lines:[
+    ['rook','The label on the intake feed matches Iman’s record. Adrian Sable signed the order himself.'],
+    ['sable','That shipment goes out tonight. I want the vault empty before anyone starts asking questions.'],
+    ['reed','We have the witness and the intake footage. The master manifest will tie the separate shipments together.']
+  ]},
+  12: {title:'Chapter 4 · Mission Accomplished', lines:[
+    ['rook','Drone clear. All six records came through, including the master manifest.'],
+    ['reed','The FBI assisted local officers at the warehouse. Adrian Sable is in custody, and the suspected narcotics are secured as evidence.'],
+    ['director','Iman’s testimony and your flight recordings gave investigators the whole picture. The case can move forward.'],
+    ['patch','You brought the drone back through every bad turn. Thanks for flying with us.'],
+    [null,'THANK YOU FOR PLAYING'],
+    [null,'@OfficialFRP\nA Feather Rock Production']
+  ]}
+};

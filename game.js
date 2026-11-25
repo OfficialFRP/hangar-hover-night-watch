@@ -414,7 +414,8 @@ function togglePause() {
     menu('Flight paused','Your battery timer is paused.','Resume',togglePause);
   }
 }
-const pressed = (...keys) => keys.some(key => keyboard.has(key) || [...pointers.values()].includes(key));
+const touchPressed = key => [...pointers.values()].some(input => input.includes(key));
+const pressed = (...keys) => keys.some(key => keyboard.has(key) || touchPressed(key));
 const clamp = (value,min,max) => Math.max(min,Math.min(value,max));
 // Flight physics. Steering changes velocity, so the drone drifts after release.
 function update(dt) {
@@ -1127,21 +1128,47 @@ window.addEventListener('blur',() => {
   clearInputs();
   if (state === 'flying') togglePause();
 });
-for (const button of touchButtons) {
-  button.addEventListener('pointerdown',event => {
-    event.preventDefault();
-    if (state !== 'flying') return;
-    button.setPointerCapture(event.pointerId);
-    pointers.set(event.pointerId,button.dataset.key);
-    button.classList.add('held');
-  });
-  const release = event => {
-    pointers.delete(event.pointerId);
-    button.classList.toggle('held',[...pointers.values()].includes(button.dataset.key));
-  };
-  button.addEventListener('pointerup',release);
-  button.addEventListener('lostpointercapture',release);
+const dpad = get('.dpad');
+const brakeButton = get('#brake');
+function showTouchInput() {
+  touchButtons.forEach(button => button.classList.toggle('held',touchPressed(button.dataset.key)));
 }
+function steerByTouch(event) {
+  const bounds = dpad.getBoundingClientRect();
+  const x = (event.clientX-bounds.left)/bounds.width-.5;
+  const y = (event.clientY-bounds.top)/bounds.height-.5;
+  const directions = [];
+  if (Math.abs(x) >= .13 && Math.abs(x) >= Math.abs(y)*.55) directions.push(x < 0 ? 'ArrowLeft' : 'ArrowRight');
+  if (Math.abs(y) >= .13 && Math.abs(y) >= Math.abs(x)*.55) directions.push(y < 0 ? 'ArrowUp' : 'ArrowDown');
+  pointers.set(event.pointerId,directions);
+  showTouchInput();
+}
+dpad.addEventListener('pointermove',event => {
+  if (pointers.has(event.pointerId) && dpad.hasPointerCapture(event.pointerId)) steerByTouch(event);
+});
+for (const control of [dpad,brakeButton]) {
+  control.addEventListener('pointerdown',event => {
+    if (state !== 'flying' || event.button !== 0) return;
+    event.preventDefault();
+    control.setPointerCapture(event.pointerId);
+    if (control === dpad) steerByTouch(event);
+    else {
+      pointers.set(event.pointerId,[' ']);
+      showTouchInput();
+    }
+  });
+  for (const type of ['pointerup','pointercancel','lostpointercapture']) {
+    control.addEventListener(type,event => {
+      pointers.delete(event.pointerId);
+      showTouchInput();
+    });
+  }
+}
+document.addEventListener('visibilitychange',() => {
+  if (!document.hidden) return;
+  clearInputs();
+  if (state === 'flying') togglePause();
+});
 pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'race' ? selectRace() : button.dataset.page === 'story' ? (currentPage === 'story' ? renderStory() : resumeCampaign()) : showPage(button.dataset.page)));
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));

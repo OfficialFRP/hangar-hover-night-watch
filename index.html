@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Hangar Hover | Night Watch</title>
 <link rel="stylesheet" href="styles.css">
 
@@ -19,7 +19,22 @@
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
-<div class="help"><span>WASD / arrows to fly · Space to brake · C to jam · P to pause · R to restart</span><div class="keys" aria-label="Touch flight controls"><button data-key="ArrowLeft" aria-label="Fly left">←</button><button data-key="ArrowUp" aria-label="Fly up">↑</button><button data-key="ArrowDown" aria-label="Fly down">↓</button><button data-key="ArrowRight" aria-label="Fly right">→</button><button data-key=" " aria-label="Brake">Brake</button><button id="jam" aria-label="Jam cameras">Jam</button><button id="pause" aria-label="Pause or resume">Pause</button></div></div>
+<div class="help">
+  <span class="keyboard-guide">WASD / arrows to fly · Space to brake · C to jam · P to pause · R to restart</span>
+  <div class="keys" aria-label="On-screen flight controls">
+    <div class="dpad" role="group" aria-label="Steer. Slide your thumb for diagonals.">
+      <button data-key="ArrowUp" aria-label="Fly up">▲</button>
+      <button data-key="ArrowLeft" aria-label="Fly left">◀</button>
+      <button data-key="ArrowRight" aria-label="Fly right">▶</button>
+      <button data-key="ArrowDown" aria-label="Fly down">▼</button>
+    </div>
+    <div class="flight-actions" role="group" aria-label="Flight actions">
+      <button id="jam" aria-label="Jam cameras"><span aria-hidden="true">ϟ</span>Jam</button>
+      <button id="brake" data-key=" " aria-label="Hold to brake"><span aria-hidden="true">⏹</span>Brake</button>
+      <button id="pause" aria-label="Pause or resume">Ⅱ</button>
+    </div>
+  </div>
+</div>
 </section>
 <section id="page-missions" class="panel game-menu" hidden>
 <div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><nav id="mission-list" aria-label="Mission list"></nav>

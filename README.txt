@@ -48,3 +48,9 @@ Each upgrade now has five tiers.
 
 Sound adds the original spy-jazz score, reactive rotor hum, and distinct
 throttle, brake, landing, and race-win effects.
+
+PHONE CONTROLS
+Hold an arrow or slide your left thumb across the directional pad. Slide
+between two directions to steer diagonally. Hold Brake with your right
+thumb to slow down while steering, or tap Jam to disable cameras briefly.
+In landscape, the controls move beside the flight deck.

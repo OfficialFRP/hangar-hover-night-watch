@@ -39,10 +39,12 @@ practice clears and credits. The Gold Aurel G7 and Blue Vector B9 are
 available immediately in the Hangar. Dialogue and maps live in story.js.
 
 RACE
-Select 05 Race for a fresh rival pilot, rival drone, and warehouse layout.
-Pass all four checkpoints and cross the east shutter for a recorded time.
-The rival is a ghost and can safely overlap your drone. Race runs leave
-campaign progress and upgrade credits intact.
+Your rival and course stay assigned until you win, including after a reload.
+After a win, the game draws a different pilot and a fresh course inspired by
+the story maps. Gale Warehouse occasionally brings crosswinds.
+Clear four checkpoints and cross the east shutter. A win pays 110 CR, and a
+completed loss pays 35 CR. The rival drone can overlap yours safely.
+Each upgrade now has five tiers.
 
 Sound adds the original spy-jazz score, reactive rotor hum, and distinct
 throttle, brake, landing, and race-win effects.

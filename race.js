@@ -9,28 +9,46 @@ const racePilots = {
 };
 const randomBetween = (min,max) => min + (max-min)*Math.random();
 const pick = options => options[Math.floor(Math.random()*options.length)];
-function generateRace(playerFrame, previousRival) {
+const raceDistricts = [
+  {name:'Loading Bay Sprint', props:['cargo','forklift','pallet','hangar'], y:[220,315,180,270]},
+  {name:'Rail Yard Sprint', props:['train','cargo','rack','pallet'], y:[155,320,185,320]},
+  {name:'Floodworks Sprint', props:['water','tank','rack','pallet'], y:[310,200,300,190]},
+  {name:'Sorting Floor Sprint', props:['rack','forklift','cargo','pallet'], y:[200,320,210,290]},
+  {name:'Gale Warehouse Sprint', props:['cargo','fan','drum','forklift'], y:[225,305,205,285], wind:175}
+];
+function generateRace(playerFrame,previousRival,previousCourse) {
   const rival = pick(Object.keys(racePilots).filter(name => name !== previousRival));
   const frame = pick(fleet.filter(frame => frame !== playerFrame));
+  const ordinary = raceDistricts.filter(district => !district.wind && district.name !== previousCourse);
+  const crosswind = raceDistricts[raceDistricts.length-1];
+  const district = previousCourse !== crosswind.name && Math.random() < .25 ? crosswind : pick(ordinary);
   const start = [64,250];
   const exit = [Math.round(randomBetween(168,332)),152];
   const gates = [];
   const walls = [];
   const path = [start];
-  const props = ['cargo','rack','pallet','forklift'];
   for (let column=0;column<4;column++) {
     const x = 172 + column*187 + randomBetween(-12,12);
-    const y = randomBetween(165,335);
-    const gap = randomBetween(75,86);
-    const width = randomBetween(58,92);
+    const y = district.y[column] + randomBetween(-20,20);
+    const halfGap = randomBetween(74,86);
+    const width = randomBetween(60,94);
+    const left = x-width/2;
     gates.push([x,y]);
-    walls.push([x-width/2,20,width,y-gap-20,pick(props)]);
-    walls.push([x-width/2,y+gap,width,480-y-gap,pick(props)]);
-    const line = y+randomBetween(-16,16);
-    path.push([x-width/2-25,line],[x+width/2+25,line]);
+    for (const [top,bottom] of [[20,y-halfGap],[y+halfGap,480]]) {
+      const height = bottom-top;
+      if (height >= 118) {
+        const split = Math.round(height*randomBetween(.40,.60));
+        walls.push([left,top,width,split-5,pick(district.props)]);
+        walls.push([left+5,top+split+5,width-5,height-split-5,pick(district.props)]);
+      } else {
+        walls.push([left,top,width,height,pick(district.props)]);
+      }
+    }
+    const line = y+randomBetween(-15,15);
+    path.push([left-25,line],[x+width/2+25,line]);
   }
-  path.push([902,exit[0]],[971,exit[0]]);
-  const speed = randomBetween(99,119);
+  path.push([902,exit[0]],[960,exit[0]]);
+  const speed = district.wind ? randomBetween(121,132) : randomBetween(128,145);
   const splits = [0];
   for (let i=1;i<path.length;i++) {
     const [x,y] = path[i];
@@ -39,8 +57,8 @@ function generateRace(playerFrame, previousRival) {
   }
   return {
     rival,frame,path,splits,finishTime:splits[splits.length-1],
-    course:{name:'Warehouse Sprint',seconds:38,start,exit,gates,walls,wind:0,
-      intro:'Fly through the four checkpoints in order, then cross the east shutter. Fastest time wins.'}
+    course:{name:district.name,seconds:38,start,exit,gates,walls,wind:district.wind || 0,
+      intro:(district.wind ? 'Crosswinds are active. ' : '') + 'Clear four checkpoints in order, then fly through the east shutter.'}
   };
 }
 function rivalPosition(race,time) {

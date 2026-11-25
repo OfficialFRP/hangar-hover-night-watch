@@ -34,9 +34,9 @@ const fleet = [
   {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'}
 ];
 const upgrades = [
-  {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:3},
-  {name:'Motor tuning', description:'+7% thrust per tier', cost:125, max:3},
-  {name:'Stabilizer', description:'Stronger braking and easier landings', cost:100, max:3}
+  {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
+  {name:'Motor tuning', description:'+7% thrust per tier', cost:125, max:5},
+  {name:'Stabilizer', description:'Stronger braking and easier landings', cost:100, max:5}
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
 function loadProgress() {
@@ -138,24 +138,43 @@ function raceLine(group) {
   return line;
 }
 function selectRace() {
-  race = generateRace(fleet[progress.selected],race?.rival);
+  if (!race && progress.raceMatch) {
+    const saved = progress.raceMatch;
+    const frame = fleet.find(frame => frame.name === saved.frame?.name);
+    if (frame && racePilots[saved.rival] && saved.course) race = {...saved,frame};
+  }
+  if (!race || race.defeated) {
+    race = generateRace(fleet[progress.selected],race?.rival,race?.course.name);
+    progress.raceMatch = race;
+    saveProgress();
+  }
   const [name,role,portrait] = crew[race.rival];
   get('#racePortrait').src = 'assets/crew-expression-' + portrait + '.webp';
   get('#racePortrait').alt = name;
   get('#raceSpeaker').textContent = name + ' · ' + role;
   get('#raceQuote').textContent = '“' + raceLine(0) + '”';
-  get('#raceMatch').textContent = 'You versus ' + race.frame.name;
+  get('#raceTitle').textContent = race.course.name;
+  get('#raceMatch').textContent = 'Rival drone: ' + race.frame.name + ' · 110 CR win / 35 CR finish';
   reset(-1);
   showPage('race');
 }
 function concludeRace(cleared,message) {
   const time = race.finishTime;
   const won = cleared && elapsed < time;
+  const reward = cleared && !race.defeated ? (won ? 110 : 35) : 0;
+  if (won) race.defeated = true;
+  progress.credits += reward;
+  progress.raceMatch = race;
+  saveProgress();
   state = won ? 'won' : 'lost';
+  renderHangar();
   sound(won ? 'race-win' : cleared ? 'complete' : 'crash');
   const quote = raceLine(won ? 1 : 2);
   const score = cleared ? 'Your time ' + elapsed.toFixed(2) + ' s · Rival ' + time.toFixed(2) + ' s.' : message + ' Rival target ' + time.toFixed(2) + ' s.';
-  menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+' “'+quote+'”','New matchup',selectRace);
+  const payout = reward ? ' +' + reward + ' CR.' : '';
+  menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+payout+' “'+quote+'”',
+    won ? 'New matchup' : 'Race same rival',won ? selectRace : () => reset(-1,true));
+
 }
 
 let storyLines = [];
@@ -165,7 +184,7 @@ let afterDialogue;
 let lastLineAction;
 
 function renderStory() {
-  const [speaker,dialogue] = storyLines[lineIndex];
+  const [speaker,dialogue,link] = storyLines[lineIndex];
   get('#storyTitle').textContent = sceneTitle;
   const image = get('#portrait');
   image.hidden = !speaker;
@@ -182,6 +201,14 @@ function renderStory() {
   }
   const dialogueNode = get('#dialogue');
   dialogueNode.textContent = dialogue;
+  if (link) {
+    const website = document.createElement('a');
+    website.href = link;
+    website.textContent = link;
+    website.rel = 'noopener noreferrer';
+    website.target = '_blank';
+    dialogueNode.append(document.createElement('br'),website);
+  }
   if (!speaker && dialogueNode.animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     dialogueNode.getAnimations().forEach(animation => animation.cancel());
     dialogueNode.animate([{opacity:0,transform:'translateY(7px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,easing:'ease-out'});
@@ -1089,7 +1116,10 @@ window.addEventListener('keydown',event => {
   }
   if (event.repeat) return;
   if (key === 'p') togglePause();
-  if (key === 'r') reset(courseIndex,true,storyFlight);
+  if (key === 'r') {
+    if (courseIndex === -1 && race.defeated) selectRace();
+    else reset(courseIndex,true,storyFlight);
+  }
   if (key === 'c') activateJam();
 });
 window.addEventListener('keyup',event => keyboard.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));

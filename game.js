@@ -22,13 +22,17 @@ const courses = [
      [647,152,56,49,'drum'],[683,447,62,37,'fan'],[742,263,56,57,'fan'],[754,100,68,38,'drum'],
      [845,351,46,53,'drum'],[882,115,52,47,'fan'],[891,326,44,52,'fan']],
    cameras:[[314,287,-1.6,'green'],[671,267,1.3,'red'],[873,72,1.3,'red']],
-   intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'}
+   intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'},
+  ...chapters
 ];
+const storyStart = courses.length-chapters.length;
 
 const fleet = [
   {name:'Scout S1', color:'#8fffd2', thrust:455, battery:0, brake:9, size:17, exposure:1, arms:10, rotor:5, windResponse:1, desc:'Balanced handling'},
   {name:'Swift X2', color:'#ffc27d', thrust:590, battery:-3, brake:9.5, size:15, exposure:1.18, arms:8, rotor:5, windResponse:1.1, desc:'Fastest frame · shorter battery'},
-  {name:'Warden L3', color:'#aebeff', thrust:395, battery:7, brake:10.5, size:18, exposure:.72, arms:13, rotor:7, windResponse:.55, desc:'Extended props · steadier in gusts'}
+  {name:'Warden L3', color:'#aebeff', thrust:395, battery:7, brake:10.5, size:18, exposure:.72, arms:13, rotor:7, windResponse:.55, desc:'Extended props · steadier in gusts'},
+  {name:'Aurel G7', color:'#ffd771', thrust:414, battery:12, brake:15, size:17, exposure:.84, arms:13, rotor:7, windResponse:.21, stability:2.55, desc:'Gold endurance frame · long battery and low drift'},
+  {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:3},
@@ -38,7 +42,11 @@ const upgrades = [
 const saveKey = 'hangar-hover-night-watch-v1';
 function loadProgress() {
   const initial = {credits:100, cleared:[], selected:0, levels:fleet.map(() => [0,0,0])};
-  try { return JSON.parse(localStorage.getItem(saveKey)) || initial; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(saveKey));
+    if (!saved) return initial;
+    return {...initial,...saved,levels:fleet.map((_,index) => saved.levels?.[index] ?? [0,0,0])};
+  }
   catch { return initial; }
 }
 let progress = loadProgress();
@@ -46,8 +54,10 @@ function saveProgress() {
   try { localStorage.setItem(saveKey,JSON.stringify(progress)); } catch {}
 }
 // Each mission can place one optional battery cell at [x, y].
-const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730,283],[562,391]];
+const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730,283],[562,391],[440,238],[586,365],[587,346],[575,342]];
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
+const storyAtlas = new Image();
+storyAtlas.src = 'assets/specialty-drones.webp';
 const atlas = new Image();
 atlas.src = 'assets/sprite-atlas.webp';
 function drawSprite(surface,index,x,y,w,h) {
@@ -94,7 +104,7 @@ const frameButtons = fleet.map((frame,index) => {
     if (state === 'flying' || state === 'paused') return;
     progress.selected = index;
     saveProgress();
-    reset(courseIndex);
+    reset(courseIndex,false,storyFlight);
   });
   get('#fleet').append(button);
   return button;
@@ -115,6 +125,38 @@ let missionPage = 0;
 const missionsPerPage = 4;
 const pageButtons = [...document.querySelectorAll('[data-page]')];
 let currentPage = 'flight';
+let storyFlight = false;
+let storyLines = [];
+let lineIndex = 0;
+let storyChapter = 0;
+let afterDialogue;
+function renderStory() {
+  const [name,role,portrait] = crew[storyLines[lineIndex][0]];
+  get('#storyTitle').textContent = storyChapter === chapters.length ? 'Debrief' : chapters[storyChapter].name;
+  const image = get('#portrait');
+  image.src = 'assets/crew-' + portrait + '.webp';
+  image.alt = name + ', ' + role;
+  get('#speaker').textContent = name + ' · ' + role;
+  get('#dialogue').textContent = storyLines[lineIndex][1];
+  get('#storyStep').textContent = (lineIndex+1) + ' / ' + storyLines.length;
+  get('#storyBack').disabled = lineIndex === 0;
+  get('#storyNext').textContent = lineIndex < storyLines.length-1 ? 'Continue' : storyChapter === chapters.length ? 'Mission list' : 'Fly mission';
+}
+function briefing(chapter) {
+  storyChapter = chapter;
+  storyLines = briefings[chapter] || epilogue;
+  lineIndex = 0;
+  afterDialogue = chapter < chapters.length ? () => {
+    reset(storyStart+chapter,false,true);
+    showPage('flight');
+  } : () => showPage('missions');
+  showPage('story');
+}
+function resumeStory() {
+  if (!storyLines.length) briefing(Math.min(progress.storyChapter || 0,chapters.length));
+  else showPage('story');
+}
+
 
 function showPage(page) {
   if (page !== 'flight' && state === 'flying') togglePause();
@@ -125,6 +167,7 @@ function showPage(page) {
     get('#page-' + button.dataset.page).hidden = !selected;
   });
   if (page === 'flight') hud();
+  if (page === 'story') renderStory();
   if (page === 'missions') {
     missionPage = Math.floor(courseIndex/missionsPerPage);
     renderMissionPage();
@@ -153,7 +196,7 @@ function buyUpgrade(index) {
   progress.credits -= cost;
   modules[index]++;
   saveProgress();
-  reset(courseIndex);
+  reset(courseIndex,false,storyFlight);
   get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + airframe.name + '. ' + progress.credits + ' credits left.';
 }
 function renderHangar() {
@@ -205,7 +248,8 @@ function menu(title, message, label, callback) {
   nextAction = callback;
   overlay.hidden = false;
 }
-function reset(index, fly = false) {
+function reset(index, fly = false, chapterFlight = false) {
+  storyFlight = chapterFlight;
   courseIndex = index;
   course = courses[index];
   const [x,y] = course.start;
@@ -228,7 +272,7 @@ function reset(index, fly = false) {
     sound('launch');
     overlay.hidden = true;
     action.blur();
-  } else menu(course.name, course.intro, 'Launch drone', () => reset(index,true));
+  } else menu(course.name, course.intro, 'Launch drone', () => reset(index,true,storyFlight));
 }
 function finish(won, message) {
   state = won ? 'won' : 'lost';
@@ -242,19 +286,22 @@ function finish(won, message) {
     const payout = firstClear ? 150 : 50;
     if (firstClear) progress.cleared.push(courseIndex);
     progress.credits += payout;
+    if (storyFlight) progress.storyChapter = Math.max(progress.storyChapter || 0,courseIndex-storyStart+1);
     saveProgress();
     message += ' +' + payout + ' credits.';
   }
   renderHangar();
   const hasNext = won && courseIndex < courses.length - 1;
-  if (won && course.exit) {
-    menu('MISSION ACCOMPLISHED',message,'Mission list',() => {
-      reset(courseIndex);
-      showPage('missions');
-    });
+  if (won && storyFlight) {
+    const nextChapter = courseIndex-storyStart+1;
+    menu(nextChapter === chapters.length ? 'MISSION ACCOMPLISHED' : 'Intel secured',message,
+      nextChapter === chapters.length ? 'Debrief' : 'Next briefing',() => briefing(nextChapter));
+  } else if (won && course.exit && (courseIndex === storyStart-1 || !hasNext)) {
+    menu('MISSION ACCOMPLISHED',message,'Mission list',() => {reset(courseIndex); showPage('missions');});
   } else {
-    menu(won ? 'Touchdown!' : 'Flight ended', message, hasNext ? 'Next course' : 'Fly again',
-      () => reset(hasNext ? courseIndex + 1 : courseIndex, !hasNext));
+    menu(won ? (course.exit ? 'Intel secured' : 'Touchdown!') : 'Flight ended',
+      message,hasNext ? 'Next course' : 'Fly again',
+      () => reset(hasNext ? courseIndex+1 : courseIndex,!hasNext,storyFlight && !won));
   }
 }
 function togglePause() {
@@ -281,7 +328,7 @@ function update(dt) {
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
   const crosswind = course.exit ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
-  const drag = Math.exp(-(braking ? stats.brake : 1.9) * dt);
+  const drag = Math.exp(-(braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9)) * dt);
   drone.vx = (drone.vx + (dx * stats.thrust / diagonal + wind) * dt) * drag;
   drone.vy = (drone.vy + (dy * stats.thrust / diagonal + crosswind) * dt) * drag;
   drone.x += drone.vx * dt;
@@ -325,7 +372,7 @@ function update(dt) {
     sound('scan');
   }
   if (course.exit) {
-    if (doorOpen && x >= 960) finish(true,'All five targets recorded. Warehouse cleared in ' + elapsed.toFixed(1) + ' seconds.');
+    if (doorOpen && x >= 960) finish(true,'All ' + course.gates.length + ' targets recorded. Warehouse cleared in ' + elapsed.toFixed(1) + ' seconds.');
     return;
   }
   const [px,py] = course.pad;
@@ -362,7 +409,7 @@ function label(content,x,y,color = '#d7e9ee',size = 14) {
 }
 // Canvas artwork is drawn to scale with the actual collision geometry.
 function cornerRadius(w,h,type) {
-  return Math.min(w,h) * (type === 'fan' || type === 'drum' ? .47 : .16);
+  return Math.min(w,h) * (type === 'fan' || type === 'drum' ? .47 : type === 'rack' ? .08 : .16);
 }
 function touchesStructure([x,y,w,h,type],px,py,radius = 0) {
   const corner = cornerRadius(w,h,type);
@@ -380,7 +427,7 @@ function structure(ctx,[x,y,w,h,type]) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  const colors = {hangar:'#334a54',cargo:'#675449',tower:'#444863',train:'#3b5960',water:'#153e4f',tank:'#535c60',fan:'#49676b',drum:'#875e4d'};
+  const colors = {hangar:'#334a54',cargo:'#675449',tower:'#444863',train:'#3b5960',water:'#153e4f',tank:'#535c60',fan:'#49676b',drum:'#875e4d',rack:'#304047',pallet:'#8d6446',forklift:'#c18c44'};
   const steel = ctx.createLinearGradient(0,0,w,h);
   steel.addColorStop(0,colors[type]);
   steel.addColorStop(.46,colors[type]);
@@ -398,6 +445,33 @@ function structure(ctx,[x,y,w,h,type]) {
   ctx.stroke();
   ctx.strokeStyle = '#abbec72e';
   ctx.lineWidth = 1;
+  if (type === 'rack' || type === 'pallet' || type === 'forklift') {
+    ctx.fillStyle = '#16262d';
+    ctx.fillRect(6,7,w-12,h-14);
+    if (type === 'forklift') {
+      ctx.fillStyle = '#d49a4a';
+      ctx.roundRect(w*.18,h*.19,w*.65,h*.60,8);
+      ctx.fillRect(w*.17,h*.20,w*.62,h*.59);
+      ctx.fillStyle = '#263039';
+      ctx.fillRect(w*.31,h*.27,w*.39,h*.45);
+      ctx.fillRect(w*.75,h*.32,w*.23,h*.075);
+      ctx.fillRect(w*.75,h*.60,w*.23,h*.075);
+    } else {
+      for (let row=9;row<h-7;row+=22) {
+        ctx.fillStyle = type === 'pallet' ? '#b48b63' : '#687a79';
+        ctx.fillRect(8,row,w-16,Math.min(15,h-row-5));
+        ctx.fillStyle = '#422d23';
+        ctx.fillRect(w*.48,row,4,Math.min(15,h-row-5));
+      }
+      if (type === 'rack') {
+        ctx.fillStyle = '#c98955';
+        ctx.fillRect(5,3,4,h-6);
+        ctx.fillRect(w-9,3,4,h-6);
+      }
+    }
+    ctx.restore();
+    return;
+  }
   if (type === 'fan' || type === 'drum') {
     const radius = Math.min(w,h)*.4;
     circle(w/2,h/2,radius,ctx);
@@ -547,7 +621,7 @@ function paintTerrain() {
     floor.fillRect(x,481,12,3);
   }
   const graffiti = ['SUBLEVEL','NO SLEEP','LOW SIGNAL','CUT LINE','DEEP END','STATIC','AFTER DARK','GALE WARNING'];
-  sprayTag(floor,graffiti[courseIndex],462,457,47,'#c787b87a');
+  sprayTag(floor,graffiti[courseIndex] || course.name.toUpperCase(),462,457,47,'#c787b87a');
   for (const [x,y] of [course.start,course.pad || [950,course.exit[0]]]) {
     const light = floor.createRadialGradient(x,y,4,x,y,118);
     light.addColorStop(0,'#cab8ff2e');
@@ -604,7 +678,11 @@ function blockedAt(x,y) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
-  if (drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
+  if (index >= 3 && storyAtlas.complete && storyAtlas.naturalWidth) {
+    ctx.drawImage(storyAtlas,(index-3)*256,0,256,256,-size/2,-size/2,size,size);
+    return;
+  }
+  if (index < 3 && drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
   const {arms,rotor,color} = frame;
   const body = frame === fleet[1] ? 5 : 7;
   ctx.lineCap = 'round';
@@ -801,7 +879,7 @@ window.addEventListener('keydown',event => {
   }
   if (event.repeat) return;
   if (key === 'p') togglePause();
-  if (key === 'r') reset(courseIndex,true);
+  if (key === 'r') reset(courseIndex,true,storyFlight);
   if (key === 'c') activateJam();
 });
 window.addEventListener('keyup',event => keyboard.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
@@ -824,7 +902,17 @@ for (const button of touchButtons) {
   button.addEventListener('pointerup',release);
   button.addEventListener('lostpointercapture',release);
 }
-pageButtons.forEach(button => button.addEventListener('click',() => showPage(button.dataset.page)));
+pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'story' ? resumeStory() : showPage(button.dataset.page)));
+get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
+get('#storyNext').addEventListener('click',() => {
+  if (lineIndex < storyLines.length-1) {lineIndex++; renderStory();}
+  else afterDialogue();
+});
+get('#restartStory').addEventListener('click',() => {
+  progress.storyChapter = 0;
+  saveProgress();
+  briefing(0);
+});
 get('#prevMission').addEventListener('click',() => {missionPage--; renderMissionPage();});
 get('#nextMission').addEventListener('click',() => {missionPage++; renderMissionPage();});
 get('#jam').addEventListener('click',activateJam);
@@ -844,6 +932,7 @@ get('#pause').addEventListener('click',togglePause);
 action.addEventListener('click',() => nextAction());
 reset(0);
 renderMissionPage();
+storyAtlas.addEventListener('load',renderLoadout);
 atlas.addEventListener('load',() => {
   terrain = paintTerrain();
   renderLoadout();

@@ -9,6 +9,7 @@
 <header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
 <button data-page="flight" aria-pressed="true">01 Flight</button><button data-page="missions" aria-pressed="false">02 Missions</button><button data-page="hangar" aria-pressed="false">03 Hangar</button><button data-page="upgrades" aria-pressed="false">04 Upgrades</button>
+<button data-page="story" aria-pressed="false">05 Story</button>
 </nav>
 <div class="layout"><section id="page-flight" aria-label="Flight deck">
 <div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
@@ -25,8 +26,15 @@
 </section>
 <section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet"></div></section>
 <section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><p id="purchaseStatus" role="status"></p></section>
+<section id="page-story" class="panel game-menu" hidden>
+<h2 id="storyTitle">Story</h2>
+<div class="story-scene"><img id="portrait" alt=""><div><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div>
+<div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext">Continue</button></div>
+<button id="restartStory">Restart story</button>
+</section>
 </div>
 </main>
+<script src="story.js"></script>
 <script src="game.js"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

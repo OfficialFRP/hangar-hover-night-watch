@@ -118,7 +118,7 @@ button{background:#26223e;border-color:#60547c}#loadout{background-color:#211e39
 .flight-actions button span{display:block;font-size:21px;line-height:1.05;margin-bottom:3px}
 .flight-actions #brake{background:#40294d;color:#fff2fa;border-color:#b581c5;touch-action:none}
 .flight-actions #brake.held{background:#f6cbf7;color:#1b1022}
-#jam{background:#133c3d;color:#a4ffec;border-color:#5daeaa}
+.flight-actions #jam{background:#133c3d;color:#a4ffec;border-color:#5daeaa;touch-action:none}
 #jam:disabled{opacity:.46}
 @media (pointer:coarse), (max-width:650px){
   main{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right));padding-bottom:max(9px,env(safe-area-inset-bottom))}
@@ -597,4 +597,12 @@ body::before{
 }
 @media(orientation:landscape) and (max-height:540px){
   #startScreen img{width:64px;height:64px}
+}
+
+@media (orientation:portrait) and (max-width:650px){
+  body::before{
+    /* The art is 2:1. Keep Cipher, at about 20% of its width, centered. */
+    background-position-x:center,clamp(calc(100vw - 200dvh),calc(50vw - 40dvh),0px);
+  }
+  .launch-screen{align-items:end}
 }

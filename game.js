@@ -1739,7 +1739,15 @@ storyCases.forEach(([selector,first],index) => {
 get('#restartStory').addEventListener('click',() => selectStoryMission(0));
 get('#prevMission').addEventListener('click',() => {missionPage--; renderMissionPage();});
 get('#nextMission').addEventListener('click',() => {missionPage++; renderMissionPage();});
-get('#jam').addEventListener('click',activateJam);
+const jamButton = get('#jam');
+jamButton.addEventListener('pointerdown',event => {
+  // A second finger has its own pointer, even while the stick holds capture.
+  if (event.button === 0) activateJam();
+});
+jamButton.addEventListener('click',event => {
+  // Keyboard and assistive technology clicks have no preceding pointer press.
+  if (event.detail === 0) activateJam();
+});
 get('#openUpgrades').addEventListener('click',() => showPage('upgrades'));
 get('#backToHangar').addEventListener('click',() => showPage('hangar'));
 function applyAudio() {

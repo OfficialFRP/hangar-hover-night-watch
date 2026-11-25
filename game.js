@@ -1211,18 +1211,23 @@ function draw() {
   paintDrone(ctx,airframe,elapsed*35);
   ctx.restore();
 }
+function updateHudText(selector,text) {
+  const element = get(selector);
+  if (element.textContent !== text) element.textContent = text;
+}
 function hud() {
   const battery = Math.max(0,Math.ceil(100*(1-(elapsed+drained)/stats.seconds)));
-  get('meter').value = battery;
-  get('#power b').textContent = battery + '%';
-  get('#gates').textContent = (courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length;
-  get('#time').textContent = elapsed.toFixed(1) + ' s';
-  get('#alert').textContent = cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR';
+  if (get('meter').value !== battery) get('meter').value = battery;
+  updateHudText('#power b',battery + '%');
+  updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
+  updateHudText('#time',elapsed.toFixed(1) + ' s');
+  updateHudText('#alert',cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',cameraSignal === 'red');
   get('#power').classList.toggle('hostile',cameraSignal === 'red');
-  get('#jamStatus').textContent = jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/2';
+  updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/2');
+  get('#retryFlight').hidden = state !== 'paused';
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
-  get('#best').textContent = courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —';
+  updateHudText('#best',courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
 window.addEventListener('keydown',event => {
@@ -1358,6 +1363,7 @@ get('#audio').addEventListener('click',() => {
   }
 });
 get('#pause').addEventListener('click',togglePause);
+get('#retryFlight').addEventListener('click',() => {if (state === 'paused') reset(courseIndex,true,storyFlight);});
 action.addEventListener('click',() => nextAction());
 reset(0);
 renderMissionPage();

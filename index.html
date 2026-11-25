@@ -30,13 +30,14 @@
     <div class="flight-actions" role="group" aria-label="Flight actions">
       <button id="jam" aria-label="Jam cameras"><span aria-hidden="true">ϟ</span>Jam</button>
       <button id="brake" data-key=" " aria-label="Hold to brake"><span aria-hidden="true">⏹</span>Brake</button>
-      <button id="pause" aria-label="Pause or resume">Ⅱ</button>
+      <button id="pause" aria-label="Pause or resume"><span aria-hidden="true">Ⅱ</span>Pause</button>
+      <button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button>
     </div>
   </div>
 </div>
 </section>
 <section id="page-missions" class="panel game-menu" hidden>
-<div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><nav id="mission-list" aria-label="Mission list"></nav>
+<div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><p class="practice-note">Practice cleared missions and your current Story mission.</p><nav id="mission-list" aria-label="Mission list"></nav>
 <div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
 </section>
 <section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet"></div></section>

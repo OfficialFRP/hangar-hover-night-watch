@@ -172,3 +172,42 @@ body{background-image:linear-gradient(90deg,#100d2020,#13112722 55%,#120f2417),u
 .case-picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .case-picker button{padding:7px 10px;font-size:12px}
 @media(min-width:561px){#fleet{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
+
+/* Keep status, menus, and both thumbs usable in narrow phone viewports. */
+.practice-note{font-size:12px;color:var(--muted);margin:0 0 10px}
+@media(pointer:coarse),(max-width:650px){
+  .pages{gap:4px}
+  .pages button,.case-picker button,.pager button,#restartStory,#audio{min-height:44px}
+  #page-flight .hud{font-size:clamp(9px,2.8vw,11px)}
+  #page-flight #power{white-space:normal}
+  #page-flight #power meter{width:clamp(20px,7vw,35px)}
+  #page-flight .card{max-height:100%;overflow:auto;overscroll-behavior:contain;padding:8px}
+  #page-flight .card p{margin:4px 0 6px;line-height:1.35}
+  #page-flight .card button{min-height:38px}
+  .flight-actions{display:grid;grid-template-columns:repeat(2,minmax(49px,1fr));gap:5px}
+  .flight-actions button{min-height:44px}
+  #page-hangar #loadout{max-height:15dvh}
+  #page-hangar .loadout-summary{gap:5px}
+  #page-hangar .loadout-summary button{min-height:44px}
+  #fleet .frame-option{padding:7px;gap:2px}
+  #fleet .frame-option small{margin-top:0}
+  #mods .upgrade-option button,#mission-list button{min-height:44px}
+  #raceMatch{overflow-wrap:anywhere}
+  #dialogue,#raceQuote{overflow-wrap:anywhere}
+}
+@media(orientation:portrait) and (max-width:360px){
+  #page-flight .overlay{position:static;display:block;background:#100e25;min-height:0}
+  #page-flight .overlay[hidden]{display:none}
+  #page-flight .card{max-width:none;border:0;background:transparent}
+  .story-scene{grid-template-columns:78px minmax(0,1fr)}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #page-flight{grid-template-columns:clamp(86px,15vw,124px) minmax(0,1fr) clamp(62px,9vw,74px)}
+  #page-flight .hud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 4px}
+  .joystick{--stick-size:clamp(82px,14vw,114px)}
+  .flight-actions{display:flex}
+  .flight-actions button{width:100%;min-height:44px}
+  #field{width:min(100%,calc((100dvh - 133px) * 1.92))}
+  #page-hangar #fleet{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #page-hangar #loadout{max-height:18dvh}
+}

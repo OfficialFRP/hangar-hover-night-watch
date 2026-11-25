@@ -211,3 +211,6 @@ body{background-image:linear-gradient(90deg,#100d2020,#13112722 55%,#120f2417),u
   #page-hangar #fleet{grid-template-columns:repeat(4,minmax(0,1fr))}
   #page-hangar #loadout{max-height:18dvh}
 }
+
+/* Cipher game branding and downloadable logo. */
+.game-logo{flex:0 0 auto;display:block;line-height:0}.game-logo img{width:72px;height:72px;object-fit:contain}header>div:first-of-type{margin-right:auto}@media(max-width:600px){.game-logo img{width:48px;height:48px}}

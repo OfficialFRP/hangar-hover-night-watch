@@ -855,7 +855,7 @@ function reservoir(ctx,w,h) {
     ctx.fillRect(x,h*.47+4,2,16);
   }
 }
-const shipFallback = {deckCargo:'cargo',anchorWinch:'lift',shipVent:'conveyor',lifeboat:'jack',shipCrane:'lift',ballastPump:'server',deckGantry:'lift',cargoLift:'lift',davitRail:'conveyor',deckReels:'cargo',deckGenerator:'server',sensorPod:'cargo'};
+const shipFallback = {deckCargo:'cargo',anchorWinch:'lift',shipVent:'conveyor',lifeboat:'jack',shipCrane:'lift',ballastPump:'server',deckGantry:'lift',cargoLift:'lift',davitRail:'conveyor',deckReels:'cargo',deckGenerator:'server',sensorPod:'cargo',shipExhaust:'conveyor',gangway:'lift',steelHatches:'cargo',bollardBank:'server',fireMain:'conveyor',radarMast:'server'};
 const equipmentArt = {
   cargo: ['cargo', 'pallet', 'jack'],
   hangar: ['conveyor', 'lift'],
@@ -904,13 +904,16 @@ const shipSprites = {"deckCargo":[5,23,210,103],"anchorWinch":[225,28,210,94],"s
 const shipMachineryAtlas = new Image();
 shipMachineryAtlas.src = 'assets/orison-machinery.webp';
 const shipMachinerySprites = {"deckGantry":[5,32,210,85],"cargoLift":[242,4,176,141],"davitRail":[445,44,210,62],"deckReels":[5,168,210,113],"deckGenerator":[230,154,200,141],"sensorPod":[445,154,209,141]};
+const verticalShipAtlas = new Image();
+verticalShipAtlas.src = 'assets/orison-vertical.webp';
+const verticalShipSprites = {"shipExhaust":[33,4,73,202],"gangway":[169,4,81,202],"steelHatches":[319,4,61,202],"bollardBank":[41,214,58,202],"fireMain":[167,214,85,202],"radarMast":[297,214,106,202]};
 const horizontalHandling = type => type === 'forklift' || type === 'jack';
 function drawEquipmentSprite(ctx,w,h,type) {
-  const rect = shipMachinerySprites[type] || shipSprites[type] || workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
-  const image = shipMachinerySprites[type] ? shipMachineryAtlas : shipSprites[type] ? shipAtlas : workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
+  const rect = verticalShipSprites[type] || shipMachinerySprites[type] || shipSprites[type] || workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
+  const image = verticalShipSprites[type] ? verticalShipAtlas : shipMachinerySprites[type] ? shipMachineryAtlas : shipSprites[type] ? shipAtlas : workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
   if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
-  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable','shipCrane','deckGantry','cargoLift','davitRail'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
+  const rotate = !verticalShipSprites[type] && !horizontalHandling(type) && !['press','switchgear','turntable','shipCrane','deckGantry','cargoLift','davitRail'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
   if (rotate) {
     ctx.translate(w,0);
     ctx.rotate(Math.PI/2);
@@ -918,7 +921,7 @@ function drawEquipmentSprite(ctx,w,h,type) {
   }
   const aspect = rect[2]/rect[3];
   const columns = Math.max(1,Math.round(w/(h*aspect)));
-  const rows = horizontalHandling(type) ? 1 : Math.max(1,Math.round(h/(w/aspect)));
+  const rows = horizontalHandling(type) || orisonVerticalGear.includes(type) ? 1 : Math.max(1,Math.round(h/(w/aspect)));
   const width = w/columns;
   const height = h/rows;
   const gap = Math.min(width,height)*.025;
@@ -1711,7 +1714,7 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
-for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas]) {
+for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas]) {
   artwork.addEventListener('load',() => {terrain = paintTerrain();});
 }
 atlas.addEventListener('load',() => {

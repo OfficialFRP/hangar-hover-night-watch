@@ -142,10 +142,10 @@ const carrierFinale = {
   sea:true,sentinels:2,
   gates:[[180,339],[344,135],[491,345],[634,153],[777,345],[879,217]],
   walls:[
-    [109,65,129,52,'deckGantry'],[231,117,62,193,'deckCargo'],
-    [305,392,125,55,'cargoLift'],[397,194,61,246,'shipVent'],
-    [490,53,136,49,'shipCrane'],[540,55,63,255,'sensorPod'],
-    [684,244,60,197,'deckGenerator'],[722,71,128,50,'davitRail'],
+    [109,65,129,52,'deckGantry'],[231,117,62,193,'shipExhaust'],
+    [305,392,125,55,'cargoLift'],[397,194,61,246,'steelHatches'],
+    [490,53,136,49,'shipCrane'],[540,55,63,255,'fireMain'],
+    [684,244,60,197,'radarMast'],[722,71,128,50,'davitRail'],
     [812,281,68,105,'deckReels'],[822,407,103,39,'lifeboat']
   ],
   cameras:[[303,186,-.9,'red'],[518,258,1.15,'red'],[710,220,1.55,'red']],
@@ -169,15 +169,19 @@ const orisonDeckGear = [
   'deckCargo','deckGantry','shipVent','cargoLift','lifeboat','deckReels',
   'anchorWinch','davitRail','deckGenerator','sensorPod','shipCrane','ballastPump'
 ];
+const orisonVerticalGear = ['shipExhaust','gangway','steelHatches','bollardBank','fireMain','radarMast'];
 const orisonMissions = orisonPlans.map((plan,index) => {
   const gates = [];
   const walls = [];
   const cameras = [];
   const columns = plan.lanes.length === 3 ? [218,460,710] : [183,376,568,759];
-  const gap = index < 3 ? 86 : index < 9 ? 74 : 64;
+  const gap = index < 3 ? 76 : index < 9 ? 68 : 61;
   const horizontalGear = ['deckGantry','cargoLift','shipCrane','davitRail'];
-  function deckObstacle(x,top,width,height,type,upper) {
-    if (!horizontalGear.includes(type)) return [x-width/2,top,width,height,type];
+  function deckObstacle(x,top,width,height,type,upper,lane) {
+    if (!horizontalGear.includes(type)) {
+      const variant = orisonVerticalGear[(index+lane*2+(upper ? 0 : 1))%orisonVerticalGear.length];
+      return [x-width/2,top,width,height,height >= width*1.25 ? variant : type];
+    }
     const wide = width+40;
     const shallow = Math.min(56,height);
     return [x-wide/2,upper ? top+height-shallow : top,wide,shallow,type];
@@ -188,22 +192,22 @@ const orisonMissions = orisonPlans.map((plan,index) => {
     const north = orisonDeckGear[(index+lane*2)%orisonDeckGear.length];
     const south = orisonDeckGear[(index+lane*2+3)%orisonDeckGear.length];
     gates.push([x,y]);
-    walls.push(deckObstacle(x,46,width,y-gap-46,north,true),deckObstacle(x,y+gap,width,454-y-gap,south,false));
-    if (lane < plan.cameras) {
+    walls.push(deckObstacle(x,46,width,y-gap-46,north,true,lane),deckObstacle(x,y+gap,width,454-y-gap,south,false,lane));
+    if (lane < Math.max(1,plan.cameras)) {
       const offset = lane%2 ? -1 : 1;
-      cameras.push([x+54,y+offset*(gap-16),offset*-1.3,index<2 ? 'green' : 'red']);
+      cameras.push([x+54,y+offset*(gap-16),offset*-1.3,index === 1 ? 'green' : 'red']);
     }
   }
   if (index >= 5) {
     const y = index%2 ? 350 : 105;
     const x = (columns[1]+columns[2])/2;
-    walls.push([x-50,y-21,100,42,index%2 ? 'deckReels' : 'deckGenerator']);
+    walls.push([x-50,y-21,100,42,index === 8 ? 'sensorPod' : index%2 ? 'deckReels' : 'deckGenerator']);
   }
   const exitY = Math.round((plan.lanes.at(-1)+250)/2);
   gates.push([872,exitY]);
   return {
-    name:plan.name,seconds:plan.seconds-(index < 3 ? 14 : 17),start:[76,plan.lanes[0]],exit:[exitY,index < 9 ? 168 : 152],
-    wind:plan.wind+19+index*2,sea:true,gates,walls,cameras,
+    name:plan.name,seconds:plan.seconds-(index < 3 ? 18 : 20),start:[76,plan.lanes[0]],exit:[exitY,index < 9 ? 168 : 152],
+    wind:plan.wind+31+index*2,sea:true,sentinels:index>=8 && index%2 === 0 ? 2 : 1,gates,walls,cameras,
     intro:'Verify the rescue markers in order, then fly through the bow opening.'
   };
 });

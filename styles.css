@@ -395,3 +395,59 @@ header h1 em{
   --battery-bright:#a0ff9d;--battery-dark:#269a69;color:#d9ffce;
 }
 #power.battery-charge:not(.hostile) meter{box-shadow:0 0 8px #8fff8e9c}
+
+/* Size the flight deck from the remaining viewport height. */
+main:has(#page-flight:not([hidden])){
+  height:100dvh;display:flex;flex-direction:column;
+  padding-top:max(6px,env(safe-area-inset-top));
+  padding-bottom:max(6px,env(safe-area-inset-bottom));
+}
+main:has(#page-flight:not([hidden])) header{
+  padding:2px 0 6px;gap:4px 8px;
+}
+main:has(#page-flight:not([hidden])) header h1{
+  font-size:clamp(18px,min(5vw,6dvh),46px);
+}
+main:has(#page-flight:not([hidden])) header .game-logo img{
+  width:clamp(30px,7dvh,52px);height:auto;
+}
+main:has(#page-flight:not([hidden])) .kicker{display:none}
+main:has(#page-flight:not([hidden])) .pages{margin-bottom:5px}
+main:has(#page-flight:not([hidden])) .layout{flex:1;min-height:0}
+#page-flight{
+  height:100%;display:grid;grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto auto;gap:4px;
+}
+#page-flight .hud{grid-column:1;grid-row:1;margin:0;min-width:0}
+#page-flight #field{
+  grid-column:1;grid-row:2;display:grid;place-items:center;
+  width:100%;height:100%;min-width:0;min-height:0;margin:0;
+  background:#101421;
+}
+#page-flight canvas{width:100%;height:100%;min-height:0;object-fit:contain}
+#page-flight #raceLive{grid-column:1;grid-row:3;margin:0;font-size:11px}
+#page-flight .camera-legend{display:none}
+#page-flight .help{grid-column:1;grid-row:4;margin:0}
+#page-flight .joystick{--stick-size:clamp(76px,17dvh,108px)}
+#page-flight:has(.overlay:not([hidden])) .help{display:none}
+#page-flight #field:has(.overlay:not([hidden])) canvas{opacity:.3}
+#page-flight #field .overlay{
+  position:absolute;inset:0;display:grid;place-items:center;
+  min-height:0;padding:clamp(8px,2vw,22px);background:#0c102780;
+}
+#page-flight #field .card{
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:.45rem;
+  width:min(100%,530px);max-width:none;max-height:100%;min-height:0;
+  padding:clamp(10px,2vw,20px);overflow:hidden;
+  border:1px solid #59717e;background:#101b2a;
+}
+#page-flight #brief{min-height:0;overflow:auto;margin:0;line-height:1.42;font-size:clamp(.85rem,2.6vw,1.06rem)}
+#page-flight #action{min-height:44px;justify-self:start;padding:6px 18px}
+@media (orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #page-flight{grid-template-columns:clamp(64px,14vw,104px) minmax(0,1fr) 60px}
+  #page-flight .hud,#page-flight #field,#page-flight #raceLive{grid-column:2}
+  #page-flight .flight-actions button{min-height:42px;padding:3px}
+  #page-flight .flight-actions button span{display:inline;font-size:14px;margin-right:3px}
+  #page-flight:has(.overlay:not([hidden])){grid-template-columns:minmax(0,1fr)}
+  #page-flight:has(.overlay:not([hidden])) :is(.hud,#field,#raceLive){grid-column:1}
+}

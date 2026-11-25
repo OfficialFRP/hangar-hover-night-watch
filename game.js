@@ -157,8 +157,7 @@ const redCameraDrain = 5;
 let jam, jamsLeft, scan, cellCollected;
 let patrols = [];
 let radarLocked = false;
-let rechargePad, dockTime, padUsed, rechargeFlash;
-const rechargeHold = .65;
+let rechargePack, packCollected, rechargeFlash;
 const rechargeAmount = 12;
 let missionPage = 0;
 const missionsPerPage = 4;
@@ -441,9 +440,9 @@ function reset(index, fly = false, chapterFlight = false) {
   cameraSignal = '';
   radarLocked = false;
   patrols = planPatrols();
-  rechargePad = planRechargePad();
-  dockTime = rechargeFlash = 0;
-  padUsed = false;
+  rechargePack = planRechargePack();
+  rechargeFlash = 0;
+  packCollected = false;
   jam = scan = 0;
   jamsLeft = maxJams;
   cellCollected = false;
@@ -458,7 +457,7 @@ function reset(index, fly = false, chapterFlight = false) {
     action.blur();
   } else {
     const warning = patrols.length ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
-    const recharge = rechargePad ? ' Hold steady on the cyan charge pad for a one-time top-up.' : '';
+    const recharge = rechargePack ? ' Fly through the battery pack for a top-up.' : '';
     menu(course.name,course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
   }
 }
@@ -576,7 +575,7 @@ function update(dt) {
     cellCollected = true;
     sound('charge');
   }
-  chargeOnPad(x,y,vx,vy,dt);
+  collectRechargePack(x,y);
   if (elapsed + drained >= stats.seconds) {
     return finish(false, radarLocked ? 'Battery depleted under patrol radar. Break line of sight or use Jam.' : cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
   }
@@ -600,7 +599,7 @@ function update(dt) {
     finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
 }
-function planRechargePad() {
+function planRechargePack() {
   if (courseIndex === -1) return null;
   const anchors = [course.gates[Math.floor(course.gates.length/2)],course.start];
   const offsets = [[-54,0],[54,0],[0,52],[0,-52],[-48,47],[48,-47],[46,46],[-46,-46]];
@@ -618,15 +617,13 @@ function planRechargePad() {
   }
   return null;
 }
-function chargeOnPad(x,y,vx,vy,dt) {
-  if (!rechargePad || padUsed) return;
-  const [px,py] = rechargePad;
+function collectRechargePack(x,y) {
+  if (!rechargePack || packCollected) return;
+  const [px,py] = rechargePack;
   const spent = elapsed+drained;
-  const docked = spent >= 2 && Math.hypot(x-px,y-py)<24 && Math.hypot(vx,vy)<stats.landingSpeed;
-  dockTime = docked ? dockTime+dt : 0;
-  if (dockTime < rechargeHold) return;
+  if (spent < 2 || Math.hypot(x-px,y-py) >= 24) return;
   drained -= Math.min(rechargeAmount,spent);
-  padUsed = true;
+  packCollected = true;
   rechargeFlash = 1.2;
   sound('charge');
 }
@@ -1396,27 +1393,6 @@ function drawLandingPad() {
     ctx.stroke();
   }
 }
-function drawRechargePad() {
-  if (!rechargePad) return;
-  const [x,y] = rechargePad;
-  const color = padUsed ? '#617c89' : '#69ffe1';
-  ctx.save();
-  ctx.fillStyle = '#10282f';
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(x-26,y-26,52,52,7);
-  ctx.fill();
-  ctx.stroke();
-  label('ϟ',x,y,color,33);
-  label(padUsed ? 'SPENT' : 'CHARGE',x,y+36,color,10);
-  if (dockTime > 0 && !padUsed) {
-    ctx.beginPath();
-    ctx.arc(x,y,30,-Math.PI/2,-Math.PI/2+2*Math.PI*Math.min(1,dockTime/rechargeHold));
-    ctx.stroke();
-  }
-  ctx.restore();
-}
 function drawBatteryPickup(x,y) {
   ctx.save();
   ctx.translate(x,y);
@@ -1482,7 +1458,7 @@ function draw() {
   });
   if (course.exit) drawWarehouseExit();
   else drawLandingPad();
-  drawRechargePad();
+  if (rechargePack && !packCollected) drawBatteryPickup(...rechargePack);
   if (jam > 0) {
     const phase = ((2.5-jam)*2)%1;
     ctx.strokeStyle = 'rgba(208,160,255,' + (1-phase)*.65 + ')';
@@ -1518,11 +1494,11 @@ function hud() {
   const power = get('#power');
   power.classList.toggle('battery-low',battery <= 20);
   power.classList.toggle('battery-warn',battery > 20 && battery <= 45);
-  power.classList.toggle('battery-charge',(dockTime > 0 && !padUsed) || rechargeFlash > 0);
+  power.classList.toggle('battery-charge',rechargeFlash > 0);
   updateHudText('#power b',battery + '%');
   updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
   updateHudText('#time',elapsed.toFixed(1) + ' s');
-  updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : dockTime > 0 && !padUsed ? 'ϟ CHARGING' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
+  updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
   power.classList.toggle('hostile',radarLocked || cameraSignal === 'red');
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);

@@ -67,10 +67,10 @@ function drawSprite(surface,index,x,y,w,h) {
   return true;
 }
 
-const music = new Audio('assets/night-line.wav');
+const music = new Audio('assets/night-spy.mp3');
 music.loop = true;
 music.volume = .30;
-const effects = Object.fromEntries(['launch','scan','jam','drain','charge','crash','complete'].map(name => {
+const effects = Object.fromEntries(['launch','scan','jam','drain','charge','crash','complete','throttle','brake','land','race-win'].map(name => {
   const effect = new Audio('assets/' + name + '.wav');
   effect.volume = .64;
   return [name,effect];
@@ -127,6 +127,37 @@ const missionsPerPage = 4;
 const pageButtons = [...document.querySelectorAll('[data-page]')];
 let currentPage = 'flight';
 let storyFlight = false;
+let race;
+let nextRaceCall;
+let raceCallouts = 0;
+let wasBraking = false;
+function raceLine(group) {
+  const pool = racePilots[race.rival][group];
+  const line = pick(pool.filter(quote => quote !== race.lastLine));
+  race.lastLine = line;
+  return line;
+}
+function selectRace() {
+  race = generateRace(fleet[progress.selected],race?.rival);
+  const [name,role,portrait] = crew[race.rival];
+  get('#racePortrait').src = 'assets/crew-expression-' + portrait + '.webp';
+  get('#racePortrait').alt = name;
+  get('#raceSpeaker').textContent = name + ' · ' + role;
+  get('#raceQuote').textContent = '“' + raceLine(0) + '”';
+  get('#raceMatch').textContent = 'You versus ' + race.frame.name;
+  reset(-1);
+  showPage('race');
+}
+function concludeRace(cleared,message) {
+  const time = race.finishTime;
+  const won = cleared && elapsed < time;
+  state = won ? 'won' : 'lost';
+  sound(won ? 'race-win' : cleared ? 'complete' : 'crash');
+  const quote = raceLine(won ? 1 : 2);
+  const score = cleared ? 'Your time ' + elapsed.toFixed(2) + ' s · Rival ' + time.toFixed(2) + ' s.' : message + ' Rival target ' + time.toFixed(2) + ' s.';
+  menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+' “'+quote+'”','New matchup',selectRace);
+}
+
 let storyLines = [];
 let lineIndex = 0;
 let sceneTitle;
@@ -138,16 +169,23 @@ function renderStory() {
   get('#storyTitle').textContent = sceneTitle;
   const image = get('#portrait');
   image.hidden = !speaker;
-  get('.story-scene').classList.toggle('credits-scene',!speaker);
+  const scene = get('.story-scene');
+  scene.classList.toggle('credits-scene',!speaker);
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
-    image.src = 'assets/crew-' + portrait + '.webp';
+    const variant = speaker === 'rook' && sceneTitle.includes('Sable’s Signature') ? 7 : portrait;
+    image.src = 'assets/crew-' + (storyLines.length > 1 ? 'expression-' : '') + variant + '.webp';
     image.alt = name + ', ' + role;
     get('#speaker').textContent = name + ' · ' + role;
   } else {
     get('#speaker').textContent = '';
   }
-  get('#dialogue').textContent = dialogue;
+  const dialogueNode = get('#dialogue');
+  dialogueNode.textContent = dialogue;
+  if (!speaker && dialogueNode.animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    dialogueNode.getAnimations().forEach(animation => animation.cancel());
+    dialogueNode.animate([{opacity:0,transform:'translateY(7px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,easing:'ease-out'});
+  }
   get('#storyStep').textContent = (lineIndex+1) + ' / ' + storyLines.length;
   get('#storyBack').disabled = lineIndex === 0;
   get('#storyNext').textContent = lineIndex < storyLines.length-1 ? 'Continue' : lastLineAction;
@@ -188,7 +226,7 @@ function showPage(page) {
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
-    const selected = button.dataset.page === (page === 'flight' && storyFlight ? 'story' : page);
+    const selected = button.dataset.page === (page === 'flight' ? (courseIndex === -1 ? 'race' : storyFlight ? 'story' : 'missions') : page);
     button.setAttribute('aria-pressed',selected);
     get('#page-' + button.dataset.page).hidden = button.dataset.page !== page;
   });
@@ -196,7 +234,7 @@ function showPage(page) {
   if (page === 'flight') hud();
   if (page === 'story') renderStory();
   if (page === 'missions') {
-    missionPage = Math.floor(courseIndex/missionsPerPage);
+    missionPage = Math.max(0,Math.floor(courseIndex/missionsPerPage));
     renderMissionPage();
   }
 }
@@ -278,7 +316,12 @@ function menu(title, message, label, callback) {
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
   courseIndex = index;
-  course = courses[index];
+  course = index === -1 ? race.course : courses[index];
+  nextRaceCall = 3;
+  raceCallouts = 0;
+  wasBraking = false;
+  get('#raceLive').hidden = index !== -1;
+  if (index === -1) get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(0) + '”';
   const [x,y] = course.start;
   drone = {x,y,vx:0,vy:0,angle:0};
   elapsed = gate = landing = drained = 0;
@@ -291,7 +334,7 @@ function reset(index, fly = false, chapterFlight = false) {
   const [battery,motors,stabilizer] = progress.levels[progress.selected];
   stats = {seconds:course.seconds + airframe.battery + battery*4, thrust:airframe.thrust * (1+.07*motors),
     brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
-  record = storedBest();
+  record = index === -1 ? 0 : storedBest();
   clearInputs();
   state = fly ? 'flying' : 'ready';
   renderHangar();
@@ -302,6 +345,7 @@ function reset(index, fly = false, chapterFlight = false) {
   } else menu(course.name, course.intro, 'Launch drone', () => reset(index,true,storyFlight));
 }
 function finish(won, message) {
+  if (courseIndex === -1) {concludeRace(won,message); return;}
   state = won ? 'won' : 'lost';
   sound(won ? 'complete' : 'crash');
   if (won && (!record || elapsed < record)) {
@@ -353,6 +397,16 @@ function update(dt) {
   const dy = +pressed('ArrowDown','s') - +pressed('ArrowUp','w');
   const diagonal = Math.max(1,Math.hypot(dx,dy));
   const braking = pressed(' ');
+  if (braking && !wasBraking) sound('brake');
+  wasBraking = braking;
+  flightAudio(Math.hypot(drone.vx,drone.vy),Boolean(dx || dy),braking,true);
+  if (courseIndex === -1 && elapsed >= nextRaceCall && raceCallouts < 4) {
+    nextRaceCall += 3.2;
+    raceCallouts++;
+    const rival = rivalPosition(race,elapsed);
+    const ahead = rival && drone.x >= rival[0];
+    get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
+  }
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
   const crosswind = course.exit ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
@@ -394,7 +448,7 @@ function update(dt) {
   const target = course.gates[gate];
   const onTarget = target && Math.hypot(x-target[0],y-target[1]) < 29;
   scan = onTarget ? scan + dt*(cameraSignal === 'green' ? 1.6 : 1) : 0;
-  if (scan >= .24) {
+  if (scan >= .24 || (courseIndex === -1 && onTarget)) {
     gate++;
     scan = 0;
     sound('scan');
@@ -406,7 +460,10 @@ function update(dt) {
   const [px,py] = course.pad;
   const steady = gate === course.gates.length && Math.hypot(x-px,y-py) < 29 && Math.hypot(vx,vy) < stats.landingSpeed;
   landing = steady ? landing + dt : 0;
-  if (landing >= 0.65) finish(true, 'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
+  if (landing >= 0.65) {
+    sound('land');
+    finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
+  }
 }
 const beamReach = 155;
 const beamWidth = .34;
@@ -447,8 +504,10 @@ function touchesStructure([x,y,w,h,type],px,py,radius = 0) {
 // Mix warehouse props and legacy freight art across the campaign.
 const warehouseVariants = {
   Workshop: {2:'pallet'}, 'Loading Bay': {2:'forklift'}, 'Rail Yard': {3:'pallet'},
-  'Blackout Terminal': {1:'rack'}, 'Intake Dock': {1:'cargo'}, 'Cold Storage': {0:'cargo'},
-  'Sorting Floor': {2:'cargo'}, 'Outbound Vault': {1:'cargo'}
+  'Blackout Terminal': {1:'rack'}, 'Intake Dock': {0:'cargo',1:'cargo',2:'train',4:'cargo'},
+  'Cold Storage': {0:'cargo',2:'cargo',3:'train',4:'cargo',5:'cargo'},
+  'Sorting Floor': {2:'cargo',3:'train',4:'cargo',5:'cargo',6:'cargo'},
+  'Outbound Vault': {1:'cargo',3:'train',4:'cargo',5:'cargo',6:'cargo',7:'train'}
 };
 function surfacePanel(ctx,x,y,w,h,top,bottom,radius = 3) {
   const depth = ctx.createLinearGradient(x,y,x,y+h);
@@ -959,7 +1018,7 @@ function draw() {
     ctx.strokeRect(x-10,y-13,20,26);
     label('+',x,y,'#c6abff',16);
   }
-  label('NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
+  label(courseIndex === -1 ? 'RACE' : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
   label(state === 'flying' ? '● LIVE' : '○ STANDBY',884,27,'#acd2ce',15);
   course.gates.forEach(([x,y], index) => {
     const active = index === gate;
@@ -990,6 +1049,18 @@ function draw() {
     ctx.stroke();
   }
   ctx.save();
+  if (courseIndex === -1 && state !== 'ready') {
+    const rival = rivalPosition(race,elapsed);
+    if (rival) {
+      ctx.save();
+      ctx.translate(rival[0],rival[1]);
+      ctx.rotate(rival[2]);
+      ctx.globalAlpha = .69;
+      paintDrone(ctx,race.frame,elapsed*15);
+      ctx.restore();
+      label('CPU',rival[0],rival[1]-25,'#f3b9ff',10);
+    }
+  }
   ctx.translate(drone.x,drone.y);
   ctx.rotate(drone.angle);
   paintDrone(ctx,airframe,elapsed*35);
@@ -999,14 +1070,14 @@ function hud() {
   const battery = Math.max(0,Math.ceil(100*(1-(elapsed+drained)/stats.seconds)));
   get('meter').value = battery;
   get('#power b').textContent = battery + '%';
-  get('#gates').textContent = 'Intel ' + gate + '/' + course.gates.length;
+  get('#gates').textContent = (courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length;
   get('#time').textContent = elapsed.toFixed(1) + ' s';
   get('#alert').textContent = cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR';
   get('#alert').classList.toggle('danger',cameraSignal === 'red');
   get('#power').classList.toggle('hostile',cameraSignal === 'red');
   get('#jamStatus').textContent = jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/2';
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
-  get('#best').textContent = record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —';
+  get('#best').textContent = courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —';
 }
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
 window.addEventListener('keydown',event => {
@@ -1041,12 +1112,26 @@ for (const button of touchButtons) {
   button.addEventListener('pointerup',release);
   button.addEventListener('lostpointercapture',release);
 }
-pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'story' ? (currentPage === 'story' ? renderStory() : resumeCampaign()) : showPage(button.dataset.page)));
+pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'race' ? selectRace() : button.dataset.page === 'story' ? (currentPage === 'story' ? renderStory() : resumeCampaign()) : showPage(button.dataset.page)));
+get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
 get('#storyNext').addEventListener('click',() => {
-  if (lineIndex < storyLines.length-1) {lineIndex++; renderStory();}
-  else afterDialogue();
+  if (lineIndex >= storyLines.length-1) {afterDialogue(); return;}
+  const advance = () => {lineIndex++; renderStory();};
+  const node = get('#dialogue');
+  if (storyLines[lineIndex+1][0] || !node.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    advance();
+    return;
+  }
+  const fromLines = storyLines;
+  const fromLine = lineIndex;
+  const button = get('#storyNext');
+  button.disabled = true;
+  node.animate([{opacity:1},{opacity:0}],{duration:260,easing:'ease-in'}).finished.then(() => {
+    button.disabled = false;
+    if (currentPage === 'story' && storyLines === fromLines && lineIndex === fromLine) advance();
+  },() => {button.disabled = false;});
 });
 get('#restartStory').addEventListener('click',() => {
   progress.campaignNext = 0;
@@ -1064,7 +1149,7 @@ get('#audio').addEventListener('click',() => {
   soundEnabled = !soundEnabled;
   get('#audio').textContent = soundEnabled ? 'Sound on' : 'Sound off';
   get('#audio').setAttribute('aria-pressed',soundEnabled);
-  if (soundEnabled) music.play().catch(() => {});
+  if (soundEnabled) {enableFlightAudio(); music.play().catch(() => {});}
   else {
     music.pause();
     Object.values(effects).forEach(effect => effect.pause());
@@ -1084,6 +1169,7 @@ atlas.addEventListener('load',() => {
 let last = performance.now();
 function frame(now) {
   if (state === 'flying') update(Math.min((now-last)/1000,1/30));
+  else flightAudio(0,false,false,false);
   last = now;
   if (currentPage === 'flight') {draw(); hud();}
   requestAnimationFrame(frame);

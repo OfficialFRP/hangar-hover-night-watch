@@ -65,6 +65,6 @@ const campaignReveals = {
     ['director','Iman’s testimony and your flight recordings gave investigators the whole picture. The case can move forward.'],
     ['patch','You brought the drone back through every bad turn. Thanks for flying with us.'],
     [null,'THANK YOU FOR PLAYING'],
-    [null,'@OfficialFRP\nA Feather Rock Production']
+    [null,'@OfficialFRP\nA Feather Rock Production\n\nIn association with Team Inspire - @OFFICIALINSPIRE777']
   ]}
 };

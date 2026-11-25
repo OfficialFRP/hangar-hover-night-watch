@@ -9,6 +9,7 @@
 <header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
 <button data-page="story" aria-pressed="true">01 Story</button><button data-page="missions" aria-pressed="false">02 Practice</button><button data-page="hangar" aria-pressed="false">03 Hangar</button><button data-page="upgrades" aria-pressed="false">04 Upgrades</button>
+<button data-page="race" aria-pressed="false">05 Race</button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
 <div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
@@ -16,6 +17,7 @@
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
 <div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><button id="action"></button></div></div>
 </div>
+<p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
 <div class="help"><span>WASD / arrows to fly · Space to brake · C to jam · P to pause · R to restart</span><div class="keys" aria-label="Touch flight controls"><button data-key="ArrowLeft" aria-label="Fly left">←</button><button data-key="ArrowUp" aria-label="Fly up">↑</button><button data-key="ArrowDown" aria-label="Fly down">↓</button><button data-key="ArrowRight" aria-label="Fly right">→</button><button data-key=" " aria-label="Brake">Brake</button><button id="jam" aria-label="Jam cameras">Jam</button><button id="pause" aria-label="Pause or resume">Pause</button></div></div>
 </section>
@@ -31,9 +33,16 @@
 <div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext">Continue</button></div>
 <button id="restartStory">Restart story</button>
 </section>
+<section id="page-race" class="panel game-menu" hidden>
+<h2>Race · Warehouse Sprint</h2>
+<div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
+<div class="pager"><span id="raceMatch"></span><button id="raceFly">Open race deck</button></div>
+</section>
 </div>
 </main>
 <script src="story.js"></script>
+<script src="race.js"></script>
+<script src="audio.js"></script>
 <script src="game.js"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

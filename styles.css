@@ -321,3 +321,36 @@ header h1 em{
 @media(max-width:370px){
   header h1{font-size:clamp(18px,5.6vw,23px)}
 }
+
+/* Flight power readout keeps the native accessible meter value. */
+#power{
+  --battery-bright:#9affdd;
+  --battery-dark:#208578;
+  color:#d9fcf2;
+  font-variant-numeric:tabular-nums;
+}
+#power.battery-warn{--battery-bright:#ffdb85;--battery-dark:#b8722f;color:#ffe0a6}
+#power.battery-low,#power.hostile{--battery-bright:#ff9f8f;--battery-dark:#c73063;color:#ffc7c0}
+#power b{display:inline-block;min-width:4ch;text-align:right}
+#power meter{
+  --segments:repeating-linear-gradient(90deg,transparent 0 6px,#08162380 6px 7px);
+  --charge:linear-gradient(var(--battery-bright),var(--battery-dark));
+  appearance:none;
+  width:clamp(48px,9vw,106px);
+  height:12px;
+  vertical-align:-1px;
+  border:1px solid #78979b;
+  border-radius:2px;
+  background:#131d2a;
+  box-shadow:0 0 5px #6df8ca45;
+}
+#power meter::-webkit-meter-bar{
+  height:100%;border:0;border-radius:1px;background:var(--segments),#131d2a;
+}
+#power meter::-webkit-meter-optimum-value,
+#power meter::-webkit-meter-suboptimum-value,
+#power meter::-webkit-meter-even-less-good-value{
+  background:var(--segments),var(--charge);
+}
+#power meter::-moz-meter-bar{background:var(--segments),var(--charge)}
+#power.hostile meter{border-color:#ffa19e;box-shadow:0 0 7px #ff406f9c}

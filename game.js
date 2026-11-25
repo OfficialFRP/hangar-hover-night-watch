@@ -96,6 +96,8 @@ const canvas = get('#field canvas');
 const ctx = canvas.getContext('2d');
 const overlay = get('.overlay');
 const action = get('#action');
+const batteryMeter = get('#power meter');
+batteryMeter.setAttribute('aria-label','Battery remaining');
 const keyboard = new Set();
 const brakePointers = new Set();
 const stick = {pointer:null,x:0,y:0};
@@ -150,6 +152,8 @@ const modButtons = upgrades.map((upgrade,index) => {
   return {button,info,tiers};
 });
 let courseIndex, course, drone, elapsed, gate, landing, state, nextAction, record, airframe, stats, drained, cameraSignal, terrain;
+const maxJams = 3;
+const redCameraDrain = 5;
 let jam, jamsLeft, scan, cellCollected;
 let missionPage = 0;
 const missionsPerPage = 4;
@@ -412,7 +416,7 @@ function reset(index, fly = false, chapterFlight = false) {
   elapsed = gate = landing = drained = 0;
   cameraSignal = '';
   jam = scan = 0;
-  jamsLeft = 2;
+  jamsLeft = maxJams;
   cellCollected = false;
   terrain = paintTerrain();
   record = index === -1 ? 0 : storedBest();
@@ -519,7 +523,7 @@ function update(dt) {
   }
   if (cameraSignal === 'red') {
     if (previousSignal !== 'red') sound('drain');
-    drained += 2.5 * airframe.exposure * dt;
+    drained += redCameraDrain * airframe.exposure * dt;
   }
   const cell = chargeCells[courseIndex];
   const chargeSpent = elapsed + drained;
@@ -589,8 +593,8 @@ function touchesStructure([x,y,w,h,type],px,py,radius = 0) {
 
 // Mix warehouse props and legacy freight art across the campaign.
 const warehouseVariants = {
-  Workshop: {2:'pallet'}, 'Loading Bay': {2:'forklift'}, 'Rail Yard': {3:'pallet'},
-  'Blackout Terminal': {1:'rack'}, 'Intake Dock': {0:'cargo',1:'cargo',2:'train',4:'cargo'},
+  Workshop: {0:'laser',2:'pallet'}, 'Loading Bay': {2:'forklift'}, 'Rail Yard': {3:'pallet'},
+  'Relay Station': {2:'switchgear'}, 'Floodworks': {3:'pump'}, 'Blackout Terminal': {1:'rack'}, 'Intake Dock': {0:'cargo',1:'cargo',2:'train',4:'cargo'},
   'Cold Storage': {0:'cargo',2:'cargo',3:'train',4:'cargo',5:'cargo'},
   'Sorting Floor': {2:'cargo',3:'train',4:'cargo',5:'cargo',6:'cargo'},
   'Outbound Vault': {1:'cargo',3:'train',4:'cargo',5:'cargo',6:'cargo',7:'train'}
@@ -674,18 +678,21 @@ const equipmentArt = {
 };
 const factoryVariants = {
   cargo:['cargo','pallet','jack','toolbox'],
-  hangar:['conveyor','lift','mill','press'],
-  tower:['server','transformer'],
+  hangar:['conveyor','lift','mill','press','laser','assembly'],
+  tower:['server','transformer','switchgear'],
   rack:['server','cargo','toolbox'],
-  drum:['compressor','jack','robot','pallet'],
-  fan:['blower','transformer','manifold','press'],
-  tank:['tank','compressor','manifold'],
-  winch:['winch','robot']
+  drum:['compressor','turntable','robot','pallet'],
+  fan:['blower','transformer','manifold','press','turntable'],
+  tank:['tank','compressor','manifold','pump'],
+  winch:['winch','robot','pump'],
+  forklift:['forklift']
 };
 const equipmentAtlas = new Image();
 equipmentAtlas.src = 'assets/warehouse-equipment.webp';
 const factoryAtlas = new Image();
 factoryAtlas.src = 'assets/factory-machinery.webp';
+const workcellAtlas = new Image();
+workcellAtlas.src = 'assets/factory-workcells.webp';
 const equipmentSprites = {
   cargo:[4,19,212,102],pallet:[224,14,212,112],jack:[444,11,212,117],
   conveyor:[4,162,212,96],lift:[224,155,212,110],server:[449,144,202,132],
@@ -696,12 +703,17 @@ const factorySprites = {
   blower:[3,162,214,96],mill:[223,163,214,94],compressor:[443,143,214,134],
   manifold:[3,296,214,107],toolbox:[223,284,214,132],battery:[467,283,166,134]
 };
+const workcellSprites = {
+  forklift:[3,4,214,141],laser:[228,3,203,144],assembly:[443,5,214,140],
+  switchgear:[27,153,165,144],pump:[234,153,192,144],turntable:[443,156,214,137]
+};
+const horizontalHandling = type => type === 'forklift' || type === 'jack';
 function drawEquipmentSprite(ctx,w,h,type) {
-  const rect = factorySprites[type] || equipmentSprites[type];
-  const image = factorySprites[type] ? factoryAtlas : equipmentAtlas;
+  const rect = workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
+  const image = workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
   if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
-  const rotate = h > w*1.25 && rect[2] > rect[3]*1.65;
+  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.65;
   if (rotate) {
     ctx.translate(w,0);
     ctx.rotate(Math.PI/2);
@@ -709,7 +721,7 @@ function drawEquipmentSprite(ctx,w,h,type) {
   }
   const aspect = rect[2]/rect[3];
   const columns = Math.max(1,Math.round(w/(h*aspect)));
-  const rows = Math.max(1,Math.round(h/(w/aspect)));
+  const rows = horizontalHandling(type) ? 1 : Math.max(1,Math.round(h/(w/aspect)));
   const width = w/columns;
   const height = h/rows;
   const gap = Math.min(width,height)*.025;
@@ -849,13 +861,15 @@ function quayProp(ctx,w,h,type) {
   }
 }
 function structure(ctx,[x,y,w,h,footprint],art = footprint) {
-  const type = art;
+  // Use stationary storage in narrow bays where a forklift cannot sit horizontally.
+  const type = art === 'forklift' && w < h*1.2 ? 'rack' : art;
   ctx.save();
   ctx.translate(x,y);
   const seed = Math.round(x+y);
-  const variant = factoryVariants[type];
   const original = equipmentArt[type];
-  const equipment = variant ? variant[seed%variant.length] : original ? original[seed%original.length] : type;
+  const variants = (factoryVariants[type] || original || [type])
+    .filter(variant => w >= h*1.2 || !horizontalHandling(variant));
+  const equipment = variants[seed%variants.length];
   if (drawEquipmentSprite(ctx,w,h,equipment)) {
     ctx.restore();
     return;
@@ -876,8 +890,10 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  if (original) {
-    paintEquipment(ctx,w,h,original[seed%original.length],seed);
+  const fallbackArt = original || equipmentArt[footprint];
+  if (fallbackArt) {
+    const fallback = fallbackArt.filter(variant => w >= h*1.2 || !horizontalHandling(variant));
+    paintEquipment(ctx,w,h,fallback[seed%fallback.length] || 'pallet',seed);
     ctx.restore();
     return;
   }
@@ -1323,14 +1339,17 @@ function updateHudText(selector,text) {
 }
 function hud() {
   const battery = Math.max(0,Math.ceil(100*(1-(elapsed+drained)/stats.seconds)));
-  if (get('meter').value !== battery) get('meter').value = battery;
+  if (batteryMeter.value !== battery) batteryMeter.value = battery;
+  const power = get('#power');
+  power.classList.toggle('battery-low',battery <= 20);
+  power.classList.toggle('battery-warn',battery > 20 && battery <= 45);
   updateHudText('#power b',battery + '%');
   updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
   updateHudText('#time',elapsed.toFixed(1) + ' s');
   updateHudText('#alert',cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',cameraSignal === 'red');
-  get('#power').classList.toggle('hostile',cameraSignal === 'red');
-  updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/2');
+  power.classList.toggle('hostile',cameraSignal === 'red');
+  updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);
   get('#retryFlight').hidden = state !== 'paused';
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
   updateHudText('#best',courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
@@ -1475,7 +1494,7 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
-for (const artwork of [equipmentAtlas,factoryAtlas]) {
+for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas]) {
   artwork.addEventListener('load',() => {terrain = paintTerrain();});
 }
 atlas.addEventListener('load',() => {

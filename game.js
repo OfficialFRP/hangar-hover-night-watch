@@ -155,6 +155,8 @@ let courseIndex, course, drone, elapsed, gate, landing, state, nextAction, recor
 const maxJams = 3;
 const redCameraDrain = 5;
 let jam, jamsLeft, scan, cellCollected;
+let patrols = [];
+let radarLocked = false;
 let missionPage = 0;
 const missionsPerPage = 4;
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -216,13 +218,32 @@ let sceneTitle;
 let afterDialogue;
 let lastLineAction;
 
+function campaignPosition() {
+  return Math.min(progress.campaignCursor ?? progress.campaignNext ?? 0,courses.length);
+}
+function selectStoryMission(index) {
+  if (!courses[index] || !canPractice(index)) return;
+  progress.campaignCursor = index;
+  saveProgress();
+  startBriefing(index);
+}
 function renderStory() {
   const [speaker,dialogue,link] = storyLines[lineIndex];
   get('#storyTitle').textContent = sceneTitle;
-  const secondCase = (progress.campaignNext || 0) >= 12 && (progress.campaignRevealed || 0) >= 12;
-  get('#caseOne').setAttribute('aria-pressed',String(!secondCase || storyLines === campaignReveals[12].lines));
-  get('#caseTwo').setAttribute('aria-pressed',String(secondCase && storyLines !== campaignReveals[12].lines));
+  const position = campaignPosition();
+  const secondCase = position >= 12 && storyLines !== campaignReveals[12].lines;
+  get('#caseOne').setAttribute('aria-pressed',String(!secondCase));
+  get('#caseTwo').setAttribute('aria-pressed',String(secondCase));
   get('#caseTwo').disabled = (progress.campaignNext || 0) < 12;
+  const picker = get('#storyMission');
+  picker.replaceChildren(...courses.flatMap((mission,index) => {
+    if (!canPractice(index)) return [];
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = String(index+1).padStart(2,'0') + ' · ' + mission.name;
+    return [option];
+  }));
+  picker.value = position < courses.length ? String(position) : '';
   const image = get('#portrait');
   image.hidden = !speaker;
   const scene = get('.story-scene');
@@ -270,7 +291,7 @@ function startBriefing(index) {
   });
 }
 function resumeCampaign() {
-  const index = Math.min(progress.campaignNext || 0,courses.length);
+  const index = campaignPosition();
   if (campaignReveals[index] && (index === courses.length || progress.campaignRevealed !== index)) {
     const {title,lines} = campaignReveals[index];
     presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : 'Next chapter',() => {
@@ -303,7 +324,7 @@ function showPage(page) {
   }
 }
 function canPractice(index) {
-  return progress.cleared.includes(index) || index === (progress.campaignNext || 0);
+  return progress.cleared.includes(index) || index === (progress.campaignNext || 0) || index === campaignPosition();
 }
 function renderMissionPage() {
   const last = Math.ceil(courses.length/missionsPerPage)-1;
@@ -415,6 +436,8 @@ function reset(index, fly = false, chapterFlight = false) {
   drone = {x,y,vx:0,vy:0,angle:0};
   elapsed = gate = landing = drained = 0;
   cameraSignal = '';
+  radarLocked = false;
+  patrols = planPatrols();
   jam = scan = 0;
   jamsLeft = maxJams;
   cellCollected = false;
@@ -427,7 +450,10 @@ function reset(index, fly = false, chapterFlight = false) {
     sound('launch');
     overlay.hidden = true;
     action.blur();
-  } else menu(course.name, course.intro, 'Launch drone', () => reset(index,true,storyFlight));
+  } else {
+    const warning = patrols.length ? ' Enemy patrol radar slows flight and drains power. Use Jam to break the lock.' : '';
+    menu(course.name,course.intro+warning,'Launch drone',() => reset(index,true,storyFlight));
+  }
 }
 function finish(won, message) {
   if (courseIndex === -1) {concludeRace(won,message); return;}
@@ -442,7 +468,11 @@ function finish(won, message) {
     const payout = firstClear ? 150 : 50;
     if (firstClear) progress.cleared.push(courseIndex);
     progress.credits += payout;
-    if (storyFlight) progress.campaignNext = Math.max(progress.campaignNext || 0,courseIndex+1);
+    if (storyFlight) {
+      progress.campaignCursor = courseIndex+1;
+      progress.campaignNext = Math.max(progress.campaignNext || 0,courseIndex+1);
+      if (progress.campaignRevealed === courseIndex+1) delete progress.campaignRevealed;
+    }
     saveProgress();
     message += ' +' + payout + ' credits.';
   }
@@ -494,10 +524,11 @@ function update(dt) {
   }
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
-  const crosswind = course.exit ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
+  const crosswind = course.exit || course.quay ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
   const drag = Math.exp(-(braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9)) * dt);
-  drone.vx = (drone.vx + (dx * stats.thrust / diagonal + wind) * dt) * drag;
-  drone.vy = (drone.vy + (dy * stats.thrust / diagonal + crosswind) * dt) * drag;
+  const steering = stats.thrust * (radarLocked && jam === 0 ? .54 : 1);
+  drone.vx = (drone.vx + (dx * steering / diagonal + wind) * dt) * drag;
+  drone.vy = (drone.vy + (dy * steering / diagonal + crosswind) * dt) * drag;
   const previousX = drone.x;
   const previousY = drone.y;
   drone.x += drone.vx * dt;
@@ -521,9 +552,11 @@ function update(dt) {
     cameraSignal = camera[3];
     if (cameraSignal === 'red') break;
   }
-  if (cameraSignal === 'red') {
-    if (previousSignal !== 'red') sound('drain');
-    drained += redCameraDrain * airframe.exposure * dt;
+  const underThreat = previousSignal === 'red' || radarLocked;
+  radarLocked = jam === 0 && patrols.some(patrol => inPatrolRadar(patrol,x,y));
+  if (radarLocked || cameraSignal === 'red') {
+    if (!underThreat) sound('drain');
+    drained += (radarLocked ? 7 : redCameraDrain) * airframe.exposure * dt;
   }
   const cell = chargeCells[courseIndex];
   const chargeSpent = elapsed + drained;
@@ -533,7 +566,7 @@ function update(dt) {
     sound('charge');
   }
   if (elapsed + drained >= stats.seconds) {
-    return finish(false, cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
+    return finish(false, radarLocked ? 'Battery depleted under patrol radar. Break line of sight or use Jam.' : cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
   }
   const target = course.gates[gate];
   const onTarget = target && Math.hypot(x-target[0],y-target[1]) < 29;
@@ -554,6 +587,66 @@ function update(dt) {
     sound('land');
     finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
+}
+const patrolRadius = 66;
+function planPatrols() {
+  if (courseIndex < 0 || (courseIndex+1)%3 !== 0) return [];
+  const count = courseIndex >= 14 ? 2 : 1;
+  const patrolGates = count === 1 ? [1] : [1,course.gates.length-2];
+  return patrolGates.map((gateIndex,index) => {
+    const [gx,gy] = course.gates[gateIndex];
+    const candidates = [[-46,-36],[46,36],[-44,37],[44,-37],[0,42],[0,-42],[0,0]];
+    const [ox,oy] = candidates.find(([ox,oy]) =>
+      [-20,-10,0,10,20].every(dy => {
+        const x = gx+ox, y = gy+oy+dy;
+        return x > 35 && x < 925 && y > 35 && y < 465 &&
+          !course.walls.some(wall => touchesStructure(wall,x,y,13));
+      })) || [0,0];
+    const x = gx+ox, y = gy+oy;
+    const amplitude = [-20,-10,0,10,20].every(dy =>
+      !course.walls.some(wall => touchesStructure(wall,x,y+dy,13))) ? 20 : 0;
+    return {x,y,amplitude,phase:index*Math.PI};
+  });
+}
+function patrolPosition(patrol) {
+  const phase = elapsed*1.4+patrol.phase;
+  return [patrol.x,patrol.y+patrol.amplitude*Math.sin(phase),phase];
+}
+function inPatrolRadar(patrol,x,y) {
+  const [px,py,phase] = patrolPosition(patrol);
+  const dx = x-px, dy = y-py;
+  const angle = Math.atan2(dy,dx)-phase;
+  if (Math.hypot(dx,dy) > patrolRadius || Math.cos(angle) < .48) return false;
+  for (let t=.12;t<1;t+=.12) if (blockedAt(px+dx*t,py+dy*t)) return false;
+  return true;
+}
+function drawPatrol(patrol) {
+  const [x,y,phase] = patrolPosition(patrol);
+  const muted = jam > 0;
+  const color = muted ? '#ba8eff' : '#ffad67';
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color+(muted ? '16' : '36');
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  for (let ray=0;ray<=20;ray++) {
+    const angle = phase-1.07+ray*.107;
+    let reach = patrolRadius;
+    for (let distance=4;distance<patrolRadius;distance+=4) {
+      if (!blockedAt(x+Math.cos(angle)*distance,y+Math.sin(angle)*distance)) continue;
+      reach = distance;
+      break;
+    }
+    ctx.lineTo(x+Math.cos(angle)*reach,y+Math.sin(angle)*reach);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.translate(x,y);
+  paintDrone(ctx,{name:'Sentinel',color,size:14,arms:10,rotor:5},elapsed*20);
+  ctx.restore();
+  label(muted ? 'JAMMED' : 'SENTINEL',x,y-23,color,10);
 }
 const beamReach = 155;
 const beamWidth = .34;
@@ -713,7 +806,7 @@ function drawEquipmentSprite(ctx,w,h,type) {
   const image = workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
   if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
-  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.65;
+  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
   if (rotate) {
     ctx.translate(w,0);
     ctx.rotate(Math.PI/2);
@@ -1128,11 +1221,11 @@ function paintDrone(ctx,frame,spin) {
     ctx.drawImage(storyAtlas,(index-3)*256,0,256,256,-size/2,-size/2,size,size);
     return;
   }
-  if (index < 3 && fleetArt.complete && fleetArt.naturalWidth) {
+  if (index >= 0 && index < 3 && fleetArt.complete && fleetArt.naturalWidth) {
     ctx.drawImage(fleetArt,index*256,0,256,256,-size/2,-size/2,size,size);
     return;
   }
-  if (index < 3 && drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
+  if (index >= 0 && index < 3 && drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
   const {arms,rotor,color} = frame;
   const body = frame === fleet[1] ? 5 : 7;
   ctx.lineCap = 'round';
@@ -1268,7 +1361,7 @@ function drawBatteryPickup(x,y) {
 }
 function draw() {
   ctx.drawImage(terrain,0,0);
-  if (course.exit) {
+  if (course.exit || course.quay) {
     const drift = 29 * Math.sin(elapsed * 2.3);
     ctx.strokeStyle = '#aedcc83a';
     ctx.lineWidth = 1;
@@ -1283,6 +1376,7 @@ function draw() {
     ctx.stroke();
   }
   (course.cameras || []).forEach(drawCamera);
+  patrols.forEach(drawPatrol);
   const cell = chargeCells[courseIndex];
   if (cell && !cellCollected) drawBatteryPickup(...cell);
   label(courseIndex === -1 ? 'RACE' : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
@@ -1346,9 +1440,9 @@ function hud() {
   updateHudText('#power b',battery + '%');
   updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
   updateHudText('#time',elapsed.toFixed(1) + ' s');
-  updateHudText('#alert',cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
-  get('#alert').classList.toggle('danger',cameraSignal === 'red');
-  power.classList.toggle('hostile',cameraSignal === 'red');
+  updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
+  get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
+  power.classList.toggle('hostile',radarLocked || cameraSignal === 'red');
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);
   get('#retryFlight').hidden = state !== 'paused';
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
@@ -1452,26 +1546,17 @@ get('#storyNext').addEventListener('click',() => {
     if (currentPage === 'story' && storyLines === fromLines && lineIndex === fromLine) advance();
   },() => {button.disabled = false;});
 });
+get('#storyMission').addEventListener('change',event => selectStoryMission(Number(event.target.value)));
 get('#caseOne').addEventListener('click',() => {
-  if ((progress.campaignNext || 0) < 12) {resumeCampaign(); return;}
-  presentScene('Case 01 · Sable Freight closed',campaignReveals[12].lines,'Open Case 02',openNorthQuay);
+  if (campaignPosition() < 12) resumeCampaign();
+  else selectStoryMission(0);
 });
-function openNorthQuay() {
+get('#caseTwo').addEventListener('click',() => {
   if ((progress.campaignNext || 0) < 12) return;
-  if ((progress.campaignRevealed || 0) < 12) {
-    progress.campaignRevealed = 12;
-    saveProgress();
-  }
-  resumeCampaign();
-}
-get('#caseTwo').addEventListener('click',openNorthQuay);
-get('#restartStory').addEventListener('click',() => {
-  progress.campaignNext = 0;
-  progress.campaignRevealed = 0;
-  storyFlight = false;
-  saveProgress();
-  startBriefing(0);
+  if (campaignPosition() < 12 || storyLines === campaignReveals[12].lines) selectStoryMission(12);
+  else resumeCampaign();
 });
+get('#restartStory').addEventListener('click',() => selectStoryMission(0));
 get('#prevMission').addEventListener('click',() => {missionPage--; renderMissionPage();});
 get('#nextMission').addEventListener('click',() => {missionPage++; renderMissionPage();});
 get('#jam').addEventListener('click',activateJam);

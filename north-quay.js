@@ -12,12 +12,12 @@ const quayPlans = [
   ['Manifest Cage', 44, 185, [313,182,324,178], 'Record the master ledger inside the freight cage.'],
   ['Tide Gate', 45, 200, [166,330,170,329], 'The tide gate is open. Correct for wind between the divided bays.'],
   ['Black Crane', 47, 225, [331,158,331,169], 'Cameras overlap at the crane. Save a jam for the last two bays.'],
-  ['Morrow Terminal', 49, 245, [165,333,160,335], 'Complete the evidence chain, then extract through the east ferry doors.']
+  ['Morrow Terminal', 49, 245, [165,333,160,335], 'Complete the evidence chain at the ferry terminal.']
 ];
 const quayEquipment = ['winch','crane','rack','cargo','pallet','forklift'];
 const northQuayMissions = quayPlans.map(([name,seconds,wind,lanes,intro],level) => {
   const start = [72,lanes[0]];
-  const exit = [lanes.at(-1),level >= 9 ? 132 : 158];
+  const pad = [914,lanes.at(-1)];
   const gates = [];
   const walls = [];
   const cameras = [];
@@ -38,7 +38,7 @@ const northQuayMissions = quayPlans.map(([name,seconds,wind,lanes,intro],level) 
       cameras.push([x+(i%2 ? 58 : -58),i%2 ? top+7 : bottom-7,i%2 ? 1.22 : -1.22,level<2 && i===1 ? 'green' : 'red']);
     }
   });
-  gates.push([867,exit[0]]);
-  if (level>=9) gates.splice(gates.length-1,0,[810,exit[0]]);
-  return {name,seconds,start,exit,wind,gates,walls,cameras,intro,quay:true};
+  gates.push([867,pad[1]]);
+  if (level>=9) gates.splice(gates.length-1,0,[810,pad[1]]);
+  return {name,seconds,start,pad,wind,gates,walls,cameras,intro:intro+' Land on the east pad after the final scan.',quay:true};
 });

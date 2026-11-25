@@ -354,3 +354,25 @@ header h1 em{
 }
 #power meter::-moz-meter-bar{background:var(--segments),var(--charge)}
 #power.hostile meter{border-color:#ffa19e;box-shadow:0 0 7px #ff406f9c}
+
+.story-mission-picker{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:.7rem 0;
+  color:#a8efdf;font:700 .8rem Night Dialogue,system-ui,sans-serif;
+}
+#storyMission{
+  min-height:44px;max-width:100%;padding:.45em .75em;color:#ebfbfa;
+  background:#182b3b;border:1px solid #598486;border-radius:3px;
+  font:inherit;
+}
+#power{
+  padding:3px 5px;
+  border-left:2px solid var(--battery-bright);
+  background:linear-gradient(90deg,#112431ed,#0a1423a0);
+}
+#power meter{
+  --segments:repeating-linear-gradient(115deg,transparent 0 5px,#101923bb 5px 7px);
+  --charge:linear-gradient(180deg,var(--battery-bright) 0%,var(--battery-dark) 62%,var(--battery-dark));
+  border-color:#4b7881;
+  border-right:3px solid var(--battery-bright);
+  border-radius:1px 4px 4px 1px;
+}

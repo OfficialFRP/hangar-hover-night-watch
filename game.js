@@ -157,6 +157,9 @@ const redCameraDrain = 5;
 let jam, jamsLeft, scan, cellCollected;
 let patrols = [];
 let radarLocked = false;
+let rechargePad, dockTime, padUsed, rechargeFlash;
+const rechargeHold = .65;
+const rechargeAmount = 12;
 let missionPage = 0;
 const missionsPerPage = 4;
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -438,6 +441,9 @@ function reset(index, fly = false, chapterFlight = false) {
   cameraSignal = '';
   radarLocked = false;
   patrols = planPatrols();
+  rechargePad = planRechargePad();
+  dockTime = rechargeFlash = 0;
+  padUsed = false;
   jam = scan = 0;
   jamsLeft = maxJams;
   cellCollected = false;
@@ -451,8 +457,9 @@ function reset(index, fly = false, chapterFlight = false) {
     overlay.hidden = true;
     action.blur();
   } else {
-    const warning = patrols.length ? ' Enemy patrol radar slows flight and drains power. Use Jam to break the lock.' : '';
-    menu(course.name,course.intro+warning,'Launch drone',() => reset(index,true,storyFlight));
+    const warning = patrols.length ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
+    const recharge = rechargePad ? ' Hold steady on the cyan charge pad for a one-time top-up.' : '';
+    menu(course.name,course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
   }
 }
 function finish(won, message) {
@@ -508,6 +515,7 @@ const clamp = (value,min,max) => Math.max(min,Math.min(value,max));
 function update(dt) {
   elapsed += dt;
   jam = Math.max(0,jam-dt);
+  rechargeFlash = Math.max(0,rechargeFlash-dt);
   const dx = clamp(+pressed('ArrowRight','d') - +pressed('ArrowLeft','a') + stick.x,-1,1);
   const dy = clamp(+pressed('ArrowDown','s') - +pressed('ArrowUp','w') + stick.y,-1,1);
   const diagonal = Math.max(1,Math.hypot(dx,dy));
@@ -525,8 +533,10 @@ function update(dt) {
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
   const crosswind = course.exit || course.quay ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
-  const drag = Math.exp(-(braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9)) * dt);
-  const steering = stats.thrust * (radarLocked && jam === 0 ? .54 : 1);
+  const restricted = radarLocked && jam === 0;
+  const damping = braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9);
+  const drag = Math.exp(-(damping+(restricted ? 2.1 : 0))*dt);
+  const steering = stats.thrust * (restricted ? .32 : 1);
   drone.vx = (drone.vx + (dx * steering / diagonal + wind) * dt) * drag;
   drone.vy = (drone.vy + (dy * steering / diagonal + crosswind) * dt) * drag;
   const previousX = drone.x;
@@ -553,7 +563,8 @@ function update(dt) {
     if (cameraSignal === 'red') break;
   }
   const underThreat = previousSignal === 'red' || radarLocked;
-  radarLocked = jam === 0 && patrols.some(patrol => inPatrolRadar(patrol,x,y));
+  for (const patrol of patrols) updatePatrol(patrol,x,y,dt);
+  radarLocked = jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
   if (radarLocked || cameraSignal === 'red') {
     if (!underThreat) sound('drain');
     drained += (radarLocked ? 7 : redCameraDrain) * airframe.exposure * dt;
@@ -565,6 +576,7 @@ function update(dt) {
     cellCollected = true;
     sound('charge');
   }
+  chargeOnPad(x,y,vx,vy,dt);
   if (elapsed + drained >= stats.seconds) {
     return finish(false, radarLocked ? 'Battery depleted under patrol radar. Break line of sight or use Jam.' : cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
   }
@@ -588,6 +600,36 @@ function update(dt) {
     finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
 }
+function planRechargePad() {
+  if (courseIndex === -1) return null;
+  const anchors = [course.gates[Math.floor(course.gates.length/2)],course.start];
+  const offsets = [[-54,0],[54,0],[0,52],[0,-52],[-48,47],[48,-47],[46,46],[-46,-46]];
+  for (const [ax,ay] of anchors) {
+    for (const [ox,oy] of offsets) {
+      const x = ax+ox, y = ay+oy;
+      if (x < 40 || x > 920 || y < 48 || y > 445) continue;
+      if (course.walls.some(wall => touchesStructure(wall,x,y,37))) continue;
+      if (course.gates.some(([gx,gy]) => Math.hypot(x-gx,y-gy)<49)) continue;
+      if (course.pad && Math.hypot(x-course.pad[0],y-course.pad[1])<82) continue;
+      const cell = chargeCells[courseIndex];
+      if (cell && Math.hypot(x-cell[0],y-cell[1])<45) continue;
+      return [x,y];
+    }
+  }
+  return null;
+}
+function chargeOnPad(x,y,vx,vy,dt) {
+  if (!rechargePad || padUsed) return;
+  const [px,py] = rechargePad;
+  const spent = elapsed+drained;
+  const docked = spent >= 2 && Math.hypot(x-px,y-py)<24 && Math.hypot(vx,vy)<stats.landingSpeed;
+  dockTime = docked ? dockTime+dt : 0;
+  if (dockTime < rechargeHold) return;
+  drained -= Math.min(rechargeAmount,spent);
+  padUsed = true;
+  rechargeFlash = 1.2;
+  sound('charge');
+}
 const patrolRadius = 66;
 function planPatrols() {
   if (courseIndex < 0 || (courseIndex+1)%3 !== 0) return [];
@@ -605,25 +647,42 @@ function planPatrols() {
     const x = gx+ox, y = gy+oy;
     const amplitude = [-20,-10,0,10,20].every(dy =>
       !course.walls.some(wall => touchesStructure(wall,x,y+dy,13))) ? 20 : 0;
-    return {x,y,amplitude,phase:index*Math.PI};
+    return {x,y,homeX:x,homeY:y,amplitude,phase:index*Math.PI,heading:index*Math.PI,pursuing:false};
   });
 }
 function patrolPosition(patrol) {
-  const phase = elapsed*1.4+patrol.phase;
-  return [patrol.x,patrol.y+patrol.amplitude*Math.sin(phase),phase];
+  return [patrol.x,patrol.y,patrol.heading];
 }
 function inPatrolRadar(patrol,x,y) {
-  const [px,py,phase] = patrolPosition(patrol);
-  const dx = x-px, dy = y-py;
-  const angle = Math.atan2(dy,dx)-phase;
-  if (Math.hypot(dx,dy) > patrolRadius || Math.cos(angle) < .48) return false;
-  for (let t=.12;t<1;t+=.12) if (blockedAt(px+dx*t,py+dy*t)) return false;
+  const dx = x-patrol.x, dy = y-patrol.y;
+  const angle = Math.atan2(dy,dx)-patrol.heading;
+  const reach = patrol.pursuing ? 104 : patrolRadius;
+  if (Math.hypot(dx,dy) > reach || Math.cos(angle) < .48) return false;
+  for (let t=.12;t<1;t+=.12) if (blockedAt(patrol.x+dx*t,patrol.y+dy*t)) return false;
   return true;
+}
+function updatePatrol(patrol,x,y,dt) {
+  if (patrol.pursuing) patrol.heading = Math.atan2(y-patrol.y,x-patrol.x);
+  patrol.pursuing = jam === 0 && inPatrolRadar(patrol,x,y);
+  const phase = elapsed*1.4+patrol.phase;
+  const targetX = patrol.pursuing ? x : patrol.homeX;
+  const targetY = patrol.pursuing ? y : patrol.homeY+patrol.amplitude*Math.sin(phase);
+  const dx = targetX-patrol.x, dy = targetY-patrol.y;
+  const distance = Math.hypot(dx,dy);
+  const step = Math.min(Math.max(0,distance-(patrol.pursuing ? 33 : 0)),(patrol.pursuing ? 121 : 74)*dt);
+  if (!patrol.pursuing) patrol.heading = phase;
+  if (!step) return;
+  const nextX = patrol.x+dx/distance*step;
+  const nextY = patrol.y+dy/distance*step;
+  if (nextX < 14 || nextX > 946 || nextY < 14 || nextY > 486 ||
+      course.walls.some(wall => touchesStructure(wall,nextX,nextY,11))) return;
+  patrol.x = nextX;
+  patrol.y = nextY;
 }
 function drawPatrol(patrol) {
   const [x,y,phase] = patrolPosition(patrol);
   const muted = jam > 0;
-  const color = muted ? '#ba8eff' : '#ffad67';
+  const color = muted ? '#ba8eff' : patrol.pursuing ? '#ff637c' : '#ffad67';
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color+(muted ? '16' : '36');
@@ -632,8 +691,8 @@ function drawPatrol(patrol) {
   ctx.moveTo(x,y);
   for (let ray=0;ray<=20;ray++) {
     const angle = phase-1.07+ray*.107;
-    let reach = patrolRadius;
-    for (let distance=4;distance<patrolRadius;distance+=4) {
+    let reach = patrol.pursuing ? 104 : patrolRadius;
+    for (let distance=4;distance<reach;distance+=4) {
       if (!blockedAt(x+Math.cos(angle)*distance,y+Math.sin(angle)*distance)) continue;
       reach = distance;
       break;
@@ -646,7 +705,7 @@ function drawPatrol(patrol) {
   ctx.translate(x,y);
   paintDrone(ctx,{name:'Sentinel',color,size:14,arms:10,rotor:5},elapsed*20);
   ctx.restore();
-  label(muted ? 'JAMMED' : 'SENTINEL',x,y-23,color,10);
+  label(muted ? 'JAMMED' : patrol.pursuing ? 'PURSUIT' : 'SENTINEL',x,y-23,color,10);
 }
 const beamReach = 155;
 const beamWidth = .34;
@@ -1337,6 +1396,27 @@ function drawLandingPad() {
     ctx.stroke();
   }
 }
+function drawRechargePad() {
+  if (!rechargePad) return;
+  const [x,y] = rechargePad;
+  const color = padUsed ? '#617c89' : '#69ffe1';
+  ctx.save();
+  ctx.fillStyle = '#10282f';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x-26,y-26,52,52,7);
+  ctx.fill();
+  ctx.stroke();
+  label('ϟ',x,y,color,33);
+  label(padUsed ? 'SPENT' : 'CHARGE',x,y+36,color,10);
+  if (dockTime > 0 && !padUsed) {
+    ctx.beginPath();
+    ctx.arc(x,y,30,-Math.PI/2,-Math.PI/2+2*Math.PI*Math.min(1,dockTime/rechargeHold));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawBatteryPickup(x,y) {
   ctx.save();
   ctx.translate(x,y);
@@ -1402,6 +1482,7 @@ function draw() {
   });
   if (course.exit) drawWarehouseExit();
   else drawLandingPad();
+  drawRechargePad();
   if (jam > 0) {
     const phase = ((2.5-jam)*2)%1;
     ctx.strokeStyle = 'rgba(208,160,255,' + (1-phase)*.65 + ')';
@@ -1437,10 +1518,11 @@ function hud() {
   const power = get('#power');
   power.classList.toggle('battery-low',battery <= 20);
   power.classList.toggle('battery-warn',battery > 20 && battery <= 45);
+  power.classList.toggle('battery-charge',(dockTime > 0 && !padUsed) || rechargeFlash > 0);
   updateHudText('#power b',battery + '%');
   updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
   updateHudText('#time',elapsed.toFixed(1) + ' s');
-  updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
+  updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : dockTime > 0 && !padUsed ? 'ϟ CHARGING' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
   power.classList.toggle('hostile',radarLocked || cameraSignal === 'red');
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);

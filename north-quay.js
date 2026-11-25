@@ -17,7 +17,7 @@ const quayPlans = [
 const quayEquipment = ['winch','crane','rack','cargo','pallet','forklift'];
 const northQuayMissions = quayPlans.map(([name,seconds,wind,lanes,intro],level) => {
   const start = [72,lanes[0]];
-  const pad = [914,lanes.at(-1)];
+  const exit = [lanes.at(-1),level >= 9 ? 132 : 158];
   const gates = [];
   const walls = [];
   const cameras = [];
@@ -38,7 +38,7 @@ const northQuayMissions = quayPlans.map(([name,seconds,wind,lanes,intro],level) 
       cameras.push([x+(i%2 ? 58 : -58),i%2 ? top+7 : bottom-7,i%2 ? 1.22 : -1.22,level<2 && i===1 ? 'green' : 'red']);
     }
   });
-  gates.push([867,pad[1]]);
-  if (level>=9) gates.splice(gates.length-1,0,[810,pad[1]]);
-  return {name,seconds,start,pad,wind,gates,walls,cameras,intro:intro+' Land on the east pad after the final scan.',quay:true};
+  gates.push([867,exit[0]]);
+  if (level>=9) gates.splice(gates.length-1,0,[810,exit[0]]);
+  return {name,seconds,start,exit,wind,gates,walls,cameras,intro:intro+' Fly through the east door after the final scan.',quay:true};
 });

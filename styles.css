@@ -376,3 +376,22 @@ header h1 em{
   border-right:3px solid var(--battery-bright);
   border-radius:1px 4px 4px 1px;
 }
+
+#power{
+  background:linear-gradient(110deg,#142c39,#0d1728 80%);
+  border:1px solid #31525c;border-left:3px solid var(--battery-bright);
+  border-radius:3px 9px 3px 3px;
+  box-shadow:inset 0 1px #8ed5cf2e;
+}
+#power meter{
+  --segments:repeating-linear-gradient(113deg,#ffffff0d 0 4px,#0000 4px 8px,#091725 8px 10px);
+  --charge:linear-gradient(180deg,var(--battery-bright),var(--battery-dark) 74%);
+  height:14px;
+  border:1px solid #64868a;
+  border-right:3px solid var(--battery-bright);
+  box-shadow:0 0 5px color-mix(in srgb,var(--battery-bright) 45%,transparent);
+}
+#power.battery-charge:not(.hostile){
+  --battery-bright:#a0ff9d;--battery-dark:#269a69;color:#d9ffce;
+}
+#power.battery-charge:not(.hostile) meter{box-shadow:0 0 8px #8fff8e9c}

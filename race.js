@@ -12,22 +12,35 @@ const racePilots = {
 const randomBetween = (min,max) => min + (max-min)*Math.random();
 const pick = options => options[Math.floor(Math.random()*options.length)];
 const raceDistricts = [
-  {name:'Loading Bay Sprint', props:['cargo','forklift','pallet','hangar'], y:[220,315,180,270]},
+  {name:'Loading Bay Sprint', props:['cargo','forklift','pallet','hangar','toolbox'], y:[220,315,180,270]},
   {name:'Rail Yard Sprint', props:['train','cargo','rack','pallet'], y:[155,320,185,320]},
-  {name:'Floodworks Sprint', props:['water','tank','rack','pallet'], y:[310,200,300,190]},
-  {name:'Sorting Floor Sprint', props:['rack','forklift','cargo','pallet'], y:[200,320,210,290]},
+  {name:'Floodworks Sprint', props:['water','tank','rack','pump','manifold'], y:[310,200,300,190]},
+  {name:'Sorting Floor Sprint', props:['rack','forklift','cargo','laser','assembly'], y:[200,320,210,290]},
   {name:'Gale Warehouse Sprint', props:['cargo','fan','drum','forklift'], y:[225,305,205,285], wind:175}
 ];
-function generateRace(playerFrame,previousRival,previousCourse) {
-  const rival = pick(Object.keys(racePilots).filter(name => name !== previousRival));
-  const frame = pick(fleet.filter(frame => frame !== playerFrame));
-  const ordinary = raceDistricts.filter(district => !district.wind && district.name !== previousCourse);
-  const crosswind = raceDistricts[raceDistricts.length-1];
-  const district = previousCourse !== crosswind.name && Math.random() < .25 ? crosswind : pick(ordinary);
+const raceSectionCount = 3;
+function generateRace(playerFrame,previousRival,previousCourse,existingRival,existingFrame) {
+  const rival = existingRival || pick(Object.keys(racePilots).filter(name => name !== previousRival));
+  const frame = existingFrame || pick(fleet.filter(frame => frame !== playerFrame));
+  const crosswind = raceDistricts.find(district => district.wind);
+  const available = raceDistricts.filter(district => !district.wind && district.name !== previousCourse);
+  const sections = [];
+  const windSection = Math.random() < .35 ? 1+Math.floor(Math.random()*2) : -1;
+  let finishTime = 0;
+  for (let index=0;index<raceSectionCount;index++) {
+    const district = index === windSection ? crosswind : available.splice(Math.floor(Math.random()*available.length),1)[0];
+    const segment = generateRaceSection(district,index);
+    sections.push({...segment,startTime:finishTime});
+    finishTime += segment.splits.at(-1);
+  }
+  return {rival,frame,sections,finishTime};
+}
+function generateRaceSection(district,index) {
   const start = [64,250];
   const exit = [Math.round(randomBetween(168,332)),152];
   const gates = [];
   const walls = [];
+  const cameras = [];
   const path = [start];
   for (let column=0;column<4;column++) {
     const x = 172 + column*187 + randomBetween(-12,12);
@@ -46,6 +59,11 @@ function generateRace(playerFrame,previousRival,previousCourse) {
         walls.push([left,top,width,height,pick(district.props)]);
       }
     }
+    if (column === (index+1)%4) {
+      const top = y-halfGap-22 < 34;
+      const offset = top ? 45 : -45;
+      cameras.push([left-28,y+offset,top ? -.35 : .35,index === 0 ? 'green' : 'red']);
+    }
     const line = y+randomBetween(-15,15);
     path.push([left-25,line],[x+width/2+25,line]);
   }
@@ -58,16 +76,21 @@ function generateRace(playerFrame,previousRival,previousCourse) {
     splits.push(splits[i-1]+Math.hypot(x-px,y-py)/(speed*randomBetween(.87,1.12)));
   }
   return {
-    rival,frame,path,splits,finishTime:splits[splits.length-1],
-    course:{name:district.name,seconds:38,start,exit,gates,walls,wind:district.wind || 0,
-      intro:(district.wind ? 'Crosswinds are active. ' : '') + 'Clear four checkpoints in order, then fly through the east shutter.'}
+    path,splits,
+    course:{name:district.name,seconds:64,start,exit,gates,walls,cameras,wind:district.wind || 0,
+      sentinels:index === 0 ? 0 : 1,
+      intro:'Race through three sections. Clear four gates per section and fly through each east shutter. Battery, time, and jams carry over.'}
   };
 }
 function rivalPosition(race,time) {
-  const next = race.splits.findIndex(split => split > time);
-  if (next < 0) return null;
-  const ratio = (time-race.splits[next-1])/(race.splits[next]-race.splits[next-1]);
-  const [x,y] = race.path[next-1];
-  const [nx,ny] = race.path[next];
-  return [x+(nx-x)*ratio,y+(ny-y)*ratio,Math.atan2(ny-y,nx-x)+Math.PI/2];
+  if (time < 0 || time >= race.finishTime) return null;
+  const index = race.sections.findLastIndex(section => section.startTime <= time);
+  const section = race.sections[index];
+  const local = time-section.startTime;
+  const next = section.splits.findIndex(split => split > local);
+  if (next < 1) return null;
+  const ratio = (local-section.splits[next-1])/(section.splits[next]-section.splits[next-1]);
+  const [x,y] = section.path[next-1];
+  const [nx,ny] = section.path[next];
+  return [x+(nx-x)*ratio,y+(ny-y)*ratio,Math.atan2(ny-y,nx-x)+Math.PI/2,index];
 }

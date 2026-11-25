@@ -165,6 +165,7 @@ const pageButtons = [...document.querySelectorAll('[data-page]')];
 let currentPage = 'flight';
 let storyFlight = false;
 let race;
+let raceSection = 0;
 let nextRaceCall;
 let raceCallouts = 0;
 let wasBraking = false;
@@ -178,10 +179,16 @@ function selectRace() {
   if (!race && progress.raceMatch) {
     const saved = progress.raceMatch;
     const frame = fleet.find(frame => frame.name === saved.frame?.name);
-    if (frame && racePilots[saved.rival] && saved.course) race = {...saved,frame};
+    if (frame && racePilots[saved.rival]) {
+      race = saved.sections?.length === raceSectionCount ? {...saved,frame} :
+        generateRace(fleet[progress.selected],null,null,saved.rival,frame);
+      race.defeated = saved.defeated;
+      progress.raceMatch = race;
+      saveProgress();
+    }
   }
   if (!race || race.defeated) {
-    race = generateRace(fleet[progress.selected],race?.rival,race?.course.name);
+    race = generateRace(fleet[progress.selected],race?.rival,race?.sections[0].course.name);
     progress.raceMatch = race;
     saveProgress();
   }
@@ -190,8 +197,8 @@ function selectRace() {
   get('#racePortrait').alt = name;
   get('#raceSpeaker').textContent = name + ' · ' + role;
   get('#raceQuote').textContent = '“' + raceLine(0) + '”';
-  get('#raceTitle').textContent = race.course.name;
-  get('#raceMatch').textContent = 'Rival drone: ' + race.frame.name + ' · 110 CR win / 35 CR finish';
+  get('#raceTitle').textContent = 'Three-section race';
+  get('#raceMatch').textContent = 'Rival drone: ' + race.frame.name + ' · 3 sections · 110 CR win / 35 CR finish';
   reset(-1);
   showPage('race');
 }
@@ -428,7 +435,8 @@ function menu(title, message, label, callback) {
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
   courseIndex = index;
-  course = index === -1 ? race.course : courses[index];
+  raceSection = 0;
+  course = index === -1 ? race.sections[0].course : courses[index];
   nextRaceCall = 3;
   raceCallouts = 0;
   wasBraking = false;
@@ -456,7 +464,7 @@ function reset(index, fly = false, chapterFlight = false) {
     overlay.hidden = true;
     action.blur();
   } else {
-    const warning = patrols.length ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
+    const warning = (patrols.length || index === -1) ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
     const recharge = rechargePack ? ' Fly through the battery pack for a top-up.' : '';
     menu(course.name,course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
   }
@@ -526,7 +534,7 @@ function update(dt) {
     nextRaceCall += 3.2;
     raceCallouts++;
     const rival = rivalPosition(race,elapsed);
-    const ahead = rival && drone.x >= rival[0];
+    const ahead = rival && (raceSection > rival[3] || (raceSection === rival[3] && drone.x >= rival[0]));
     get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
   }
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
@@ -588,7 +596,10 @@ function update(dt) {
     sound('scan');
   }
   if (course.exit) {
-    if (doorOpen && x >= 960) finish(true,'All ' + course.gates.length + ' targets recorded. Warehouse cleared in ' + elapsed.toFixed(1) + ' seconds.');
+    if (doorOpen && x >= 960) {
+      if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
+      else finish(true,'Warehouse cleared in ' + elapsed.toFixed(1) + ' seconds.');
+    }
     return;
   }
   const [px,py] = course.pad;
@@ -599,8 +610,22 @@ function update(dt) {
     finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
 }
+function advanceRaceSection() {
+  raceSection++;
+  course = race.sections[raceSection].course;
+  const [x,y] = course.start;
+  drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:0};
+  gate = scan = 0;
+  cameraSignal = '';
+  radarLocked = false;
+  patrols = planPatrols();
+  rechargePack = planRechargePack();
+  packCollected = false;
+  terrain = paintTerrain();
+  get('#raceLive').textContent = 'Section ' + (raceSection+1) + ' / ' + raceSectionCount + ' · ' + course.name;
+  sound('scan');
+}
 function planRechargePack() {
-  if (courseIndex === -1) return null;
   const anchors = [course.gates[Math.floor(course.gates.length/2)],course.start];
   const offsets = [[-54,0],[54,0],[0,52],[0,-52],[-48,47],[48,-47],[46,46],[-46,-46]];
   for (const [ax,ay] of anchors) {
@@ -629,8 +654,8 @@ function collectRechargePack(x,y) {
 }
 const patrolRadius = 66;
 function planPatrols() {
-  if (courseIndex < 0 || (courseIndex+1)%3 !== 0) return [];
-  const count = courseIndex >= 14 ? 2 : 1;
+  const count = courseIndex === -1 ? course.sentinels || 0 : (courseIndex+1)%3 === 0 ? (courseIndex >= 14 ? 2 : 1) : 0;
+  if (!count) return [];
   const patrolGates = count === 1 ? [1] : [1,course.gates.length-2];
   return patrolGates.map((gateIndex,index) => {
     const [gx,gy] = course.gates[gateIndex];
@@ -1435,7 +1460,7 @@ function draw() {
   patrols.forEach(drawPatrol);
   const cell = chargeCells[courseIndex];
   if (cell && !cellCollected) drawBatteryPickup(...cell);
-  label(courseIndex === -1 ? 'RACE' : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
+  label(courseIndex === -1 ? 'RACE ' + (raceSection+1) + '/' + raceSectionCount : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
   label(state === 'flying' ? '● LIVE' : '○ STANDBY',884,27,'#acd2ce',15);
   course.gates.forEach(([x,y], index) => {
     const active = index === gate;
@@ -1469,7 +1494,7 @@ function draw() {
   ctx.save();
   if (courseIndex === -1 && state !== 'ready') {
     const rival = rivalPosition(race,elapsed);
-    if (rival) {
+    if (rival && rival[3] === raceSection) {
       ctx.save();
       ctx.translate(rival[0],rival[1]);
       ctx.rotate(rival[2]);
@@ -1496,7 +1521,7 @@ function hud() {
   power.classList.toggle('battery-warn',battery > 20 && battery <= 45);
   power.classList.toggle('battery-charge',rechargeFlash > 0);
   updateHudText('#power b',battery + '%');
-  updateHudText('#gates',(courseIndex === -1 ? 'Gates ' : 'Intel ') + gate + '/' + course.gates.length);
+  updateHudText('#gates',(courseIndex === -1 ? (raceSection+1) + '/' + raceSectionCount + ' · Gates ' : 'Intel ') + gate + '/' + course.gates.length);
   updateHudText('#time',elapsed.toFixed(1) + ' s');
   updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');

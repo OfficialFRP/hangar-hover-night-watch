@@ -5,7 +5,9 @@ const racePilots = {
   director: [['This run is off the record.','Let’s see what your training bought you.'],['Excellent clearance. Stay focused.','Good judgment through that gate.'],['I’m putting that split in your file.','You can do better than that.']],
   sable: [['I know every aisle in this building.','Try to keep up with my schedule.'],['You found a good line. I’ll give you that.','Not bad. Make the next one count.'],['Late again. That won’t do.','I’ll be at the shutter when you’re ready.']],
   iman: [['I’ve wanted to race this floor for years.','Let’s put these empty aisles to work.'],['Nice! You took that gap clean.','That’s the line I’d have picked.'],['You’re drifting into my delivery window.','The last pallet moved faster.']],
-  reed: [['Keep it clean. The clock is the only opponent.','I’m treating this like a qualification run.'],['Good execution. Finish strong.','You kept your head in that turn.'],['I’m pulling ahead. Show me another gear.','That split won’t make the cut.']]
+  reed: [['Keep it clean. The clock is the only opponent.','I’m treating this like a qualification run.'],['Good execution. Finish strong.','You kept your head in that turn.'],['I’m pulling ahead. Show me another gear.','That split won’t make the cut.']],
+  kade: [['Ready to race a tug mechanic?','I’ll see you at the shutter.'],['You read that gust well.','That’s a clean line.'],['You’re running wide. Catch up.','I’ve seen tugs corner tighter.']],
+  morrow: [['Let’s see if you can keep up.','I know this quay. Do you?'],['That was a good line.','You’ve done your homework.'],['You’re giving away time.','The quay can be unforgiving.']]
 };
 const randomBetween = (min,max) => min + (max-min)*Math.random();
 const pick = options => options[Math.floor(Math.random()*options.length)];

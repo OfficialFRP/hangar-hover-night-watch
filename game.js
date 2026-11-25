@@ -23,7 +23,8 @@ const courses = [
      [845,351,46,53,'drum'],[882,115,52,47,'fan'],[891,326,44,52,'fan']],
    cameras:[[314,287,-1.6,'green'],[671,267,1.3,'red'],[873,72,1.3,'red']],
    intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'},
-  ...chapters
+  ...chapters,
+  ...northQuayMissions
 ];
 
 const fleet = [
@@ -31,7 +32,9 @@ const fleet = [
   {name:'Swift X2', color:'#ffc27d', thrust:590, battery:-3, brake:9.5, size:15, exposure:1.18, arms:8, rotor:5, windResponse:1.1, desc:'Fastest frame · shorter battery'},
   {name:'Warden L3', color:'#aebeff', thrust:395, battery:7, brake:10.5, size:18, exposure:.72, arms:13, rotor:7, windResponse:.55, desc:'Extended props · steadier in gusts'},
   {name:'Aurel G7', color:'#ffd771', thrust:414, battery:12, brake:15, size:17, exposure:.84, arms:13, rotor:7, windResponse:.21, stability:2.55, desc:'Gold endurance frame · long battery and low drift'},
-  {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'}
+  {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'},
+  {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:450, desc:'Stealth interceptor · compact, fast, and stable'},
+  {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:700, desc:'Heavy rescue frame · exceptional power and endurance'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
@@ -40,7 +43,7 @@ const upgrades = [
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
 function loadProgress() {
-  const initial = {credits:100, cleared:[], selected:0, levels:fleet.map(() => [0,0,0])};
+  const initial = {credits:100, cleared:[], selected:0, ownedFrames:[], levels:fleet.map(() => [0,0,0])};
   try {
     const saved = JSON.parse(localStorage.getItem(saveKey));
     if (!saved) return initial;
@@ -55,6 +58,8 @@ function saveProgress() {
 // Each mission can place one optional battery cell at [x, y].
 const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730,283],[562,391],[440,238],[586,365],[587,346],[575,342]];
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
+const quayAtlas = new Image();
+quayAtlas.src = 'assets/north-quay-drones.webp';
 const storyAtlas = new Image();
 storyAtlas.src = 'assets/specialty-drones.webp';
 const fleetArt = new Image();
@@ -67,7 +72,7 @@ function drawSprite(surface,index,x,y,w,h) {
   return true;
 }
 
-const music = new Audio('assets/night-spy.mp3');
+const music = new Audio('assets/north-quay-score.mp3');
 music.loop = true;
 music.volume = .30;
 const effects = Object.fromEntries(['launch','scan','jam','drain','charge','crash','complete','throttle','brake','land','race-win'].map(name => {
@@ -107,6 +112,11 @@ const frameButtons = fleet.map((frame,index) => {
   button.className = 'frame-option';
   button.addEventListener('click',() => {
     if (state === 'flying' || state === 'paused') return;
+    if (frame.cost && !progress.ownedFrames.includes(index)) {
+      if (progress.credits < frame.cost) return;
+      progress.credits -= frame.cost;
+      progress.ownedFrames.push(index);
+    }
     progress.selected = index;
     saveProgress();
     reset(courseIndex,false,storyFlight);
@@ -153,7 +163,7 @@ function selectRace() {
     saveProgress();
   }
   const [name,role,portrait] = crew[race.rival];
-  get('#racePortrait').src = 'assets/crew-expression-' + portrait + '.webp';
+  get('#racePortrait').src = 'assets/crew-' + (portrait < 8 ? 'expression-' : '') + portrait + '.webp';
   get('#racePortrait').alt = name;
   get('#raceSpeaker').textContent = name + ' · ' + role;
   get('#raceQuote').textContent = '“' + raceLine(0) + '”';
@@ -190,6 +200,10 @@ let lastLineAction;
 function renderStory() {
   const [speaker,dialogue,link] = storyLines[lineIndex];
   get('#storyTitle').textContent = sceneTitle;
+  const secondCase = (progress.campaignNext || 0) >= 12 && (progress.campaignRevealed || 0) >= 12;
+  get('#caseOne').setAttribute('aria-pressed',String(!secondCase || storyLines === campaignReveals[12].lines));
+  get('#caseTwo').setAttribute('aria-pressed',String(secondCase && storyLines !== campaignReveals[12].lines));
+  get('#caseTwo').disabled = (progress.campaignNext || 0) < 12;
   const image = get('#portrait');
   image.hidden = !speaker;
   const scene = get('.story-scene');
@@ -197,7 +211,7 @@ function renderStory() {
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
     const variant = speaker === 'rook' && sceneTitle.includes('Sable’s Signature') ? 7 : portrait;
-    image.src = 'assets/crew-' + (storyLines.length > 1 ? 'expression-' : '') + variant + '.webp';
+    image.src = 'assets/crew-' + (storyLines.length > 1 && variant < 8 ? 'expression-' : '') + variant + '.webp';
     image.alt = name + ', ' + role;
     get('#speaker').textContent = name + ' · ' + role;
   } else {
@@ -231,7 +245,7 @@ function presentScene(title,lines,label,callback) {
 }
 function startBriefing(index) {
   const [chapter,speaker,line] = campaignBriefs[index];
-  presentScene(chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
+  presentScene((index < 12 ? 'Case 01' : 'Case 02') + ' · ' + chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
     reset(index,false,true);
     showPage('flight');
   });
@@ -240,7 +254,7 @@ function resumeCampaign() {
   const index = Math.min(progress.campaignNext || 0,courses.length);
   if (campaignReveals[index] && (index === courses.length || progress.campaignRevealed !== index)) {
     const {title,lines} = campaignReveals[index];
-    presentScene(title,lines,index === courses.length ? 'Mission select' : 'Next chapter',() => {
+    presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : 'Next chapter',() => {
       if (index === courses.length) {showPage('missions'); return;}
       progress.campaignRevealed = index;
       saveProgress();
@@ -317,9 +331,10 @@ function renderHangar() {
   frameButtons.forEach((button,index) => {
     const frame = fleet[index];
     const selected = index === progress.selected;
-    button.disabled = active;
+    const locked = frame.cost && !progress.ownedFrames.includes(index);
+    button.disabled = active || (locked && progress.credits < frame.cost);
     button.setAttribute('aria-pressed',selected);
-    button.innerHTML = '<strong>' + frame.name + '</strong><small>' + frame.desc + '</small><span>' + (selected ? '✓ EQUIPPED' : 'EQUIP') + '</span>';
+    button.innerHTML = '<strong>' + frame.name + '</strong><small>' + frame.desc + '</small><span>' + (selected ? '✓ EQUIPPED' : locked ? 'UNLOCK · '+frame.cost+' CR' : 'EQUIP') + '</span>';
   });
   modButtons.forEach(({button,info},index) => {
     const upgrade = upgrades[index];
@@ -402,7 +417,7 @@ function finish(won, message) {
   const hasNext = won && courseIndex < courses.length - 1;
   if (won && storyFlight) {
     const reveal = campaignReveals[courseIndex+1];
-    const title = hasNext ? 'Intel secured' : 'MISSION ACCOMPLISHED';
+    const title = hasNext ? (courseIndex === 11 ? 'Case 01 closed' : 'Intel secured') : 'MISSION ACCOMPLISHED';
     menu(title,message,reveal ? (hasNext ? 'Chapter reveal' : 'Epilogue') : 'Next briefing',resumeCampaign);
   } else {
     menu(won ? (course.exit ? 'Intel secured' : 'Touchdown!') : 'Flight ended',
@@ -450,16 +465,21 @@ function update(dt) {
   const drag = Math.exp(-(braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9)) * dt);
   drone.vx = (drone.vx + (dx * stats.thrust / diagonal + wind) * dt) * drag;
   drone.vy = (drone.vy + (dy * stats.thrust / diagonal + crosswind) * dt) * drag;
+  const previousX = drone.x;
+  const previousY = drone.y;
   drone.x += drone.vx * dt;
   drone.y += drone.vy * dt;
   drone.angle = drone.vx / 500;
-  const {x,y,vx,vy} = drone;
   const radius = airframe.size;
-  const hitWall = course.walls.some(wall => touchesStructure(wall,x,y,radius));
+  const strikes = course.walls.filter(wall => touchesStructure(wall,drone.x,drone.y,radius));
+  if (strikes.length && (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY))) {
+    return finish(false,'The drone hit an obstacle. Brake before tight turns.');
+  }
+  const {x,y,vx,vy} = drone;
   const doorOpen = course.exit && gate === course.gates.length &&
     Math.abs(y-course.exit[0]) < course.exit[1]/2-radius;
-  if (hitWall || x<radius || (x>960-radius && !doorOpen) || y<radius || y>500-radius)
-    return finish(false,'The drone hit an obstacle. Brake before tight turns.');
+  if (x<radius || (x>960-radius && !doorOpen) || y<radius || y>500-radius)
+    return finish(false,'The drone hit the perimeter.');
   // Use the strongest visible signal so overlapping red beams do not stack.
   const previousSignal = cameraSignal;
   cameraSignal = '';
@@ -656,6 +676,60 @@ function warehouseProp(ctx,w,h,type) {
     for (const x of [5,w-10]) surfacePanel(ctx,x,5,5,h-10,'#ffad53','#7f492d',1);
   }
 }
+const isPadded = type => type === 'foam' || type === 'fender';
+function bounceOff(wall,previousX,previousY) {
+  const [x,y,w,h,type] = wall;
+  const corner = cornerRadius(w,h,type);
+  const dx = drone.x-clamp(drone.x,x+corner,x+w-corner);
+  const dy = drone.y-clamp(drone.y,y+corner,y+h-corner);
+  const distance = Math.hypot(dx,dy);
+  if (!distance) return false;
+  const nx = dx/distance, ny = dy/distance;
+  const inbound = drone.vx*nx + drone.vy*ny;
+  if (inbound < -132) return false;
+  drone.x = previousX;
+  drone.y = previousY;
+  if (inbound < 0) {
+    drone.vx -= 1.36*inbound*nx;
+    drone.vy -= 1.36*inbound*ny;
+    sound('brake');
+  }
+  return true;
+}
+function quayProp(ctx,w,h,type) {
+  if (isPadded(type)) {
+    const round = type === 'fender' ? h/2 : 4;
+    surfacePanel(ctx,2,2,w-4,h-4,'#87ebed','#1d5d72',round);
+    ctx.strokeStyle = '#123747';
+    ctx.lineWidth = 2;
+    for (let x=9;x<w-6;x+=10) {
+      ctx.beginPath();
+      ctx.moveTo(x,5);
+      ctx.lineTo(x-3,h-6);
+      ctx.stroke();
+    }
+    return;
+  }
+  surfacePanel(ctx,5,6,w-10,h-12,'#60777d','#233b40',6);
+  if (type === 'winch') {
+    const radius = Math.min(w,h)*.29;
+    for (const y of [h*.28,h*.72]) {
+      circle(w/2,y,radius,ctx);
+      ctx.fillStyle = '#1d292c';ctx.fill();
+      for(let ring=radius*.45;ring<=radius;ring+=3) {
+        circle(w/2,y,ring,ctx);
+        ctx.strokeStyle = '#a7b79e';ctx.stroke();
+      }
+    }
+  } else {
+    surfacePanel(ctx,w*.36,6,w*.28,h-12,'#c0a973','#554a31',4);
+    for (let y=12;y<h-7;y+=12) {
+      ctx.fillStyle = '#24343b';
+      ctx.fillRect(w*.19,y,w*.62,3);
+    }
+    surfacePanel(ctx,w*.27,h*.42,w*.46,Math.min(24,h*.23),'#799595','#324649',4);
+  }
+}
 function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   const type = art;
   ctx.save();
@@ -676,7 +750,7 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  const colors = {hangar:'#334a54',cargo:'#675449',tower:'#444863',train:'#3b5960',water:'#153e4f',tank:'#535c60',fan:'#49676b',drum:'#875e4d',rack:'#304047',pallet:'#8d6446',forklift:'#c18c44'};
+  const colors = {hangar:'#334a54',cargo:'#675449',tower:'#444863',train:'#3b5960',water:'#153e4f',tank:'#535c60',fan:'#49676b',drum:'#875e4d',rack:'#304047',pallet:'#8d6446',forklift:'#c18c44',winch:'#4c646a',crane:'#676546',foam:'#62c9d2',fender:'#62c9d2'};
   const steel = ctx.createLinearGradient(0,0,w,h);
   steel.addColorStop(0,colors[type]);
   steel.addColorStop(.46,colors[type]);
@@ -698,6 +772,11 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.stroke();
   ctx.strokeStyle = '#abbec72e';
   ctx.lineWidth = 1;
+  if (isPadded(type) || type === 'winch' || type === 'crane') {
+    quayProp(ctx,w,h,type);
+    ctx.restore();
+    return;
+  }
   if (type === 'rack' || type === 'pallet' || type === 'forklift') {
     warehouseProp(ctx,w,h,type);
     ctx.restore();
@@ -835,14 +914,22 @@ function paintTerrain() {
   background.height = 500;
   const floor = background.getContext('2d');
   const concrete = floor.createLinearGradient(20,0,960,500);
-  concrete.addColorStop(0,'#262047');
-  concrete.addColorStop(.55,'#152a39');
-  concrete.addColorStop(1,'#190f25');
+  concrete.addColorStop(0,course.quay ? '#1c3e3c' : '#262047');
+  concrete.addColorStop(.55,course.quay ? '#152c36' : '#152a39');
+  concrete.addColorStop(1,course.quay ? '#0a2125' : '#190f25');
   floor.fillStyle = concrete;
   floor.fillRect(0,0,960,500);
   for (let n=0;n<4800;n++) {
     floor.fillStyle = n%2 ? '#d1b0a20c' : '#00000025';
     floor.fillRect((n*163+Math.floor(n/960)*47)%960,(n*87+Math.floor(n/500)*37)%500,2+n%7,1+n%3);
+  }
+  if (course.quay) {
+    floor.fillStyle = '#65bccb26';
+    for (const y of [47,448]) {
+      floor.fillRect(16,y,924,2);
+      for (let x=24;x<940;x+=27) floor.fillRect(x,y+7,12,2);
+    }
+    sprayTag(floor,'NORTH QUAY',469,424,46,'#80c8ae66');
   }
   floor.strokeStyle = '#a2919630';
   for (let x=24;x<960;x+=96) floor.strokeRect(x,27,96,447);
@@ -926,7 +1013,11 @@ function blockedAt(x,y) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
-  if (index >= 3 && storyAtlas.complete && storyAtlas.naturalWidth) {
+  if (index >= 5 && quayAtlas.complete && quayAtlas.naturalWidth) {
+    ctx.drawImage(quayAtlas,(index-5)*256,0,256,256,-size/2,-size/2,size,size);
+    return;
+  }
+  if (index >= 3 && index < 5 && storyAtlas.complete && storyAtlas.naturalWidth) {
     ctx.drawImage(storyAtlas,(index-3)*256,0,256,256,-size/2,-size/2,size,size);
     return;
   }
@@ -1231,6 +1322,19 @@ get('#storyNext').addEventListener('click',() => {
     if (currentPage === 'story' && storyLines === fromLines && lineIndex === fromLine) advance();
   },() => {button.disabled = false;});
 });
+get('#caseOne').addEventListener('click',() => {
+  if ((progress.campaignNext || 0) < 12) {resumeCampaign(); return;}
+  presentScene('Case 01 · Sable Freight closed',campaignReveals[12].lines,'Open Case 02',openNorthQuay);
+});
+function openNorthQuay() {
+  if ((progress.campaignNext || 0) < 12) return;
+  if ((progress.campaignRevealed || 0) < 12) {
+    progress.campaignRevealed = 12;
+    saveProgress();
+  }
+  resumeCampaign();
+}
+get('#caseTwo').addEventListener('click',openNorthQuay);
 get('#restartStory').addEventListener('click',() => {
   progress.campaignNext = 0;
   progress.campaignRevealed = 0;
@@ -1258,6 +1362,7 @@ action.addEventListener('click',() => nextAction());
 reset(0);
 renderMissionPage();
 resumeCampaign();
+quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
 atlas.addEventListener('load',() => {

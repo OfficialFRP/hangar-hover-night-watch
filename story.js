@@ -6,7 +6,9 @@ const crew = {
   director: ['Elena Voss','Investigation lead',3],
   sable: ['Adrian Sable','Freight company director',4],
   iman: ['Iman Cruz','Warehouse dispatcher',5],
-  reed: ['Special Agent Simone Reed','FBI',6]
+  reed: ['Special Agent Simone Reed','FBI',6],
+  morrow: ['Lucian Morrow','North Quay logistics chairman',8],
+  kade: ['Nico “Wake” Kade','Tug mechanic and drone pilot',9]
 };
 const chapters = [
   {name:'Intake Dock', seconds:42, start:[75,250], exit:[250,160], wind:0,
@@ -63,8 +65,45 @@ const campaignReveals = {
     ['rook','Drone clear. All six records came through, including the master manifest.'],
     ['reed','The FBI assisted local officers at the warehouse. Adrian Sable is in custody, and the suspected narcotics are secured as evidence.'],
     ['director','Iman’s testimony and your flight recordings gave investigators the whole picture. The case can move forward.'],
-    ['patch','You brought the drone back through every bad turn. Thanks for flying with us.'],
+    ['cipher','There’s one name the warehouse records won’t account for. The same supplier signature paid for the first shipment and every one after it.'],
+    ['reed','Sable is in custody. The supplier is still out there. We’re reopening the trail at North Quay.']
+  ]}
+};
+
+const quayBriefs = [
+  ['Departure Records','reed','Sable’s seized invoices lead to a decommissioned ferry warehouse across the harbor. North Quay is our next case.'],
+  ['Departure Records','kade','I used to fix the tugs here. The light-blue fenders and foam guards will push you back if you brush them slowly. Give steel a wider berth.'],
+  ['Departure Records','rook','The seals on this quay match Sable’s outbound footage. I’ll record the transfer receipts before we leave.'],
+  ['The Quiet Owner','director','The receipts belong to a company that officially stopped trading years ago. Let’s see who kept the lights on.'],
+  ['The Quiet Owner','cipher','The annex listed a chairman with no public business address. The crane schedule might tie him to a real shipment.'],
+  ['The Quiet Owner','morrow','The quay keeps its own hours. I expect to see my next shipment on the evening report.'],
+  ['Pressure on the Quay','patch','If you need more control, the Kestrel and Breaker are in the hangar. Buy either with credits and it’s yours.'],
+  ['Pressure on the Quay','kade','Wind comes right through the old ferry doors. I’ll call out what I recognize from the tug lane.'],
+  ['Pressure on the Quay','reed','Morrow’s signature is on the invoices. The ledger can tell us how far back his supply operation goes.'],
+  ['Final Berth','rook','I’m taking the drone through the tide gate. Keep the recorder on. We need a clean view of all the tags.'],
+  ['Final Berth','cipher','The crane records confirm which shipments left this quay. One final set of seals should close the gap.'],
+  ['Final Berth','reed','Our team is outside. Bring the drone back after the last scan. We’ll take Morrow into custody.']
+];
+campaignBriefs.push(...quayBriefs);
+Object.assign(campaignReveals,{
+  15:{title:'Chapter 1 · The Ferry Trail',lines:[
+    ['kade','Those receipts list dead ferry routes. The ships weren’t running, but the freight kept moving.'],
+    ['cipher','Every transfer links back to one account. Sable was buying stock from someone at this quay.']
+  ]},
+  18:{title:'Chapter 2 · The Quiet Owner',lines:[
+    ['director','The quay lease names Lucian Morrow. His name is also on the freight invoices we recovered from Sable.'],
+    ['reed','Morrow appears to be the primary supplier. We still need a complete record connecting him to the seized narcotics.']
+  ]},
+  21:{title:'Chapter 3 · Evidence at the Waterline',lines:[
+    ['morrow','Sable’s arrangement ended when he got caught. I expect the outgoing cargo to be ready all the same.'],
+    ['cipher','That recording matches the signed orders. His own ledger also lists earlier shipments to Sable.'],
+    ['reed','We have enough to move. One last flight links the current cargo to the ledger.']
+  ]},
+  24:{title:'Chapter 4 · North Quay Closed',lines:[
+    ['rook','Drone recovered. I have the final seal numbers and the complete footage.'],
+    ['reed','The FBI and harbor police took Lucian Morrow into custody at North Quay. The warehouse and its records are secured.'],
+    ['kade','The quay hasn’t been this quiet in years. Thanks for bringing the drone home.'],
     [null,'THANK YOU FOR PLAYING'],
     [null,'@OfficialFRP\nA Feather Rock Production\n\nIn association with Team Inspire - @OFFICIALINSPIRE777','https://www.inspireclothing.art/']
   ]}
-};
+});

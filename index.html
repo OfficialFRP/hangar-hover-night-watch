@@ -42,6 +42,7 @@
 <section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet"></div></section>
 <section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><p id="purchaseStatus" role="status"></p></section>
 <section id="page-story" class="panel game-menu">
+<div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button></div>
 <h2 id="storyTitle">Story</h2>
 <div class="story-scene"><img id="portrait" alt=""><div><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div>
 <div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext">Continue</button></div>
@@ -54,6 +55,7 @@
 </section>
 </div>
 </main>
+<script src="north-quay.js"></script>
 <script src="story.js"></script>
 <script src="race.js"></script>
 <script src="audio.js"></script>

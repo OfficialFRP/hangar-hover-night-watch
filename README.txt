@@ -31,12 +31,12 @@ when available. The atlas is a transparent 3 × 3 sheet. Sprite rectangles
 are listed in game.js. The display font license is included in index.html.
 
 STORY AND PRACTICE
-Story is the main campaign. Fly all twelve missions in order. Every three
+Story is the main campaign. Fly all twenty-four missions in order across two twelve-mission cases. Every three
 missions unlock a chapter reveal. The final epilogue includes the case
 outcome, thank-you slides, and production credits. Practice offers cleared maps and your current Story mission
 without advancing the story. Campaign progress is saved separately from
 practice clears and credits. The Gold Aurel G7 and Blue Vector B9 are
-available immediately in the Hangar. Dialogue and maps live in story.js.
+available immediately in the Hangar. Dialogue lives in story.js. North Quay maps live in north-quay.js.
 
 RACE
 Your rival and course stay assigned until you win, including after a reload.
@@ -54,3 +54,9 @@ Drag the left joystick in any direction. A short pull applies gentle
 thrust and a full pull applies maximum thrust. Hold Brake with your
 right thumb while steering, or tap Jam to disable cameras briefly.
 In landscape, the controls move beside the flight deck.
+
+NORTH QUAY
+After Sable Freight, continue to Case 02 at a shuttered ferry warehouse.
+Cyan fenders and foam bumpers rebound on gentle contact. Hard impacts
+still end the flight. The Kestrel N12 costs 450 credits and the Breaker
+X14 costs 700 credits. Once purchased, a frame stays yours.

@@ -672,25 +672,54 @@ const equipmentArt = {
   drum: ['cargo', 'jack', 'pallet'],
   fan: ['conveyor', 'server', 'lift']
 };
+const factoryVariants = {
+  cargo:['cargo','pallet','jack','toolbox'],
+  hangar:['conveyor','lift','mill','press'],
+  tower:['server','transformer'],
+  rack:['server','cargo','toolbox'],
+  drum:['compressor','jack','robot','pallet'],
+  fan:['blower','transformer','manifold','press'],
+  tank:['tank','compressor','manifold'],
+  winch:['winch','robot']
+};
 const equipmentAtlas = new Image();
 equipmentAtlas.src = 'assets/warehouse-equipment.webp';
-const equipmentSprites = {cargo:0,pallet:1,jack:2,conveyor:3,lift:4,server:5,train:6,tank:7,winch:8};
+const factoryAtlas = new Image();
+factoryAtlas.src = 'assets/factory-machinery.webp';
+const equipmentSprites = {
+  cargo:[4,19,212,102],pallet:[224,14,212,112],jack:[444,11,212,117],
+  conveyor:[4,162,212,96],lift:[224,155,212,110],server:[449,144,202,132],
+  train:[4,307,212,86],tank:[224,288,212,124],winch:[444,300,212,99]
+};
+const factorySprites = {
+  robot:[3,15,214,110],press:[260,3,140,134],transformer:[453,3,193,134],
+  blower:[3,162,214,96],mill:[223,163,214,94],compressor:[443,143,214,134],
+  manifold:[3,296,214,107],toolbox:[223,284,214,132],battery:[467,283,166,134]
+};
 function drawEquipmentSprite(ctx,w,h,type) {
-  const sprite = equipmentSprites[type];
-  if (sprite === undefined || !equipmentAtlas.complete || !equipmentAtlas.naturalWidth) return false;
+  const rect = factorySprites[type] || equipmentSprites[type];
+  const image = factorySprites[type] ? factoryAtlas : equipmentAtlas;
+  if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
-  if (h > w) {
+  const rotate = h > w*1.25 && rect[2] > rect[3]*1.65;
+  if (rotate) {
     ctx.translate(w,0);
     ctx.rotate(Math.PI/2);
     [w,h] = [h,w];
   }
-  surfacePanel(ctx,1,1,w-2,h-2,'#404a50','#202329',Math.min(8,h*.2));
-  const modules = Math.max(1,Math.round(w/(h*2.5)));
-  const width = w/modules;
-  const sx = (sprite%3)*220;
-  const sy = Math.floor(sprite/3)*140;
-  for (let module=0;module<modules;module++) {
-    ctx.drawImage(equipmentAtlas,sx,sy,220,140,module*width,0,width,h);
+  const aspect = rect[2]/rect[3];
+  const columns = Math.max(1,Math.round(w/(h*aspect)));
+  const rows = Math.max(1,Math.round(h/(w/aspect)));
+  const width = w/columns;
+  const height = h/rows;
+  const gap = Math.min(width,height)*.025;
+  ctx.shadowColor = '#080a10c9';
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 3;
+  for (let row=0;row<rows;row++) {
+    for (let col=0;col<columns;col++) {
+      ctx.drawImage(image,...rect,col*width+gap,row*height+gap,width-gap*2,height-gap*2);
+    }
   }
   ctx.restore();
   return true;
@@ -823,6 +852,14 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   const type = art;
   ctx.save();
   ctx.translate(x,y);
+  const seed = Math.round(x+y);
+  const variant = factoryVariants[type];
+  const original = equipmentArt[type];
+  const equipment = variant ? variant[seed%variant.length] : original ? original[seed%original.length] : type;
+  if (drawEquipmentSprite(ctx,w,h,equipment)) {
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = '#070e14aa';
   const rounding = cornerRadius(w,h,footprint);
   ctx.beginPath();
@@ -839,15 +876,8 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  const variants = equipmentArt[type];
-  const seed = Math.round(x+y);
-  const equipment = variants ? variants[seed%variants.length] : type;
-  if (drawEquipmentSprite(ctx,w,h,equipment)) {
-    ctx.restore();
-    return;
-  }
-  if (variants) {
-    paintEquipment(ctx,w,h,equipment,seed);
+  if (original) {
+    paintEquipment(ctx,w,h,original[seed%original.length],seed);
     ctx.restore();
     return;
   }
@@ -1021,7 +1051,7 @@ function paintTerrain() {
   course.walls.forEach((wall,index) => {
     structure(floor,wall,variants[index] || wall[4]);
     const [x,y,w,h] = wall;
-    if (w >= 65 && h >= 42) {
+    if (wall[4] === 'water' && w >= 65 && h >= 42) {
       hazardCone(floor,x+13,y+h-15);
       hazardCone(floor,x+w-13,y+h-15);
     }
@@ -1198,6 +1228,28 @@ function drawLandingPad() {
     ctx.stroke();
   }
 }
+function drawBatteryPickup(x,y) {
+  ctx.save();
+  ctx.translate(x,y);
+  const light = ctx.createRadialGradient(0,0,4,0,0,25);
+  light.addColorStop(0,'#bcff5a90');
+  light.addColorStop(1,'#bcff5a00');
+  ctx.fillStyle = light;
+  ctx.fillRect(-25,-25,50,50);
+  if (factoryAtlas.complete && factoryAtlas.naturalWidth) {
+    ctx.drawImage(factoryAtlas,...factorySprites.battery,-16,-13,32,26);
+  } else {
+    ctx.fillStyle = '#d4a781';
+    ctx.fillRect(-8,-12,5,4);
+    ctx.fillRect(3,-12,5,4);
+    surfacePanel(ctx,-12,-9,24,21,'#485052','#182022',4);
+    ctx.fillStyle = '#b6ff64';
+    ctx.fillRect(-12,-5,3,12);
+    ctx.fillRect(9,-5,3,12);
+    label('ϟ',0,1,'#ceff79',16);
+  }
+  ctx.restore();
+}
 function draw() {
   ctx.drawImage(terrain,0,0);
   if (course.exit) {
@@ -1216,14 +1268,7 @@ function draw() {
   }
   (course.cameras || []).forEach(drawCamera);
   const cell = chargeCells[courseIndex];
-  if (cell && !cellCollected) {
-    const [x,y] = cell;
-    ctx.fillStyle = '#18152c';
-    ctx.fillRect(x-10,y-13,20,26);
-    ctx.strokeStyle = '#c6abff';
-    ctx.strokeRect(x-10,y-13,20,26);
-    label('+',x,y,'#c6abff',16);
-  }
+  if (cell && !cellCollected) drawBatteryPickup(...cell);
   label(courseIndex === -1 ? 'RACE' : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
   label(state === 'flying' ? '● LIVE' : '○ STANDBY',884,27,'#acd2ce',15);
   course.gates.forEach(([x,y], index) => {
@@ -1430,7 +1475,9 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
-equipmentAtlas.addEventListener('load',() => {terrain = paintTerrain();});
+for (const artwork of [equipmentAtlas,factoryAtlas]) {
+  artwork.addEventListener('load',() => {terrain = paintTerrain();});
+}
 atlas.addEventListener('load',() => {
   terrain = paintTerrain();
   renderLoadout();

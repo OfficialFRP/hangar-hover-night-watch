@@ -305,3 +305,19 @@ header h1 em{
 @media (orientation:landscape) and (max-height:500px){
   header h1{font-size:clamp(22px,4.5vw,35px)}
 }
+
+/* Slanted neon-metal wordmark. */
+header h1{
+  transform:skewX(-10deg);
+  transform-origin:left bottom;
+  margin-left:.13em;
+  color:#f2f8fb;
+  text-shadow:1px 2px #3f6078,3px 3px #16202f,4px 4px #8e2864;
+}
+header h1 em{
+  color:#91fff2;
+  text-shadow:1px 2px #347e82,3px 3px #192c3a,4px 4px #8e2864,0 0 .26em #41cab26e;
+}
+@media(max-width:370px){
+  header h1{font-size:clamp(18px,5.6vw,23px)}
+}

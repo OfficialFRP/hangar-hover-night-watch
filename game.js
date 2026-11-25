@@ -57,6 +57,8 @@ const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
 const storyAtlas = new Image();
 storyAtlas.src = 'assets/specialty-drones.webp';
+const fleetArt = new Image();
+fleetArt.src = 'assets/fleet-night.webp';
 const atlas = new Image();
 atlas.src = 'assets/sprite-atlas.webp';
 function drawSprite(surface,index,x,y,w,h) {
@@ -442,11 +444,124 @@ function touchesStructure([x,y,w,h,type],px,py,radius = 0) {
   return Math.hypot(px-clamp(px,x+corner,x+w-corner),py-clamp(py,y+corner,y+h-corner)) < corner+radius;
 }
 
-function structure(ctx,[x,y,w,h,type]) {
+// Mix warehouse props and legacy freight art across the campaign.
+const warehouseVariants = {
+  Workshop: {2:'pallet'}, 'Loading Bay': {2:'forklift'}, 'Rail Yard': {3:'pallet'},
+  'Blackout Terminal': {1:'rack'}, 'Intake Dock': {1:'cargo'}, 'Cold Storage': {0:'cargo'},
+  'Sorting Floor': {2:'cargo'}, 'Outbound Vault': {1:'cargo'}
+};
+function surfacePanel(ctx,x,y,w,h,top,bottom,radius = 3) {
+  const depth = ctx.createLinearGradient(x,y,x,y+h);
+  depth.addColorStop(0,top);
+  depth.addColorStop(1,bottom);
+  ctx.fillStyle = depth;
+  ctx.beginPath();
+  ctx.roundRect(x,y,w,h,radius);
+  ctx.fill();
+}
+function hazardCone(ctx,x,y) {
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle = '#08090e99';
+  ctx.fillRect(-4,0,12,9);
+  ctx.fillStyle = '#342b33';
+  ctx.fillRect(-6,-3,12,11);
+  circle(0,0,5.2,ctx);
+  ctx.fillStyle = '#f16a31';
+  ctx.fill();
+  circle(-1,-1,3.5,ctx);
+  ctx.fillStyle = '#ffe4be';
+  ctx.fill();
+  circle(-1.6,-2,2,ctx);
+  ctx.fillStyle = '#ff9860';
+  ctx.fill();
+  ctx.restore();
+}
+function reservoir(ctx,w,h) {
+  surfacePanel(ctx,5,6,w-10,h-12,'#6e8d9c','#253a47',10);
+  surfacePanel(ctx,12,13,w-24,h-26,'#133c51','#061b31',7);
+  const water = ctx.createLinearGradient(10,0,w-9,h);
+  water.addColorStop(0,'#277f9c');
+  water.addColorStop(.46,'#0d506c');
+  water.addColorStop(1,'#182c58');
+  ctx.fillStyle = water;
+  ctx.beginPath();
+  ctx.roundRect(17,18,w-34,h-36,5);
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  for (let row=23;row<h-16;row+=7) {
+    ctx.lineWidth = row%3 === 0 ? 1.4 : .65;
+    ctx.strokeStyle = row%3 === 0 ? '#8cfaff80' : '#40a8c94a';
+    ctx.beginPath();
+    for (let col=15;col<w-14;col+=3) {
+      const y = row+3*Math.sin(col/10+row*.24)+Math.cos(col/4+row*.28);
+      if (col === 15) ctx.moveTo(col,y);
+      else ctx.lineTo(col,y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  for (const x of [9,w-11]) {
+    ctx.fillStyle = '#182b37';
+    ctx.fillRect(x,18,3,h-36);
+    for (let y=22;y<h-18;y+=18) {
+      ctx.fillStyle = '#c4e3e6';
+      ctx.fillRect(x,y,3,2);
+    }
+  }
+  surfacePanel(ctx,w*.34,h*.47,w*.32,24,'#788c91','#283941',4);
+  for (let x=w*.38;x<w*.64;x+=5) {
+    ctx.fillStyle = '#111d27';
+    ctx.fillRect(x,h*.47+4,2,16);
+  }
+}
+function warehouseProp(ctx,w,h,type) {
+  surfacePanel(ctx,5,6,w-10,h-12,'#384757','#111b29',7);
+  if (type === 'forklift') {
+    const wide = w >= h;
+    ctx.save();
+    ctx.translate(w/2,h/2);
+    if (!wide) ctx.rotate(Math.PI/2);
+    const length = Math.max(w,h);
+    const width = Math.min(w,h);
+    ctx.translate(-length/2,-width/2);
+    for (const x of [length*.19,length*.58]) for (const y of [width*.22,width*.67])
+      surfacePanel(ctx,x,y,length*.14,width*.15,'#4a515a','#10151e');
+    surfacePanel(ctx,length*.16,width*.27,length*.58,width*.47,'#ffc46e','#8f4b27',5);
+    surfacePanel(ctx,length*.36,width*.32,length*.27,width*.36,'#4b6673','#1a2733',3);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#f1c583';
+    ctx.strokeRect(length*.36,width*.32,length*.27,width*.36);
+    surfacePanel(ctx,length*.71,width*.24,length*.07,width*.55,'#8c9fa9','#343b44');
+    for (const y of [width*.34,width*.61]) surfacePanel(ctx,length*.76,y,length*.19,width*.055,'#d2d9dd','#616f77',1);
+    ctx.restore();
+    return;
+  }
+  const rows = Math.max(1,Math.floor((h-16)/23));
+  const rowHeight = (h-16)/rows;
+  for (let row=0;row<rows;row++) {
+    const y = 8+row*rowHeight;
+    surfacePanel(ctx,8,y,w-16,rowHeight-3,'#b5916a','#614532');
+    for (let x=10;x<w-9;x+=8) {
+      ctx.fillStyle = '#3f29264e';
+      ctx.fillRect(x,y+2,1,rowHeight-6);
+    }
+    const carton = (w-20)*(.29+(row%3)*.10);
+    surfacePanel(ctx,w*.17,y+2,carton,Math.max(4,rowHeight-8),'#ecd099','#926343');
+    ctx.fillStyle = '#f6e3ae';
+    ctx.fillRect(w*.19+carton*.45,y+3,2,Math.max(2,rowHeight-10));
+  }
+  if (type === 'rack') {
+    for (const x of [5,w-10]) surfacePanel(ctx,x,5,5,h-10,'#ffad53','#7f492d',1);
+  }
+}
+function structure(ctx,[x,y,w,h,footprint],art = footprint) {
+  const type = art;
   ctx.save();
   ctx.translate(x,y);
   ctx.fillStyle = '#070e14aa';
-  const rounding = cornerRadius(w,h,type);
+  const rounding = cornerRadius(w,h,footprint);
   ctx.beginPath();
   ctx.roundRect(6,8,w,h,rounding);
   ctx.fill();
@@ -484,29 +599,7 @@ function structure(ctx,[x,y,w,h,type]) {
   ctx.strokeStyle = '#abbec72e';
   ctx.lineWidth = 1;
   if (type === 'rack' || type === 'pallet' || type === 'forklift') {
-    ctx.fillStyle = '#16262d';
-    ctx.fillRect(6,7,w-12,h-14);
-    if (type === 'forklift') {
-      ctx.fillStyle = '#d49a4a';
-      ctx.roundRect(w*.18,h*.19,w*.65,h*.60,8);
-      ctx.fillRect(w*.17,h*.20,w*.62,h*.59);
-      ctx.fillStyle = '#263039';
-      ctx.fillRect(w*.31,h*.27,w*.39,h*.45);
-      ctx.fillRect(w*.75,h*.32,w*.23,h*.075);
-      ctx.fillRect(w*.75,h*.60,w*.23,h*.075);
-    } else {
-      for (let row=9;row<h-7;row+=22) {
-        ctx.fillStyle = type === 'pallet' ? '#b48b63' : '#687a79';
-        ctx.fillRect(8,row,w-16,Math.min(15,h-row-5));
-        ctx.fillStyle = '#422d23';
-        ctx.fillRect(w*.48,row,4,Math.min(15,h-row-5));
-      }
-      if (type === 'rack') {
-        ctx.fillStyle = '#c98955';
-        ctx.fillRect(5,3,4,h-6);
-        ctx.fillRect(w-9,3,4,h-6);
-      }
-    }
+    warehouseProp(ctx,w,h,type);
     ctx.restore();
     return;
   }
@@ -544,11 +637,7 @@ function structure(ctx,[x,y,w,h,type]) {
       ctx.fillRect(w/2-4,cy-7,8,14);
     }
   } else if (type === 'water') {
-    for (let row=14;row<h-7;row+=14) {
-      ctx.beginPath();
-      for (let col=8;col<w-6;col+=5) ctx.lineTo(col,row+2*Math.sin(col/9+row));
-      ctx.stroke();
-    }
+    reservoir(ctx,w,h);
   } else if (type === 'tower') {
     const cx = w/2, cy = h/2, r = Math.min(w,h)*.34;
     circle(cx,cy,r,ctx);
@@ -667,7 +756,15 @@ function paintTerrain() {
     floor.fillStyle = light;
     floor.fillRect(x-118,y-118,236,236);
   }
-  course.walls.forEach(wall => structure(floor,wall));
+  const variants = warehouseVariants[course.name] || {};
+  course.walls.forEach((wall,index) => {
+    structure(floor,wall,variants[index] || wall[4]);
+    const [x,y,w,h] = wall;
+    if (w >= 65 && h >= 42) {
+      hazardCone(floor,x+13,y+h-15);
+      hazardCone(floor,x+w-13,y+h-15);
+    }
+  });
   return background;
 }
 function drawCamera(camera,index) {
@@ -718,6 +815,10 @@ function paintDrone(ctx,frame,spin) {
   const size = frame.size*2.25;
   if (index >= 3 && storyAtlas.complete && storyAtlas.naturalWidth) {
     ctx.drawImage(storyAtlas,(index-3)*256,0,256,256,-size/2,-size/2,size,size);
+    return;
+  }
+  if (index < 3 && fleetArt.complete && fleetArt.naturalWidth) {
+    ctx.drawImage(fleetArt,index*256,0,256,256,-size/2,-size/2,size,size);
     return;
   }
   if (index < 3 && drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
@@ -975,6 +1076,7 @@ reset(0);
 renderMissionPage();
 resumeCampaign();
 storyAtlas.addEventListener('load',renderLoadout);
+fleetArt.addEventListener('load',renderLoadout);
 atlas.addEventListener('load',() => {
   terrain = paintTerrain();
   renderLoadout();

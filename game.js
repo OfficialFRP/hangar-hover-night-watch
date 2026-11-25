@@ -43,11 +43,17 @@ const upgrades = [
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
 function loadProgress() {
-  const initial = {credits:100, cleared:[], selected:0, ownedFrames:[], levels:fleet.map(() => [0,0,0])};
+  const initial = {credits:100, cleared:[], selected:0, ownedFrames:[], activeLevels:fleet.map(() => [0,0,0]), levels:fleet.map(() => [0,0,0])};
   try {
     const saved = JSON.parse(localStorage.getItem(saveKey));
     if (!saved) return initial;
-    return {...initial,...saved,levels:fleet.map((_,index) => saved.levels?.[index] ?? [0,0,0])};
+    const levels = fleet.map((_,frame) => upgrades.map(({max},index) =>
+      Math.max(0,Math.min(max,Math.trunc(saved.levels?.[frame]?.[index]) || 0))));
+    const activeLevels = levels.map((modules,frame) => modules.map((owned,index) => {
+      const active = saved.activeLevels?.[frame]?.[index];
+      return Number.isInteger(active) ? Math.max(0,Math.min(owned,active)) : owned;
+    }));
+    return {...initial,...saved,levels,activeLevels};
   }
   catch { return initial; }
 }
@@ -72,9 +78,6 @@ function drawSprite(surface,index,x,y,w,h) {
   return true;
 }
 
-const music = new Audio('assets/north-quay-score.mp3');
-music.loop = true;
-music.volume = .30;
 const effects = Object.fromEntries(['launch','scan','jam','drain','charge','crash','complete','throttle','brake','land','race-win'].map(name => {
   const effect = new Audio('assets/' + name + '.wav');
   effect.volume = .64;
@@ -130,9 +133,21 @@ const modButtons = upgrades.map((upgrade,index) => {
   const card = document.createElement('article');
   card.className = 'upgrade-option';
   const info = document.createElement('div');
-  card.append(info,button);
+  const selector = document.createElement('div');
+  selector.className = 'tier-selector';
+  selector.setAttribute('role','group');
+  selector.setAttribute('aria-label',upgrade.name + ' active tier');
+  const tiers = Array.from({length:upgrade.max+1},(_,tier) => {
+    const option = document.createElement('button');
+    option.textContent = tier;
+    option.setAttribute('aria-label',upgrade.name + ' tier ' + tier);
+    option.addEventListener('click',() => setUpgradeTier(index,tier));
+    selector.append(option);
+    return option;
+  });
+  card.append(info,selector,button);
   get('#mods').append(card);
-  return {button,info};
+  return {button,info,tiers};
 });
 let courseIndex, course, drone, elapsed, gate, landing, state, nextAction, record, airframe, stats, drained, cameraSignal, terrain;
 let jam, jamsLeft, scan, cellCollected;
@@ -307,6 +322,13 @@ function activateJam() {
 }
 
 
+function setUpgradeTier(index,tier) {
+  const frame = progress.selected;
+  if (state === 'flying' || state === 'paused' || tier > progress.levels[frame][index]) return;
+  progress.activeLevels[frame][index] = tier;
+  saveProgress();
+  refreshLoadout();
+}
 function buyUpgrade(index) {
   const modules = progress.levels[progress.selected];
   const upgrade = upgrades[index];
@@ -314,9 +336,15 @@ function buyUpgrade(index) {
   if (state === 'flying' || state === 'paused' || modules[index] >= upgrade.max || progress.credits < cost) return;
   progress.credits -= cost;
   modules[index]++;
-  saveProgress();
-  reset(courseIndex,false,storyFlight);
+  setUpgradeTier(index,modules[index]);
   get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + airframe.name + '. ' + progress.credits + ' credits left.';
+}
+function refreshLoadout() {
+  airframe = fleet[progress.selected];
+  const [battery,motors,stabilizer] = progress.activeLevels[progress.selected];
+  stats = {seconds:course.seconds + airframe.battery + battery*4, thrust:airframe.thrust * (1+.07*motors),
+    brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
+  renderHangar();
 }
 function renderHangar() {
   const active = state === 'flying' || state === 'paused';
@@ -336,11 +364,16 @@ function renderHangar() {
     button.setAttribute('aria-pressed',selected);
     button.innerHTML = '<strong>' + frame.name + '</strong><small>' + frame.desc + '</small><span>' + (selected ? '✓ EQUIPPED' : locked ? 'UNLOCK · '+frame.cost+' CR' : 'EQUIP') + '</span>';
   });
-  modButtons.forEach(({button,info},index) => {
+  modButtons.forEach(({button,info,tiers},index) => {
     const upgrade = upgrades[index];
     const level = progress.levels[progress.selected][index];
     const cost = upgrade.cost * (level+1);
-    info.innerHTML = '<strong>' + upgrade.name + '</strong><small>' + upgrade.description + '</small><span>Tier ' + level + ' / ' + upgrade.max + '</span>';
+    const equipped = progress.activeLevels[progress.selected][index];
+    info.innerHTML = '<strong>' + upgrade.name + '</strong><small>' + upgrade.description + '</small><span>Active ' + equipped + ' · Owned through ' + level + '</span>';
+    tiers.forEach((option,tier) => {
+      option.disabled = active || tier > level;
+      option.setAttribute('aria-pressed',tier === equipped);
+    });
     const shortfall = cost - progress.credits;
     button.textContent = level === upgrade.max ? 'Maxed' : shortfall > 0 ? 'Need ' + shortfall + ' CR more' : 'Buy next tier · ' + cost + ' CR';
     button.setAttribute('aria-label',upgrade.name + ': ' + button.textContent);
@@ -382,14 +415,10 @@ function reset(index, fly = false, chapterFlight = false) {
   jamsLeft = 2;
   cellCollected = false;
   terrain = paintTerrain();
-  airframe = fleet[progress.selected];
-  const [battery,motors,stabilizer] = progress.levels[progress.selected];
-  stats = {seconds:course.seconds + airframe.battery + battery*4, thrust:airframe.thrust * (1+.07*motors),
-    brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
   record = index === -1 ? 0 : storedBest();
   clearInputs();
   state = fly ? 'flying' : 'ready';
-  renderHangar();
+  refreshLoadout();
   if (fly) {
     sound('launch');
     overlay.hidden = true;
@@ -632,49 +661,93 @@ function reservoir(ctx,w,h) {
     ctx.fillRect(x,h*.47+4,2,16);
   }
 }
-function warehouseProp(ctx,w,h,type) {
-  surfacePanel(ctx,5,6,w-10,h-12,'#384757','#111b29',7);
-  if (type === 'forklift') {
-    const wide = w >= h;
-    ctx.save();
-    ctx.translate(w/2,h/2);
-    if (!wide) ctx.rotate(Math.PI/2);
-    const length = Math.max(w,h);
-    const width = Math.min(w,h);
-    ctx.translate(-length/2,-width/2);
-    for (const x of [length*.19,length*.58]) for (const y of [width*.22,width*.67])
-      surfacePanel(ctx,x,y,length*.14,width*.15,'#4a515a','#10151e');
-    surfacePanel(ctx,length*.16,width*.27,length*.58,width*.47,'#d38d47','#5e4034',5);
-    surfacePanel(ctx,length*.36,width*.32,length*.27,width*.36,'#4b6673','#1a2733',3);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#c59b70';
-    ctx.strokeRect(length*.36,width*.32,length*.27,width*.36);
-    surfacePanel(ctx,length*.21,width*.36,length*.11,width*.25,'#43505b','#21292d',3);
-    ctx.fillStyle = '#fce1a2';
-    ctx.fillRect(length*.685,width*.31,length*.025,width*.06);
-    ctx.fillRect(length*.685,width*.63,length*.025,width*.06);
-    surfacePanel(ctx,length*.71,width*.24,length*.07,width*.55,'#8c9fa9','#343b44');
-    for (const y of [width*.34,width*.61]) surfacePanel(ctx,length*.76,y,length*.19,width*.055,'#d2d9dd','#616f77',1);
-    ctx.restore();
-    return;
+const equipmentArt = {
+  cargo: ['cargo', 'pallet', 'jack'],
+  hangar: ['conveyor', 'lift'],
+  tower: ['server'],
+  rack: ['server', 'cargo'],
+  pallet: ['pallet'],
+  forklift: ['jack'],
+  crane: ['lift'],
+  drum: ['cargo', 'jack', 'pallet'],
+  fan: ['conveyor', 'server', 'lift']
+};
+function paintEquipment(ctx,w,h,type,seed) {
+  ctx.save();
+  if (h > w) {
+    ctx.translate(w,0);
+    ctx.rotate(Math.PI/2);
+    [w,h] = [h,w];
   }
-  const rows = Math.max(1,Math.floor((h-16)/23));
-  const rowHeight = (h-16)/rows;
-  for (let row=0;row<rows;row++) {
-    const y = 8+row*rowHeight;
-    surfacePanel(ctx,8,y,w-16,rowHeight-3,'#b5916a','#614532');
-    for (let x=10;x<w-9;x+=8) {
-      ctx.fillStyle = '#3f29264e';
-      ctx.fillRect(x,y+2,1,rowHeight-6);
+  ctx.scale(w/120,h/60);
+  const plate = (x,y,w,h,light='#94705b',dark='#3f2e2b') => surfacePanel(ctx,x,y,w,h,light,dark,2);
+  // Oxidized steel base, recessed fasteners, and worn edges.
+  plate(3,4,114,52,'#5e534d','#292321');
+  ctx.fillStyle = '#b5957b';
+  for (const x of [9,110]) for (const y of [9,50]) ctx.fillRect(x,y,3,2);
+  if (type === 'server') {
+    for (const x of [13,46,79]) {
+      plate(x,9,29,41,'#84969a','#2c3538');
+      for (let y=13;y<46;y+=5) {
+        plate(x+3,y,23,4,'#384045','#171c21');
+        ctx.fillStyle = y%2 ? '#9cd9b5' : '#c47049';
+        ctx.fillRect(x+22,y+1,2,1);
+      }
     }
-    const carton = (w-20)*(.29+(row%3)*.10);
-    surfacePanel(ctx,w*.17,y+2,carton,Math.max(4,rowHeight-8),'#ecd099','#926343');
-    ctx.fillStyle = '#f6e3ae';
-    ctx.fillRect(w*.19+carton*.45,y+3,2,Math.max(2,rowHeight-10));
+  } else if (type === 'cargo') {
+    for (const x of [12,64]) {
+      plate(x,10,45,39,'#a5795f','#4b352e');
+      for (let rib=x+5;rib<x+41;rib+=6) plate(rib,12,3,35,'#b18a70','#58433a');
+      plate(x,12,45,3,'#8a8d83','#51423a');
+      plate(x,44,45,3,'#8a8d83','#51423a');
+      ctx.fillStyle = '#c3bbb0';
+      ctx.fillRect(x+29,18,9,5);
+    }
+  } else if (type === 'pallet') {
+    for (const x of [12,65]) {
+      plate(x,10,42,40,'#795f4d','#352c22');
+      for (let slat=x+2;slat<x+41;slat+=7) plate(slat,12,5,36);
+      for (const y of [15,42]) plate(x,y,42,3,'#a79a8d','#57514a');
+    }
+  } else if (type === 'jack') {
+    for (const y of [9,43]) {
+      plate(15,y,18,8,'#3f4747','#151718');
+      plate(74,y+4,34,5,'#9aa7a7','#414649');
+      plate(102,y+3,7,8,'#555d5c','#272b2b');
+    }
+    plate(12,15,62,31,'#aa7352','#55382d');
+    plate(24,20,40,21,'#55646b','#283036');
+    plate(64,11,11,39,'#87827a','#3e3934');
+    ctx.fillStyle = '#8ad6c7';
+    ctx.fillRect(17,25,3,11);
+    ctx.fillStyle = '#cb754f';
+    ctx.fillRect(74,23,3,2);
+  } else if (type === 'lift') {
+    for (const y of [10,44]) {
+      plate(10,y,100,5,'#a1a69b','#4e4b44');
+      for (let x=17;x<105;x+=11) plate(x,y-2,3,9);
+    }
+    plate(46,8,29,44,'#98674f','#493431');
+    plate(42,20,37,22,'#a3a6a1','#3c4a4c');
+    ctx.strokeStyle = '#1c2224';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(61,32,6,0,Math.PI*1.65);
+    ctx.stroke();
+  } else if (type === 'conveyor') {
+    plate(10,11,100,39,'#596363','#272c2d');
+    for (let x=15;x<108;x+=5) plate(x,17,4,26,'#8a9899','#363d42');
+    for (const y of [11,46]) plate(10,y,100,4);
+    plate(83,40,20,12,'#8d6953','#463831');
   }
-  if (type === 'rack') {
-    for (const x of [5,w-10]) surfacePanel(ctx,x,5,5,h-10,'#ffad53','#7f492d',1);
+  // Repeatable paint chips add texture without changing from frame to frame.
+  for (let chip=0;chip<58;chip++) {
+    const x = 7+(chip*37+seed*13)%106;
+    const y = 7+(chip*23+seed*17)%47;
+    ctx.fillStyle = ['#b0623c88','#231a1b81','#d2b6a04c'][chip%3];
+    ctx.fillRect(x,y,1+chip%5,1+chip%2);
   }
+  ctx.restore();
 }
 const isPadded = type => type === 'foam' || type === 'fender';
 function bounceOff(wall,previousX,previousY) {
@@ -711,23 +784,16 @@ function quayProp(ctx,w,h,type) {
     return;
   }
   surfacePanel(ctx,5,6,w-10,h-12,'#60777d','#233b40',6);
-  if (type === 'winch') {
-    const radius = Math.min(w,h)*.29;
-    for (const y of [h*.28,h*.72]) {
-      circle(w/2,y,radius,ctx);
-      ctx.fillStyle = '#1d292c';ctx.fill();
-      for(let ring=radius*.45;ring<=radius;ring+=3) {
-        circle(w/2,y,ring,ctx);
-        ctx.strokeStyle = '#a7b79e';ctx.stroke();
-      }
+  const radius = Math.min(w,h)*.29;
+  for (const y of [h*.28,h*.72]) {
+    circle(w/2,y,radius,ctx);
+    ctx.fillStyle = '#1d292c';
+    ctx.fill();
+    for (let ring=radius*.45;ring<=radius;ring+=3) {
+      circle(w/2,y,ring,ctx);
+      ctx.strokeStyle = '#a7b79e';
+      ctx.stroke();
     }
-  } else {
-    surfacePanel(ctx,w*.36,6,w*.28,h-12,'#c0a973','#554a31',4);
-    for (let y=12;y<h-7;y+=12) {
-      ctx.fillStyle = '#24343b';
-      ctx.fillRect(w*.19,y,w*.62,3);
-    }
-    surfacePanel(ctx,w*.27,h*.42,w*.46,Math.min(24,h*.23),'#799595','#324649',4);
   }
 }
 function structure(ctx,[x,y,w,h,footprint],art = footprint) {
@@ -750,10 +816,17 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  const colors = {hangar:'#334a54',cargo:'#675449',tower:'#444863',train:'#3b5960',water:'#153e4f',tank:'#535c60',fan:'#49676b',drum:'#875e4d',rack:'#304047',pallet:'#8d6446',forklift:'#c18c44',winch:'#4c646a',crane:'#676546',foam:'#62c9d2',fender:'#62c9d2'};
+  const variants = equipmentArt[type];
+  if (variants) {
+    const seed = Math.round(x+y);
+    paintEquipment(ctx,w,h,variants[seed%variants.length],seed);
+    ctx.restore();
+    return;
+  }
+  const colors = {train:'#3b5960',water:'#153e4f',tank:'#535c60',winch:'#4c646a',foam:'#457a81',fender:'#457a81'};
   const steel = ctx.createLinearGradient(0,0,w,h);
-  steel.addColorStop(0,colors[type]);
-  steel.addColorStop(.46,colors[type]);
+  steel.addColorStop(0,colors[type] || '#4b5554');
+  steel.addColorStop(.46,colors[type] || '#4b5554');
   steel.addColorStop(1,'#15151d');
   ctx.fillStyle = steel;
   ctx.fillRect(0,0,w,h);
@@ -772,34 +845,8 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.stroke();
   ctx.strokeStyle = '#abbec72e';
   ctx.lineWidth = 1;
-  if (isPadded(type) || type === 'winch' || type === 'crane') {
+  if (isPadded(type) || type === 'winch') {
     quayProp(ctx,w,h,type);
-    ctx.restore();
-    return;
-  }
-  if (type === 'rack' || type === 'pallet' || type === 'forklift') {
-    warehouseProp(ctx,w,h,type);
-    ctx.restore();
-    return;
-  }
-  if (type === 'fan' || type === 'drum') {
-    const radius = Math.min(w,h)*.4;
-    circle(w/2,h/2,radius,ctx);
-    ctx.fillStyle = '#131e24';
-    ctx.fill();
-    ctx.strokeStyle = '#93c0b2';
-    ctx.stroke();
-    for (let blade=0;blade<6;blade++) {
-      const angle = blade*Math.PI/3;
-      ctx.beginPath();
-      ctx.arc(w/2,h/2,radius*.72,angle,angle+.63);
-      ctx.strokeStyle = type === 'fan' ? '#6a9e9a' : '#e2a47c';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-    circle(w/2,h/2,4,ctx);
-    ctx.fillStyle = '#ddaa7d';
-    ctx.fill();
     ctx.restore();
     return;
   }
@@ -830,37 +877,11 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
     }
   } else if (type === 'water') {
     reservoir(ctx,w,h);
-  } else if (type === 'tower') {
-    const cx = w/2, cy = h/2, r = Math.min(w,h)*.34;
-    circle(cx,cy,r,ctx);
-    ctx.fillStyle = '#202938';
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = '#cca7fd';
-    ctx.beginPath();
-    ctx.arc(cx,cy,r*.78,-2.8,-.3);
-    ctx.stroke();
-    ctx.fillStyle = '#f49783';
-    ctx.fillRect(cx-3,cy-3,6,6);
-  } else {
-    for (let col=12;col<w-7;col+=12) {
-      ctx.beginPath();
-      ctx.moveTo(col,7);
-      ctx.lineTo(col,h-7);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#101d26';
-    if (type === 'hangar') {
-      ctx.fillRect(w*.18,h*.48,w*.64,7);
-      ctx.fillStyle = '#77a4a6';
-      for (let col=w*.2;col<w*.8;col+=14) ctx.fillRect(col,h*.48,8,3);
-    } else if (type === 'train') {
-      for (let row=14;row<h-9;row+=18) {
-        ctx.fillRect(8,row,9,9);
-        ctx.fillRect(w-17,row,9,9);
-      }
-    } else {
-      for (let col=8;col<w-9;col+=18) ctx.fillRect(col,8,7,4);
+  } else if (type === 'train') {
+    for (let row=14;row<h-9;row+=18) {
+      ctx.fillStyle = '#101d26';
+      ctx.fillRect(8,row,9,9);
+      ctx.fillRect(w-17,row,9,9);
     }
   }
   ctx.fillStyle = '#e7d9bd80';
@@ -869,37 +890,46 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.fillRect(12,h-25,Math.min(w-24,86),14);
   ctx.fillStyle = '#d4c6b0';
   ctx.font = '9px monospace';
-  ctx.fillText({hangar:'SERVICE',cargo:'FREIGHT',tower:'RELAY',train:'METRO',water:'BASIN',tank:'PUMP'}[type],18,h-15);
-  if (type === 'cargo' || type === 'hangar' || type === 'train') {
-    sprayTag(ctx,type === 'train' ? 'AFTER' : type === 'hangar' ? 'NITE' : 'VOID',w/2,h*.32,Math.min(27,w*.23),type === 'cargo' ? '#e88ccb' : '#cfef78');
-  }
-  const sprite = {cargo:3,train:4}[type];
-  if (sprite !== undefined) {
+  ctx.fillText({train:'METRO',water:'BASIN',tank:'PUMP'}[type] || '',18,h-15);
+  if (type === 'train') {
     const inset = 5;
     if (w > h) {
       ctx.save();
       ctx.translate(w/2,h/2);
       ctx.rotate(Math.PI/2);
-      drawSprite(ctx,sprite,-h/2+inset,-w/2+inset,h-2*inset,w-2*inset);
+      drawSprite(ctx,4,-h/2+inset,-w/2+inset,h-2*inset,w-2*inset);
       ctx.restore();
-    } else drawSprite(ctx,sprite,inset,inset,w-2*inset,h-2*inset);
+    } else drawSprite(ctx,4,inset,inset,w-2*inset,h-2*inset);
   }
   ctx.restore();
 }
 function sprayTag(ctx,word,x,y,size,color) {
   ctx.save();
   ctx.translate(x,y);
-  ctx.rotate(-.12);
-  ctx.transform(1,0,-.17,1,0,0);
+  ctx.rotate(-.15);
+  ctx.transform(1,0,-.24,.82,0,0);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = 'italic 900 ' + size + 'px system-ui';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 7;
   ctx.strokeStyle = '#140d1ec9';
   ctx.strokeText(word,0,0);
   ctx.fillStyle = color;
   ctx.fillText(word,0,0);
+  const edge = ctx.measureText(word).width/2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-edge*.74,size*.58);
+  ctx.quadraticCurveTo(edge*.13,size*.74,edge*.9,size*.42);
+  ctx.stroke();
+  for (const offset of [-.65,.11,.55]) {
+    ctx.beginPath();
+    ctx.moveTo(edge*offset,size*.29);
+    ctx.lineTo(edge*offset-2,size*(.4+Math.abs(offset)*.2));
+    ctx.stroke();
+  }
   for (let i=0;i<12;i++) {
     const dotX = (i*19 % 73)-36;
     const dotY = (i*13 % 33)-16;
@@ -948,7 +978,10 @@ function paintTerrain() {
     floor.fillRect(x,481,12,3);
   }
   const graffiti = ['SUBLEVEL','NO SLEEP','LOW SIGNAL','CUT LINE','DEEP END','STATIC','AFTER DARK','GALE WARNING'];
-  sprayTag(floor,graffiti[courseIndex] || course.name.toUpperCase(),462,457,47,'#c787b87a');
+  const tags = course.quay ? ['QUAY CREW','NIGHT SHIFT','LOW TIDE','KEEP MOVING'] : graffiti;
+  const tag = courseIndex < 0 ? 'NO BRAKES' : tags[courseIndex%tags.length];
+  sprayTag(floor,tag,473,453,49,course.quay ? '#7bd4bcaa' : '#d77a9a9c');
+  sprayTag(floor,course.quay ? 'STAY LOW' : 'EYES UP',750,66,31,'#8be1dd72');
   for (const [x,y] of [course.start,course.pad || [950,course.exit[0]]]) {
     const light = floor.createRadialGradient(x,y,4,x,y,118);
     light.addColorStop(0,'#cab8ff2e');
@@ -1356,11 +1389,9 @@ get('#audio').addEventListener('click',() => {
   soundEnabled = !soundEnabled;
   get('#audio').textContent = soundEnabled ? 'Sound on' : 'Sound off';
   get('#audio').setAttribute('aria-pressed',soundEnabled);
-  if (soundEnabled) {enableFlightAudio(); music.play().catch(() => {});}
-  else {
-    music.pause();
-    Object.values(effects).forEach(effect => effect.pause());
-  }
+  if (soundEnabled) enableFlightAudio();
+  setTechnoMusic(soundEnabled);
+  if (!soundEnabled) Object.values(effects).forEach(effect => effect.pause());
 });
 get('#pause').addEventListener('click',togglePause);
 get('#retryFlight').addEventListener('click',() => {if (state === 'paused') reset(courseIndex,true,storyFlight);});

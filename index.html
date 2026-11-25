@@ -15,8 +15,47 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="styles.css">
 
-<main>
-<header><a class="game-logo" href="assets/hangar-hover-logo.png" download="Hangar-Hover.png" aria-label="Download Hangar Hover logo"><img src="assets/icon-192.png" alt="Hangar Hover — Cipher" width="72" height="72"></a><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><a class="inspire-link" href="https://www.inspireclothing.art/" target="_blank" rel="noopener noreferrer">Inspire Clothing ↗</a><button id="audio" aria-pressed="false">Sound off</button></div></header>
+<section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
+  <div class="start-panel">
+    <img src="assets/icon-192.png" alt="" width="88" height="88">
+    <h1 id="startTitle">HANGAR <em>HOVER</em></h1>
+    <p class="kicker">Night Watch</p>
+    <button id="touchStart" class="primary" disabled>Touch to start</button>
+    <p id="loadingMedia"><progress id="mediaProgress" aria-label="Media preload"></progress> <span id="mediaStatus">Loading game…</span></p>
+    <noscript>Enable JavaScript to play Hangar Hover.</noscript>
+  </div>
+</section>
+<section id="mainMenu" class="launch-screen" aria-labelledby="menuTitle" hidden>
+  <div class="start-panel">
+    <h1 id="menuTitle">HANGAR <em>HOVER</em></h1>
+    <div id="menuActions" class="menu-actions">
+      <button id="backToGame" class="primary" hidden>Back to game</button>
+      <button id="loadGame" class="primary">Continue</button>
+      <button id="newGame">New game</button>
+      <button id="openSettings">Options</button>
+    </div>
+    <section id="saveMenu" hidden aria-labelledby="saveTitle">
+      <h2 id="saveTitle"></h2>
+      <div id="saveSlots" class="menu-actions"></div>
+      <p id="replacePrompt" hidden></p>
+      <button id="replaceSave" hidden>Replace save</button>
+      <button class="menu-back">Back</button>
+    </section>
+    <section id="settingsMenu" hidden aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle">Options</h2>
+      <label for="difficulty">Story and Practice difficulty</label>
+      <select id="difficulty" aria-describedby="difficultyHelp"><option value="normal">Normal</option><option value="easy">Easy</option></select>
+      <p id="difficultyHelp">Easy adds 30% battery time, reduces signal drain and wind, and makes scanning and landing more forgiving. Difficulty applies on the next launch.</p>
+      <label for="sensitivity">Touch sensitivity <output id="sensitivityValue" for="sensitivity"></output></label>
+      <input id="sensitivity" type="range" min="50" max="150" value="100" step="5">
+      <label class="sound-option"><input id="soundSetting" type="checkbox"> Game audio</label>
+      <button class="menu-back">Back</button>
+    </section>
+    <p id="storageStatus" role="status" hidden>Browser storage is unavailable. New progress will last for this session.</p>
+  </div>
+</section>
+<main hidden>
+<header><a class="game-logo" href="assets/hangar-hover-logo.png" download="Hangar-Hover.png" aria-label="Download Hangar Hover logo"><img src="assets/icon-192.png" alt="Hangar Hover — Cipher" width="72" height="72"></a><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><a class="inspire-link" href="https://www.inspireclothing.art/" target="_blank" rel="noopener noreferrer">Inspire Clothing ↗</a><button id="openMenu">Menu</button><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
 <button data-page="story" aria-pressed="true"><span>01</span><strong>Story</strong></button><button data-page="missions" aria-pressed="false"><span>02</span><strong>Practice</strong></button><button data-page="hangar" aria-pressed="false"><span>03</span><strong>Hangar</strong></button><button data-page="upgrades" aria-pressed="false"><span>04</span><strong>Upgrades</strong></button>
 <button data-page="race" aria-pressed="false"><span>05</span><strong>Race</strong></button>

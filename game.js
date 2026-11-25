@@ -43,31 +43,59 @@ const upgrades = [
   {name:'Stabilizer', description:'Stronger braking and easier landings', cost:100, max:5}
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
-function loadProgress() {
-  const initial = {orisonExpanded:true,credits:100, cleared:[], selected:0, ownedFrames:[], activeLevels:fleet.map(() => [0,0,0]), levels:fleet.map(() => [0,0,0])};
-  try {
-    const saved = JSON.parse(localStorage.getItem(saveKey));
-    if (!saved) return initial;
-    // The original one-mission Orison finale occupied slot 25.
-    if (!saved.orisonExpanded) {
-      saved.cleared = saved.cleared?.filter(index => index !== 24) ?? [];
-      if (saved.campaignNext > 24) saved.campaignNext = 24;
-      if (saved.campaignCursor > 24) saved.campaignCursor = 24;
-    }
-    const levels = fleet.map((_,frame) => upgrades.map(({max},index) =>
-      Math.max(0,Math.min(max,Math.trunc(saved.levels?.[frame]?.[index]) || 0))));
-    const activeLevels = levels.map((modules,frame) => modules.map((owned,index) => {
-      const active = saved.activeLevels?.[frame]?.[index];
-      return Number.isInteger(active) ? Math.max(0,Math.min(owned,active)) : owned;
-    }));
-    return {...initial,...saved,levels,activeLevels};
+const slotKeys = [saveKey,saveKey+'-slot-2',saveKey+'-slot-3'];
+const optionsKey = saveKey+'-options';
+const sessionStorageFallback = new Map();
+let storageAvailable = true;
+function readData(key) {
+  if (sessionStorageFallback.has(key)) return sessionStorageFallback.get(key);
+  try { return JSON.parse(localStorage.getItem(key)); }
+  catch (error) {
+    if (!(error instanceof SyntaxError)) storageAvailable = false;
+    return null;
   }
-  catch { return initial; }
 }
-let progress = loadProgress();
+function writeData(key,value) {
+  try {
+    localStorage.setItem(key,JSON.stringify(value));
+    sessionStorageFallback.delete(key);
+  } catch {
+    storageAvailable = false;
+    sessionStorageFallback.set(key,JSON.parse(JSON.stringify(value)));
+  }
+}
+function freshProgress() {
+  const modules = () => fleet.map(() => [0,0,0]);
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{}};
+}
+function loadProgress(key) {
+  const saved = readData(key);
+  if (!saved || !Array.isArray(saved.cleared)) return null;
+  // The original one-mission Orison finale occupied slot 25.
+  if (!saved.orisonExpanded) {
+    saved.cleared = saved.cleared.filter(index => index !== 24);
+    if (saved.campaignNext > 24) saved.campaignNext = 24;
+    if (saved.campaignCursor > 24) saved.campaignCursor = 24;
+  }
+  const levels = fleet.map((_,frame) => upgrades.map(({max},index) =>
+    Math.max(0,Math.min(max,Math.trunc(saved.levels?.[frame]?.[index]) || 0))));
+  const activeLevels = levels.map((modules,frame) => modules.map((owned,index) => {
+    const active = saved.activeLevels?.[frame]?.[index];
+    return Number.isInteger(active) ? Math.max(0,Math.min(owned,active)) : owned;
+  }));
+  return {...freshProgress(),...saved,orisonExpanded:true,levels,activeLevels};
+}
+let activeSlot = null;
+let progress = freshProgress();
 function saveProgress() {
-  try { localStorage.setItem(saveKey,JSON.stringify(progress)); } catch {}
+  writeData(activeSlot,progress);
 }
+const savedOptions = readData(optionsKey);
+const options = {
+  difficulty:savedOptions?.difficulty === 'easy' ? 'easy' : 'normal',
+  sensitivity:Number.isFinite(savedOptions?.sensitivity) ? Math.max(50,Math.min(150,savedOptions.sensitivity)) : 100,
+  sound:savedOptions?.sound === true
+};
 // Each mission can place one optional battery cell at [x, y].
 const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730,283],[562,391],[440,238],[586,365],[587,346],[575,342]];
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
@@ -86,7 +114,9 @@ function drawSprite(surface,index,x,y,w,h) {
 }
 
 const effects = Object.fromEntries(['launch','scan','jam','drain','charge','crash','complete','throttle','brake','land','race-win'].map(name => {
-  const effect = new Audio('assets/' + name + '.wav');
+  const effect = new Audio();
+  effect.preload = 'none';
+  effect.src = 'assets/' + name + '.wav';
   effect.volume = .64;
   return [name,effect];
 }));
@@ -170,7 +200,9 @@ const rechargeAmount = 12;
 let missionPage = 0;
 const missionsPerPage = 4;
 const pageButtons = [...document.querySelectorAll('[data-page]')];
-let currentPage = 'flight';
+let currentPage = 'menu';
+let gamePage = 'story';
+let easyFlight = false;
 let storyFlight = false;
 let race;
 let raceSection = 0;
@@ -393,7 +425,7 @@ function buyUpgrade(index) {
 function refreshLoadout() {
   airframe = fleet[progress.selected];
   const [battery,motors,stabilizer] = progress.activeLevels[progress.selected];
-  stats = {seconds:course.seconds + airframe.battery + battery*4, thrust:airframe.thrust * (1+.07*motors),
+  stats = {seconds:Math.round((course.seconds + airframe.battery + battery*4)*(easyFlight ? 1.3 : 1)), thrust:airframe.thrust * (1+.07*motors),
     brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
   renderHangar();
 }
@@ -432,9 +464,14 @@ function renderHangar() {
   });
 }
 
+function bestKey() {
+  return (course.sea ? 'orison-' : '') + courseIndex;
+}
 function storedBest() {
-  try { return Number(localStorage.getItem('hangar-hover-best-' + (course.sea ? 'orison-' : '') + courseIndex)) || 0; }
-  catch { return 0; }
+  const key = bestKey();
+  if (easyFlight) return progress.bests.easy?.[key] || 0;
+  return progress.bests.normal?.[key] ||
+    (activeSlot === saveKey && !progress.ignoreLegacyBests ? Number(readData('hangar-hover-best-' + key)) || 0 : 0);
 }
 function clearInputs() {
   keyboard.clear();
@@ -452,6 +489,7 @@ function menu(title, message, label, callback) {
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
   courseIndex = index;
+  easyFlight = index !== -1 && options.difficulty === 'easy';
   raceSection = 0;
   course = index === -1 ? race.sections[0].course : courses[index];
   nextRaceCall = 3;
@@ -492,7 +530,8 @@ function finish(won, message) {
   sound(won ? 'complete' : 'crash');
   if (won && (!record || elapsed < record)) {
     record = elapsed;
-    try { localStorage.setItem('hangar-hover-best-' + (course.sea ? 'orison-' : '') + courseIndex, String(record)); } catch {}
+    const mode = easyFlight ? 'easy' : 'normal';
+    (progress.bests[mode] ??= {})[bestKey()] = record;
   }
   if (won) {
     const firstClear = !progress.cleared.includes(courseIndex);
@@ -554,7 +593,7 @@ function update(dt) {
     const ahead = rival && (raceSection > rival[3] || (raceSection === rival[3] && drone.x >= rival[0]));
     get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
   }
-  const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse : 0;
+  const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .55 : 1) : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
   const crosswind = course.exit || course.quay ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
   const restricted = radarLocked && jam === 0;
@@ -591,7 +630,7 @@ function update(dt) {
   radarLocked = jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
   if (radarLocked || cameraSignal === 'red') {
     if (!underThreat) sound('drain');
-    drained += (radarLocked ? 7 : redCameraDrain) * airframe.exposure * dt;
+    drained += (radarLocked ? 7 : redCameraDrain) * airframe.exposure * dt * (easyFlight ? .5 : 1);
   }
   const cell = chargeCells[courseIndex];
   const chargeSpent = elapsed + drained;
@@ -605,7 +644,7 @@ function update(dt) {
     return finish(false, radarLocked ? 'Battery depleted under patrol radar. Break line of sight or use Jam.' : cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
   }
   const target = course.gates[gate];
-  const onTarget = target && Math.hypot(x-target[0],y-target[1]) < 29;
+  const onTarget = target && Math.hypot(x-target[0],y-target[1]) < (easyFlight ? 36 : 29);
   scan = onTarget ? scan + dt*(cameraSignal === 'green' ? 1.6 : 1) : 0;
   if (scan >= .24 || (courseIndex === -1 && onTarget)) {
     gate++;
@@ -620,7 +659,8 @@ function update(dt) {
     return;
   }
   const [px,py] = course.pad;
-  const steady = gate === course.gates.length && Math.hypot(x-px,y-py) < 29 && Math.hypot(vx,vy) < stats.landingSpeed;
+  const steady = gate === course.gates.length && Math.hypot(x-px,y-py) < (easyFlight ? 36 : 29) &&
+    Math.hypot(vx,vy) < stats.landingSpeed + (easyFlight ? 15 : 0);
   landing = steady ? landing + dt : 0;
   if (landing >= 0.65) {
     sound('land');
@@ -1413,6 +1453,7 @@ function paintDrone(ctx,frame,spin) {
   ctx.fill();
 }
 function renderLoadout() {
+  if (!airframe) return;
   const preview = get('#loadout');
   const surface = preview.getContext('2d');
   surface.clearRect(0,0,440,168);
@@ -1623,7 +1664,7 @@ function steerByTouch(event) {
   const push = Math.min(1,distance/reach);
   const directionX = x/(distance || 1);
   const directionY = y/(distance || 1);
-  const power = Math.max(0,(push-.12)/.88);
+  const power = Math.min(1,Math.max(0,(push-.12)/.88)*options.sensitivity/100);
   stick.x = directionX*power;
   stick.y = directionY*power;
   placeKnob(directionX*push*reach,directionY*push*reach);
@@ -1701,28 +1742,175 @@ get('#nextMission').addEventListener('click',() => {missionPage++; renderMission
 get('#jam').addEventListener('click',activateJam);
 get('#openUpgrades').addEventListener('click',() => showPage('upgrades'));
 get('#backToHangar').addEventListener('click',() => showPage('hangar'));
-get('#audio').addEventListener('click',() => {
-  soundEnabled = !soundEnabled;
+function applyAudio() {
+  soundEnabled = options.sound;
   get('#audio').textContent = soundEnabled ? 'Sound on' : 'Sound off';
   get('#audio').setAttribute('aria-pressed',soundEnabled);
+  get('#soundSetting').checked = soundEnabled;
   if (soundEnabled) enableFlightAudio();
   setTechnoMusic(soundEnabled);
   if (!soundEnabled) Object.values(effects).forEach(effect => effect.pause());
-});
+}
+function changeAudio(enabled) {
+  options.sound = enabled;
+  writeData(optionsKey,options);
+  applyAudio();
+}
+get('#audio').addEventListener('click',() => changeAudio(!options.sound));
+get('#soundSetting').addEventListener('change',event => changeAudio(event.target.checked));
 get('#pause').addEventListener('click',togglePause);
 get('#retryFlight').addEventListener('click',() => {if (state === 'paused') reset(courseIndex,true,storyFlight);});
 action.addEventListener('click',() => nextAction());
-reset(0);
-renderMissionPage();
-resumeCampaign();
+const main = get('main');
+const mainMenu = get('#mainMenu');
+const menuActions = get('#menuActions');
+const saveMenu = get('#saveMenu');
+const settingsMenu = get('#settingsMenu');
+const slotList = get('#saveSlots');
+const replacePrompt = get('#replacePrompt');
+const replaceSave = get('#replaceSave');
+
+function showMenuSection(section) {
+  for (const node of [menuActions,saveMenu,settingsMenu]) node.hidden = node !== section;
+  section.querySelector('button:not(:disabled):not([hidden]), select')?.focus();
+}
+function openMenu() {
+  if (state === 'flying') togglePause();
+  flightAudio(0,false,false,false);
+  if (currentPage !== 'menu') gamePage = currentPage;
+  currentPage = 'menu';
+  main.hidden = true;
+  mainMenu.hidden = false;
+  get('#backToGame').hidden = !activeSlot;
+  get('#loadGame').disabled = !slotKeys.some(key => loadProgress(key));
+  get('#storageStatus').hidden = storageAvailable;
+  showMenuSection(menuActions);
+}
+function enterGame(page) {
+  mainMenu.hidden = true;
+  main.hidden = false;
+  if (page) showPage(page);
+  else resumeCampaign();
+  if (currentPage !== 'flight' || state !== 'flying') {
+    get(currentPage === 'flight' ? '#action' : '#openMenu').focus();
+  }
+}
+function openSave(key,saved) {
+  activeSlot = key;
+  progress = saved || {...freshProgress(),ignoreLegacyBests:true};
+  race = undefined;
+  if (!saved) saveProgress();
+  reset(0);
+  renderMissionPage();
+  enterGame();
+}
+function chooseSave(creating) {
+  replacePrompt.hidden = replaceSave.hidden = true;
+  get('#saveTitle').textContent = creating ? 'New game' : 'Load game';
+  slotList.replaceChildren(...slotKeys.map((key,index) => {
+    const saved = loadProgress(key);
+    const button = document.createElement('button');
+    const checkpoint = saved?.campaignCursor ?? saved?.campaignNext ?? 0;
+    const label = !saved ? 'Empty' : checkpoint >= courses.length ? 'Campaign complete' : courses[checkpoint]?.name || 'Saved campaign';
+    button.textContent = 'Slot ' + (index+1) + ' · ' + label;
+    button.disabled = !creating && !saved;
+    button.addEventListener('click',() => {
+      if (!creating || !saved) {
+        openSave(key,saved);
+        return;
+      }
+      replacePrompt.textContent = 'Replace all progress in slot ' + (index+1) + '?';
+      replacePrompt.hidden = replaceSave.hidden = false;
+      replaceSave.onclick = () => openSave(key,null);
+      replaceSave.focus();
+    });
+    return button;
+  }));
+  showMenuSection(saveMenu);
+}
+get('#touchStart').addEventListener('click',() => {
+  get('#startScreen').hidden = true;
+  applyAudio();
+  openMenu();
+});
+get('#openMenu').addEventListener('click',openMenu);
+get('#backToGame').addEventListener('click',() => enterGame(gamePage));
+get('#loadGame').addEventListener('click',() => chooseSave(false));
+get('#newGame').addEventListener('click',() => chooseSave(true));
+get('#openSettings').addEventListener('click',() => showMenuSection(settingsMenu));
+document.querySelectorAll('.menu-back').forEach(button =>
+  button.addEventListener('click',() => showMenuSection(menuActions)));
+const difficulty = get('#difficulty');
+difficulty.value = options.difficulty;
+difficulty.addEventListener('change',() => {
+  options.difficulty = difficulty.value;
+  writeData(optionsKey,options);
+});
+const sensitivity = get('#sensitivity');
+sensitivity.value = options.sensitivity;
+get('#sensitivityValue').textContent = options.sensitivity + '%';
+sensitivity.addEventListener('input',() => {
+  options.sensitivity = Number(sensitivity.value);
+  get('#sensitivityValue').textContent = options.sensitivity + '%';
+  writeData(optionsKey,options);
+});
+
+function preloadMedia() {
+  const portraits = ['crew-expression-7', ...new Set(Object.values(crew).flatMap(([, ,index]) =>
+    index < 8 ? ['crew-'+index,'crew-expression-'+index] : ['crew-'+index]))];
+  const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
+    lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
+  const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt];
+  const atlases = [atlas,quayAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
+  const media = [
+    ...atlases.map(image => () => image.decode()),
+    ...art.map(url => () => {
+      const image = new Image();
+      image.fetchPriority = 'low';
+      image.src = url;
+      return image.decode();
+    }),
+    ...Object.values(effects).map(effect => () => new Promise(resolve => {
+      if (effect.readyState >= 2) {resolve(true); return;}
+      const events = new AbortController();
+      const done = () => {
+        clearTimeout(timeout);
+        events.abort();
+        resolve(effect.readyState >= 2);
+      };
+      const timeout = setTimeout(done,5000);
+      effect.addEventListener('loadeddata',done,{signal:events.signal});
+      effect.addEventListener('error',done,{signal:events.signal});
+      effect.preload = 'auto';
+      if (effect.paused && effect.networkState === HTMLMediaElement.NETWORK_EMPTY) effect.load();
+    }))
+  ];
+  const meter = get('#mediaProgress');
+  const status = get('#mediaStatus');
+  meter.max = media.length;
+  meter.value = 0;
+  let unavailable = 0;
+  let next = 0;
+  const warm = async () => {
+    while (next < media.length) {
+      const load = media[next++];
+      if (await Promise.resolve().then(load).catch(() => false) === false) unavailable++;
+      meter.value++;
+    }
+  };
+  status.textContent = 'Preloading art and audio…';
+  Promise.all(Array.from({length:4},warm)).then(() => {
+    status.textContent = unavailable ? 'Ready to play · some media may load on demand' : 'Art and audio ready';
+  });
+}
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
 for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas]) {
-  artwork.addEventListener('load',() => {terrain = paintTerrain();});
+  artwork.addEventListener('load',() => {if (course) terrain = paintTerrain();});
 }
 atlas.addEventListener('load',() => {
-  terrain = paintTerrain();
+  if (course) terrain = paintTerrain();
   renderLoadout();
 });
 let last = performance.now();
@@ -1734,7 +1922,7 @@ function frame(now) {
     update(step);
     remaining -= step;
   }
-  if (state !== 'flying') flightAudio(0,false,false,false);
+  if (state !== 'flying' && currentPage !== 'menu') flightAudio(0,false,false,false);
   last = now;
   if (currentPage === 'flight' && (!phoneLayout.matches || now-lastRender >= 32)) {
     draw();
@@ -1744,3 +1932,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+preloadMedia();
+get('#touchStart').disabled = false;

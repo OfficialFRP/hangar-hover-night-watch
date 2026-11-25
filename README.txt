@@ -1,12 +1,22 @@
 HANGAR HOVER / NIGHT WATCH
 
 Extract this folder, then open index.html in a browser.
-Select Sound off in the header to enable the soundtrack and effects.
+Tap Touch to start. Art and audio preload in the background while you
+use the menu. Choose Continue to load a campaign checkpoint or New game
+to start in one of three save slots. Older saves appear in slot 1.
+The Menu button pauses an active flight. Back to game returns to it.
+Progress is saved on this device in the current browser.
+
+OPTIONS
+Normal is the default. Easy adds 30% battery time, softens wind and
+signal drain, and makes scanning and landing more forgiving in Story
+and Practice. A difficulty change takes effect at the next launch.
+Touch sensitivity adjusts joystick response. Options also controls audio.
 
 FLIGHT
 WASD or arrows   Steer
 Space           Brake and steady the drone
-C               Jam red cameras for 2.5 seconds. Two uses per flight.
+C               Jam red cameras for 2.5 seconds. Three uses per flight.
 P               Pause or resume
 R               Restart the current mission
 
@@ -17,7 +27,7 @@ hold a steady hover over the extraction pad after recording every target.
 In the final Gale Warehouse mission, fly east through the open loading door.
 
 MISSIONS, HANGAR, AND UPGRADES
-Use the top buttons to switch pages. The mission list has two pages.
+Use the top buttons to switch pages. Use Previous and Next to page through practice missions.
 Mission clears earn credits for upgrades to the selected drone.
 
 PROJECT FILES
@@ -31,7 +41,7 @@ when available. The atlas is a transparent 3 × 3 sheet. Sprite rectangles
 are listed in game.js. The display font license is included in index.html.
 
 STORY AND PRACTICE
-Story is the main campaign. Fly all twenty-four missions in order across two twelve-mission cases. Every three
+Story is the main campaign. Fly all 36 missions in order across three 12-mission cases. Every three
 missions unlock a chapter reveal. The final epilogue includes the case
 outcome, thank-you slides, and production credits. Practice offers cleared maps and your current Story mission
 without advancing the story. Campaign progress is saved separately from

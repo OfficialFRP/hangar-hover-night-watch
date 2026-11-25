@@ -89,12 +89,16 @@ const ctx = canvas.getContext('2d');
 const overlay = get('.overlay');
 const action = get('#action');
 const keyboard = new Set();
-const pointers = new Map();
-const touchButtons = [...document.querySelectorAll('[data-key]')];
+const brakePointers = new Set();
+const stick = {pointer:null,x:0,y:0};
 const courseButtons = courses.map((mission,index) => {
   const button = document.createElement('button');
   button.textContent = mission.name;
-  button.addEventListener('click',() => {reset(index); showPage('flight');});
+  button.addEventListener('click',() => {
+    if (!canPractice(index)) return;
+    reset(index);
+    showPage('flight');
+  });
   get('#mission-list').append(button);
   return button;
 });
@@ -265,9 +269,18 @@ function showPage(page) {
     renderMissionPage();
   }
 }
+function canPractice(index) {
+  return progress.cleared.includes(index) || index === (progress.campaignNext || 0);
+}
 function renderMissionPage() {
   const last = Math.ceil(courses.length/missionsPerPage)-1;
-  courseButtons.forEach((button,index) => button.hidden = Math.floor(index/missionsPerPage) !== missionPage);
+  courseButtons.forEach((button,index) => {
+    button.hidden = Math.floor(index/missionsPerPage) !== missionPage;
+    button.textContent = String(index+1).padStart(2,'0') + '  ' + courses[index].name + (progress.cleared.includes(index) ? '  ✓' : '');
+    button.disabled = !canPractice(index);
+    if (button.disabled) button.textContent += ' · Locked';
+    button.setAttribute('aria-pressed',index === courseIndex);
+  });
   get('#missionPage').textContent = (missionPage+1) + ' / ' + (last+1);
   get('#prevMission').disabled = missionPage === 0;
   get('#nextMission').disabled = missionPage === last;
@@ -301,10 +314,6 @@ function renderHangar() {
   get('#loadoutName').textContent = airframe.name;
   get('#loadoutStats').textContent = stats.seconds + ' s battery · ' + Math.round(stats.thrust) + ' thrust · ' + stats.brake.toFixed(1) + ' braking';
   get('#purchaseStatus').textContent = active ? 'Finish or restart the mission to change your loadout.' : '';
-  courseButtons.forEach((button,index) => {
-    button.textContent = String(index+1).padStart(2,'0') + '  ' + courses[index].name + (progress.cleared.includes(index) ? '  ✓' : '');
-    button.setAttribute('aria-pressed',index === courseIndex);
-  });
   frameButtons.forEach((button,index) => {
     const frame = fleet[index];
     const selected = index === progress.selected;
@@ -330,8 +339,9 @@ function storedBest() {
 }
 function clearInputs() {
   keyboard.clear();
-  pointers.clear();
-  touchButtons.forEach(button => button.classList.remove('held'));
+  brakePointers.clear();
+  centerJoystick();
+  brakeButton.classList.remove('held');
 }
 function menu(title, message, label, callback) {
   get('#headline').textContent = title;
@@ -414,17 +424,16 @@ function togglePause() {
     menu('Flight paused','Your battery timer is paused.','Resume',togglePause);
   }
 }
-const touchPressed = key => [...pointers.values()].some(input => input.includes(key));
-const pressed = (...keys) => keys.some(key => keyboard.has(key) || touchPressed(key));
+const pressed = (...keys) => keys.some(key => keyboard.has(key));
 const clamp = (value,min,max) => Math.max(min,Math.min(value,max));
 // Flight physics. Steering changes velocity, so the drone drifts after release.
 function update(dt) {
   elapsed += dt;
   jam = Math.max(0,jam-dt);
-  const dx = +pressed('ArrowRight','d') - +pressed('ArrowLeft','a');
-  const dy = +pressed('ArrowDown','s') - +pressed('ArrowUp','w');
+  const dx = clamp(+pressed('ArrowRight','d') - +pressed('ArrowLeft','a') + stick.x,-1,1);
+  const dy = clamp(+pressed('ArrowDown','s') - +pressed('ArrowUp','w') + stick.y,-1,1);
   const diagonal = Math.max(1,Math.hypot(dx,dy));
-  const braking = pressed(' ');
+  const braking = pressed(' ') || brakePointers.size > 0;
   if (braking && !wasBraking) sound('brake');
   wasBraking = braking;
   flightAudio(Math.hypot(drone.vx,drone.vy),Boolean(dx || dy),braking,true);
@@ -615,11 +624,15 @@ function warehouseProp(ctx,w,h,type) {
     ctx.translate(-length/2,-width/2);
     for (const x of [length*.19,length*.58]) for (const y of [width*.22,width*.67])
       surfacePanel(ctx,x,y,length*.14,width*.15,'#4a515a','#10151e');
-    surfacePanel(ctx,length*.16,width*.27,length*.58,width*.47,'#ffc46e','#8f4b27',5);
+    surfacePanel(ctx,length*.16,width*.27,length*.58,width*.47,'#d38d47','#5e4034',5);
     surfacePanel(ctx,length*.36,width*.32,length*.27,width*.36,'#4b6673','#1a2733',3);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#f1c583';
+    ctx.strokeStyle = '#c59b70';
     ctx.strokeRect(length*.36,width*.32,length*.27,width*.36);
+    surfacePanel(ctx,length*.21,width*.36,length*.11,width*.25,'#43505b','#21292d',3);
+    ctx.fillStyle = '#fce1a2';
+    ctx.fillRect(length*.685,width*.31,length*.025,width*.06);
+    ctx.fillRect(length*.685,width*.63,length*.025,width*.06);
     surfacePanel(ctx,length*.71,width*.24,length*.07,width*.55,'#8c9fa9','#343b44');
     for (const y of [width*.34,width*.61]) surfacePanel(ctx,length*.76,y,length*.19,width*.055,'#d2d9dd','#616f77',1);
     ctx.restore();
@@ -712,16 +725,29 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
     return;
   }
   if (type === 'tank') {
-    const tank = Math.min(w*.32,h*.21);
+    const tank = Math.min(w*.30,h*.19);
+    const pipe = Math.max(4,w*.06);
+    surfacePanel(ctx,w/2-pipe/2,h*.14,pipe,h*.72,'#94a0a4','#353e47',3);
     for (const cy of [h*.27,h*.73]) {
+      const metal = ctx.createLinearGradient(w/2-tank,cy-tank,w/2+tank,cy+tank);
+      metal.addColorStop(0,'#bcc5c5');
+      metal.addColorStop(.48,'#606d73');
+      metal.addColorStop(1,'#24323c');
       circle(w/2,cy,tank,ctx);
-      ctx.fillStyle = '#77858a';
+      ctx.fillStyle = metal;
       ctx.fill();
+      ctx.strokeStyle = '#b7d1cf99';
       ctx.stroke();
       circle(w/2,cy,tank*.68,ctx);
+      ctx.strokeStyle = '#2d4950';
       ctx.stroke();
-      ctx.fillStyle = '#233137';
-      ctx.fillRect(w/2-4,cy-7,8,14);
+      surfacePanel(ctx,w/2-tank*.30,cy-tank*.30,tank*.60,tank*.60,'#dce1d8','#425964',2);
+      for (let i=0;i<6;i++) {
+        const angle = i*Math.PI/3;
+        circle(w/2+Math.cos(angle)*tank*.84,cy+Math.sin(angle)*tank*.84,1.3,ctx);
+        ctx.fillStyle = '#e5ded0';
+        ctx.fill();
+      }
     }
   } else if (type === 'water') {
     reservoir(ctx,w,h);
@@ -768,7 +794,7 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   if (type === 'cargo' || type === 'hangar' || type === 'train') {
     sprayTag(ctx,type === 'train' ? 'AFTER' : type === 'hangar' ? 'NITE' : 'VOID',w/2,h*.32,Math.min(27,w*.23),type === 'cargo' ? '#e88ccb' : '#cfef78');
   }
-  const sprite = {cargo:3,train:4,tank:5}[type];
+  const sprite = {cargo:3,train:4}[type];
   if (sprite !== undefined) {
     const inset = 5;
     if (w > h) {
@@ -1128,41 +1154,56 @@ window.addEventListener('blur',() => {
   clearInputs();
   if (state === 'flying') togglePause();
 });
-const dpad = get('.dpad');
+const joystick = get('.joystick');
 const brakeButton = get('#brake');
-function showTouchInput() {
-  touchButtons.forEach(button => button.classList.toggle('held',touchPressed(button.dataset.key)));
+function placeKnob(x,y) {
+  joystick.style.setProperty('--stick-x',x+'px');
+  joystick.style.setProperty('--stick-y',y+'px');
+}
+function centerJoystick() {
+  stick.pointer = null;
+  stick.x = stick.y = 0;
+  placeKnob(0,0);
 }
 function steerByTouch(event) {
-  const bounds = dpad.getBoundingClientRect();
-  const x = (event.clientX-bounds.left)/bounds.width-.5;
-  const y = (event.clientY-bounds.top)/bounds.height-.5;
-  const directions = [];
-  if (Math.abs(x) >= .13 && Math.abs(x) >= Math.abs(y)*.55) directions.push(x < 0 ? 'ArrowLeft' : 'ArrowRight');
-  if (Math.abs(y) >= .13 && Math.abs(y) >= Math.abs(x)*.55) directions.push(y < 0 ? 'ArrowUp' : 'ArrowDown');
-  pointers.set(event.pointerId,directions);
-  showTouchInput();
+  const bounds = joystick.getBoundingClientRect();
+  const reach = bounds.width*.32;
+  const x = event.clientX-bounds.left-bounds.width/2;
+  const y = event.clientY-bounds.top-bounds.height/2;
+  const distance = Math.hypot(x,y);
+  const push = Math.min(1,distance/reach);
+  const directionX = x/(distance || 1);
+  const directionY = y/(distance || 1);
+  const power = Math.max(0,(push-.16)/.84);
+  stick.x = directionX*power;
+  stick.y = directionY*power;
+  placeKnob(directionX*push*reach,directionY*push*reach);
 }
-dpad.addEventListener('pointermove',event => {
-  if (pointers.has(event.pointerId) && dpad.hasPointerCapture(event.pointerId)) steerByTouch(event);
+joystick.addEventListener('pointerdown',event => {
+  if (state !== 'flying' || event.button !== 0 || stick.pointer !== null) return;
+  event.preventDefault();
+  joystick.setPointerCapture(event.pointerId);
+  stick.pointer = event.pointerId;
+  steerByTouch(event);
 });
-for (const control of [dpad,brakeButton]) {
-  control.addEventListener('pointerdown',event => {
-    if (state !== 'flying' || event.button !== 0) return;
-    event.preventDefault();
-    control.setPointerCapture(event.pointerId);
-    if (control === dpad) steerByTouch(event);
-    else {
-      pointers.set(event.pointerId,[' ']);
-      showTouchInput();
-    }
+joystick.addEventListener('pointermove',event => {
+  if (event.pointerId === stick.pointer) steerByTouch(event);
+});
+brakeButton.addEventListener('pointerdown',event => {
+  if (state !== 'flying' || event.button !== 0) return;
+  event.preventDefault();
+  brakeButton.setPointerCapture(event.pointerId);
+  brakePointers.add(event.pointerId);
+  brakeButton.classList.add('held');
+});
+for (const type of ['pointerup','pointercancel','lostpointercapture']) {
+  joystick.addEventListener(type,event => {
+    if (event.pointerId === stick.pointer) centerJoystick();
   });
-  for (const type of ['pointerup','pointercancel','lostpointercapture']) {
-    control.addEventListener(type,event => {
-      pointers.delete(event.pointerId);
-      showTouchInput();
-    });
-  }
+  brakeButton.addEventListener(type,event => {
+    brakePointers.delete(event.pointerId);
+    brakeButton.classList.toggle('held',brakePointers.size > 0);
+  });
 }
 document.addEventListener('visibilitychange',() => {
   if (!document.hidden) return;

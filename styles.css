@@ -102,7 +102,6 @@ body{
   background:linear-gradient(90deg,#100d20f5 5%,#131127a8 52%,#120f245c),
     url(assets/night-watch-crew.webp) center top / cover fixed,#100d20;
 }
-body::before{content:"";pointer-events:none;position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,transparent,#100d20 93%)}
 #page-story,.game-menu{background-color:#17172def}
 #page-story{box-shadow:0 12px 44px #09081580}
 #field{box-shadow:0 12px 38px #070713a0}
@@ -120,13 +119,6 @@ body{background-image:linear-gradient(90deg,#100d2082,#1311272d 60%,#120f2426),u
 
 /* The thumb deck stays separate from the canvas so fingers never cover the course. */
 .help .keys{display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
-.dpad{--key:36px;display:grid;grid-template:repeat(3,var(--key))/repeat(3,var(--key));gap:3px;touch-action:none;user-select:none}
-.dpad button{height:var(--key);min-width:0;padding:0;border-radius:10px;font-size:17px}
-.dpad [data-key="ArrowUp"]{grid-area:1/2}
-.dpad [data-key="ArrowLeft"]{grid-area:2/1}
-.dpad [data-key="ArrowRight"]{grid-area:2/3}
-.dpad [data-key="ArrowDown"]{grid-area:3/2}
-.dpad::after{content:"";grid-area:2/2;border-radius:50%;background:#222842;border:1px solid #586287;pointer-events:none}
 .flight-actions{display:flex;align-items:center;gap:8px}
 .flight-actions button{min-width:48px;min-height:44px;touch-action:manipulation;text-align:center}
 .flight-actions button span{display:block;font-size:21px;line-height:1.05;margin-bottom:3px}
@@ -138,7 +130,7 @@ body{background-image:linear-gradient(90deg,#100d2082,#1311272d 60%,#120f2426),u
   main{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right));padding-bottom:max(9px,env(safe-area-inset-bottom))}
   .keyboard-guide{display:none}
   .help .keys{width:100%;justify-content:space-between}
-  .dpad{--key:clamp(40px,12vw,52px)}
+  .joystick{--stick-size:clamp(110px,34vw,145px)}
   .flight-actions button{min-width:49px;min-height:50px;padding:5px;font-size:12px}
   #field{width:100%;min-width:0}
   #page-flight .hud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;font-size:11px}
@@ -155,8 +147,24 @@ body{background-image:linear-gradient(90deg,#100d2082,#1311272d 60%,#120f2426),u
   #field{grid-column:2;grid-row:2;width:min(100%,calc((100dvh - 103px) * 1.92));margin:auto}
   #raceLive{grid-column:2;grid-row:3;margin:3px 0;font-size:10px}
   .help,.help .keys{display:contents}
-  .dpad{--key:38px;grid-column:1;grid-row:2;justify-self:center}
+  .joystick{--stick-size:114px;grid-column:1;grid-row:2;justify-self:center}
   .flight-actions{grid-column:3;grid-row:2;flex-direction:column;gap:5px}
   .flight-actions button{width:64px;min-height:43px}
   .camera-legend{display:none}
 }
+
+.joystick{position:relative;flex:none;width:var(--stick-size,110px);height:var(--stick-size,110px);touch-action:none;user-select:none;border:2px solid #716591;border-radius:50%;background:radial-gradient(circle,#292744 38%,#181728 40%,#211b32 63%,#35244b 65%,#181625 69%);box-shadow:inset 0 0 15px #090718,0 4px 12px #100b22;color:#b6ddd8}
+.joystick span{position:absolute;pointer-events:none;font-size:12px;line-height:1}
+.stick-up{top:9px;left:50%;transform:translateX(-50%)}
+.stick-down{bottom:9px;left:50%;transform:translateX(-50%)}
+.stick-left{left:9px;top:50%;transform:translateY(-50%)}
+.stick-right{right:9px;top:50%;transform:translateY(-50%)}
+.stick-knob{left:50%;top:50%;width:39%;aspect-ratio:1;border:2px solid #a0faea;border-radius:50%;transform:translate(calc(-50% + var(--stick-x,0px)),calc(-50% + var(--stick-y,0px)));background:radial-gradient(circle at 34% 25%,#b8fbef,#478779 47%,#1b343c 76%);box-shadow:0 3px 7px #090717,inset 0 0 0 3px #12373787}
+.inspire-link{color:#afffef;font-size:12px;text-decoration:underline;text-underline-offset:.2em}
+.pages button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;text-transform:uppercase;letter-spacing:.025em;background:linear-gradient(150deg,#34284c,#1a182b);border-color:#665082;text-shadow:0 1px #100d28}
+.pages button strong{font-family:Night Display,monospace;font-style:italic;font-weight:800}
+.pages button span{color:#e89ce5;font:bold 10px ui-monospace,monospace}
+.pages button[aria-pressed=true]{background:linear-gradient(145deg,#a0f9e9,#6ecbd8);text-shadow:none}
+.pages button[aria-pressed=true] span{color:#3b2a61}
+body{background-image:linear-gradient(90deg,#100d2020,#13112722 55%,#120f2417),url(assets/night-watch-crew.webp);background-position:left top}
+@media(max-width:650px){body{background-position:left top}.inspire-link{font-size:10px}.pages button{gap:2px;font-size:10px;flex-direction:column}.pages button span{font-size:9px}}

@@ -6,10 +6,10 @@
 <link rel="stylesheet" href="styles.css">
 
 <main>
-<header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><button id="audio" aria-pressed="false">Sound off</button></div></header>
+<header><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><a class="inspire-link" href="https://www.inspireclothing.art/" target="_blank" rel="noopener noreferrer">Inspire Clothing ↗</a><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
-<button data-page="story" aria-pressed="true">01 Story</button><button data-page="missions" aria-pressed="false">02 Practice</button><button data-page="hangar" aria-pressed="false">03 Hangar</button><button data-page="upgrades" aria-pressed="false">04 Upgrades</button>
-<button data-page="race" aria-pressed="false">05 Race</button>
+<button data-page="story" aria-pressed="true"><span>01</span><strong>Story</strong></button><button data-page="missions" aria-pressed="false"><span>02</span><strong>Practice</strong></button><button data-page="hangar" aria-pressed="false"><span>03</span><strong>Hangar</strong></button><button data-page="upgrades" aria-pressed="false"><span>04</span><strong>Upgrades</strong></button>
+<button data-page="race" aria-pressed="false"><span>05</span><strong>Race</strong></button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
 <div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
@@ -22,11 +22,10 @@
 <div class="help">
   <span class="keyboard-guide">WASD / arrows to fly · Space to brake · C to jam · P to pause · R to restart</span>
   <div class="keys" aria-label="On-screen flight controls">
-    <div class="dpad" role="group" aria-label="Steer. Slide your thumb for diagonals.">
-      <button data-key="ArrowUp" aria-label="Fly up">▲</button>
-      <button data-key="ArrowLeft" aria-label="Fly left">◀</button>
-      <button data-key="ArrowRight" aria-label="Fly right">▶</button>
-      <button data-key="ArrowDown" aria-label="Fly down">▼</button>
+    <div class="joystick" role="group" aria-label="Steering joystick. Drag from the center to steer.">
+      <span class="stick-up" aria-hidden="true">▲</span><span class="stick-left" aria-hidden="true">◀</span>
+      <span class="stick-right" aria-hidden="true">▶</span><span class="stick-down" aria-hidden="true">▼</span>
+      <span class="stick-knob" aria-hidden="true"></span>
     </div>
     <div class="flight-actions" role="group" aria-label="Flight actions">
       <button id="jam" aria-label="Jam cameras"><span aria-hidden="true">ϟ</span>Jam</button>

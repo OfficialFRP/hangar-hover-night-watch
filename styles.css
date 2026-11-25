@@ -452,16 +452,9 @@ main:has(#page-flight:not([hidden])) .layout{flex:1;min-height:0}
   #page-flight:has(.overlay:not([hidden])) :is(.hud,#field,#raceLive){grid-column:1}
 }
 
-/* Keep the background artwork visible through the first word of the title. */
+/* Match HANGAR to the cyan lettering in the Night Watch artwork. */
 header h1{
   background:transparent;
-  color:#f2f8fb;
+  color:#04ecfc;
   text-shadow:none;
-}
-@supports (-webkit-text-stroke:1px #fff){
-  header h1{
-    color:transparent;
-    -webkit-text-stroke:clamp(1px,.035em,2.4px) #f2f8fb;
-  }
-  header h1 em{-webkit-text-stroke:0}
 }

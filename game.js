@@ -672,6 +672,29 @@ const equipmentArt = {
   drum: ['cargo', 'jack', 'pallet'],
   fan: ['conveyor', 'server', 'lift']
 };
+const equipmentAtlas = new Image();
+equipmentAtlas.src = 'assets/warehouse-equipment.webp';
+const equipmentSprites = {cargo:0,pallet:1,jack:2,conveyor:3,lift:4,server:5,train:6,tank:7,winch:8};
+function drawEquipmentSprite(ctx,w,h,type) {
+  const sprite = equipmentSprites[type];
+  if (sprite === undefined || !equipmentAtlas.complete || !equipmentAtlas.naturalWidth) return false;
+  ctx.save();
+  if (h > w) {
+    ctx.translate(w,0);
+    ctx.rotate(Math.PI/2);
+    [w,h] = [h,w];
+  }
+  surfacePanel(ctx,1,1,w-2,h-2,'#404a50','#202329',Math.min(8,h*.2));
+  const modules = Math.max(1,Math.round(w/(h*2.5)));
+  const width = w/modules;
+  const sx = (sprite%3)*220;
+  const sy = Math.floor(sprite/3)*140;
+  for (let module=0;module<modules;module++) {
+    ctx.drawImage(equipmentAtlas,sx,sy,220,140,module*width,0,width,h);
+  }
+  ctx.restore();
+  return true;
+}
 function paintEquipment(ctx,w,h,type,seed) {
   ctx.save();
   if (h > w) {
@@ -817,9 +840,14 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
   const variants = equipmentArt[type];
+  const seed = Math.round(x+y);
+  const equipment = variants ? variants[seed%variants.length] : type;
+  if (drawEquipmentSprite(ctx,w,h,equipment)) {
+    ctx.restore();
+    return;
+  }
   if (variants) {
-    const seed = Math.round(x+y);
-    paintEquipment(ctx,w,h,variants[seed%variants.length],seed);
+    paintEquipment(ctx,w,h,equipment,seed);
     ctx.restore();
     return;
   }
@@ -1402,6 +1430,7 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
+equipmentAtlas.addEventListener('load',() => {terrain = paintTerrain();});
 atlas.addEventListener('load',() => {
   terrain = paintTerrain();
   renderLoadout();

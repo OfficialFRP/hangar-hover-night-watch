@@ -247,3 +247,61 @@ header h1 em{
 @media (orientation:landscape) and (max-height:500px){
   header h1{font-size:clamp(23px,5vw,36px)}
 }
+
+/* Custom wordmark and field-communications panels. */
+@font-face{
+  font-family:Hangar Airframe;src:url("assets/hangar-airframe.woff") format("woff");
+  font-style:normal;font-weight:400;font-display:swap;
+}
+@font-face{
+  font-family:Night Dialogue;src:url("assets/noto-sans-dialogue.woff") format("woff");
+  font-style:normal;font-weight:400;font-display:swap;
+}
+header h1{
+  font:400 clamp(26px,5.5vw,68px)/1.04 Hangar Airframe,Impact,sans-serif;
+  letter-spacing:-.038em;
+  color:#eef4f4;
+  text-shadow:0 2px #465560,0 4px #111b29;
+  border-bottom:0;
+}
+header h1 em{
+  color:#a8f4e5;
+  text-shadow:0 2px #376c72,0 4px #14242c;
+}
+#storyTitle,#raceTitle,.overlay .card h2{
+  font:700 clamp(20px,3vw,30px)/1.2 Night Dialogue,system-ui,sans-serif;
+  letter-spacing:-.025em;
+}
+#page-story .story-scene,#page-race .story-scene{
+  align-items:stretch;
+  grid-template-columns:clamp(82px,22%,204px) minmax(0,1fr);
+  gap:0;border-radius:4px 18px 4px 4px;
+  border:1px solid #476069;border-left:3px solid #83dfce;
+  background:linear-gradient(120deg,#253649 0%,#1a2939 40%,#121d2b 100%);
+  box-shadow:0 8px 22px #060d1790,inset 0 -1px #93cfc22e;
+}
+.story-scene img{
+  align-self:center;
+  box-shadow:4px 0 16px #08151b8c;
+}
+#page-story .story-scene div,#page-race .story-scene div{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(10px,2vw,24px);
+}
+#speaker,#raceSpeaker{
+  margin:0 0 .55em;color:#a7f3e0;
+  font:700 .75rem/1.35 Night Dialogue,system-ui,sans-serif;
+  letter-spacing:.09em;text-transform:uppercase;
+}
+.story-scene:not(.credits-scene) #dialogue,#raceQuote,.overlay .card p{
+  font:400 clamp(.875rem,1.5vw,1.1rem)/1.58 Night Dialogue,system-ui,sans-serif;
+  color:#e8eef5;margin-block:0;
+}
+.overlay .card p{margin-block:.6em 1em}
+#page-story .credits-scene{grid-template-columns:1fr}
+@media(max-width:600px){
+  header h1{font-size:clamp(20px,5.9vw,34px)}
+}
+@media (orientation:landscape) and (max-height:500px){
+  header h1{font-size:clamp(22px,4.5vw,35px)}
+}

@@ -458,3 +458,17 @@ header h1{
   color:#08cfdf;
   text-shadow:0 -1px #63deea,1px 1px #0898af,2px 2px #08768d,3px 3px #11495f,4px 4px 4px #090f24bb;
 }
+
+#page-story .team-scene{
+  grid-template-columns:1fr;
+  border-left-color:#90e7dd;
+}
+#page-story .team-scene img{
+  aspect-ratio:16/9;
+  max-height:46dvh;
+  object-fit:contain;
+  background:#0a1723;
+}
+#page-story .team-scene div{padding:9px 12px;text-align:center}
+#page-story .team-scene #speaker{display:none}
+#page-story .team-scene #dialogue{color:#acffe9;font-weight:800;letter-spacing:.16em}

@@ -131,23 +131,25 @@ Object.assign(campaignReveals,{
     ['reed','Dorian Vey is in custody. Our international partners are preserving the ship’s records. We’ll take statements when people are ready.'],
     ['mateo','I heard them call back when I knocked. Tonight, I heard them say their names.'],
     ['director','We’ll make sure they have somewhere safe to go and someone to call. You can bring the drone home, Rook.'],
+    [null,'ALL ACCOUNTED FOR',null,{src:'assets/orison-rescue-team.webp',alt:'Rook and the rescue team together on the Orison at dawn after the operation.'}],
     [null,'THANK YOU FOR PLAYING'],
     [null,'@OfficialFRP\nA Feather Rock Production\n\nIn association with Team Inspire - @OFFICIALINSPIRE777','https://www.inspireclothing.art/']
   ]}
 });
 
 const carrierFinale = {
-  name:'Orison at Sea', seconds:74, start:[76,247], exit:[250,154], wind:132,
+  name:'Orison at Sea',seconds:47,start:[76,345],exit:[218,132],wind:153,
   sea:true,sentinels:2,
-  gates:[[212,129],[382,327],[557,139],[740,337],[876,247]],
+  gates:[[180,339],[344,135],[491,345],[634,153],[777,345],[879,217]],
   walls:[
-    [96,60,126,38,'lifeboat'],[260,188,84,251,'deckCargo'],
-    [345,60,110,125,'shipCrane'],[471,222,79,204,'shipVent'],
-    [598,55,88,228,'anchorWinch'],[639,411,145,36,'ballastPump'],
-    [785,67,111,103,'deckCargo'],[810,361,104,48,'lifeboat']
+    [109,65,129,52,'deckGantry'],[231,117,62,193,'deckCargo'],
+    [305,392,125,55,'cargoLift'],[397,194,61,246,'shipVent'],
+    [490,53,136,49,'shipCrane'],[540,55,63,255,'sensorPod'],
+    [684,244,60,197,'deckGenerator'],[722,71,128,50,'davitRail'],
+    [812,281,68,105,'deckReels'],[822,407,103,39,'lifeboat']
   ],
-  cameras:[[233,165,1.09,'red'],[521,192,-1.08,'green'],[716,276,.7,'red']],
-  intro:'Cross the Orison’s exposed deck. Verify five rescue markers, then fly through the bow opening. Sentinels patrol the deck.'
+  cameras:[[303,186,-.9,'red'],[518,258,1.15,'red'],[710,220,1.55,'red']],
+  intro:'Verify six rescue markers across the bow and fly through the opening. Save a jam for the last crossing.'
 };
 // Authored lane centers and hazard budgets keep each deck crossing readable.
 const orisonPlans = [
@@ -163,30 +165,45 @@ const orisonPlans = [
   {name:'Forward Winches', chapter:'The Rescue', speaker:'patch', line:'The wind’s stronger forward of the bridge. Brake before the winches and use the battery pack if you need it.', lanes:[193,292,201,277], seconds:69, wind:101, cameras:2},
   {name:'Evacuation Lane', chapter:'The Rescue', speaker:'mateo', line:'I’m at the muster point. I’ll stay here so the people coming up can see a familiar face.', lanes:[285,188,294,208], seconds:70, wind:116, cameras:2}
 ];
-const orisonDeckGear = ['deckCargo','shipVent','lifeboat','shipCrane','anchorWinch','ballastPump'];
+const orisonDeckGear = [
+  'deckCargo','deckGantry','shipVent','cargoLift','lifeboat','deckReels',
+  'anchorWinch','davitRail','deckGenerator','sensorPod','shipCrane','ballastPump'
+];
 const orisonMissions = orisonPlans.map((plan,index) => {
   const gates = [];
   const walls = [];
   const cameras = [];
   const columns = plan.lanes.length === 3 ? [218,460,710] : [183,376,568,759];
-  const gap = index < 3 ? 108 : index < 9 ? 99 : 92;
+  const gap = index < 3 ? 86 : index < 9 ? 74 : 64;
+  const horizontalGear = ['deckGantry','cargoLift','shipCrane','davitRail'];
+  function deckObstacle(x,top,width,height,type,upper) {
+    if (!horizontalGear.includes(type)) return [x-width/2,top,width,height,type];
+    const wide = width+40;
+    const shallow = Math.min(56,height);
+    return [x-wide/2,upper ? top+height-shallow : top,wide,shallow,type];
+  }
   for (const [lane,y] of plan.lanes.entries()) {
     const x = columns[lane];
     const width = 62+((index*7+lane*5)%15);
     const north = orisonDeckGear[(index+lane*2)%orisonDeckGear.length];
     const south = orisonDeckGear[(index+lane*2+3)%orisonDeckGear.length];
     gates.push([x,y]);
-    walls.push([x-width/2,46,width,y-gap-46,north],[x-width/2,y+gap,width,454-y-gap,south]);
+    walls.push(deckObstacle(x,46,width,y-gap-46,north,true),deckObstacle(x,y+gap,width,454-y-gap,south,false));
     if (lane < plan.cameras) {
       const offset = lane%2 ? -1 : 1;
       cameras.push([x+54,y+offset*(gap-16),offset*-1.3,index<2 ? 'green' : 'red']);
     }
   }
+  if (index >= 5) {
+    const y = index%2 ? 350 : 105;
+    const x = (columns[1]+columns[2])/2;
+    walls.push([x-50,y-21,100,42,index%2 ? 'deckReels' : 'deckGenerator']);
+  }
   const exitY = Math.round((plan.lanes.at(-1)+250)/2);
   gates.push([872,exitY]);
   return {
-    name:plan.name,seconds:plan.seconds,start:[76,plan.lanes[0]],exit:[exitY,index < 9 ? 168 : 152],
-    wind:plan.wind,sea:true,gates,walls,cameras,
+    name:plan.name,seconds:plan.seconds-(index < 3 ? 14 : 17),start:[76,plan.lanes[0]],exit:[exitY,index < 9 ? 168 : 152],
+    wind:plan.wind+19+index*2,sea:true,gates,walls,cameras,
     intro:'Verify the rescue markers in order, then fly through the bow opening.'
   };
 });

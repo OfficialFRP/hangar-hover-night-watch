@@ -245,7 +245,7 @@ function selectStoryMission(index) {
   startBriefing(index);
 }
 function renderStory() {
-  const [speaker,dialogue,link] = storyLines[lineIndex];
+  const [speaker,dialogue,link,illustration] = storyLines[lineIndex];
   get('#storyTitle').textContent = sceneTitle;
   const position = campaignPosition();
   const shownCase = storyLines === campaignReveals[12].lines ? 0 :
@@ -265,9 +265,10 @@ function renderStory() {
   }));
   picker.value = position < courses.length ? String(position) : '';
   const image = get('#portrait');
-  image.hidden = !speaker;
+  image.hidden = !speaker && !illustration;
   const scene = get('.story-scene');
-  scene.classList.toggle('credits-scene',!speaker);
+  scene.classList.toggle('credits-scene',!speaker && !illustration);
+  scene.classList.toggle('team-scene',Boolean(illustration));
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
     const variant = speaker === 'rook' && sceneTitle.includes('Sable’s Signature') ? 7 : portrait;
@@ -276,6 +277,10 @@ function renderStory() {
     get('#speaker').textContent = name + ' · ' + role;
   } else {
     get('#speaker').textContent = '';
+    if (illustration) {
+      image.src = illustration.src;
+      image.alt = illustration.alt;
+    }
   }
   const dialogueNode = get('#dialogue');
   dialogueNode.textContent = dialogue;
@@ -850,7 +855,7 @@ function reservoir(ctx,w,h) {
     ctx.fillRect(x,h*.47+4,2,16);
   }
 }
-const shipFallback = {deckCargo:'cargo',anchorWinch:'lift',shipVent:'conveyor',lifeboat:'jack',shipCrane:'lift',ballastPump:'server'};
+const shipFallback = {deckCargo:'cargo',anchorWinch:'lift',shipVent:'conveyor',lifeboat:'jack',shipCrane:'lift',ballastPump:'server',deckGantry:'lift',cargoLift:'lift',davitRail:'conveyor',deckReels:'cargo',deckGenerator:'server',sensorPod:'cargo'};
 const equipmentArt = {
   cargo: ['cargo', 'pallet', 'jack'],
   hangar: ['conveyor', 'lift'],
@@ -896,13 +901,16 @@ const workcellSprites = {
 const shipAtlas = new Image();
 shipAtlas.src = 'assets/orison-deck.webp';
 const shipSprites = {"deckCargo":[5,23,210,103],"anchorWinch":[225,28,210,94],"shipVent":[445,25,210,100],"lifeboat":[5,172,210,106],"shipCrane":[225,178,210,93],"ballastPump":[445,177,210,96]};
+const shipMachineryAtlas = new Image();
+shipMachineryAtlas.src = 'assets/orison-machinery.webp';
+const shipMachinerySprites = {"deckGantry":[5,32,210,85],"cargoLift":[242,4,176,141],"davitRail":[445,44,210,62],"deckReels":[5,168,210,113],"deckGenerator":[230,154,200,141],"sensorPod":[445,154,209,141]};
 const horizontalHandling = type => type === 'forklift' || type === 'jack';
 function drawEquipmentSprite(ctx,w,h,type) {
-  const rect = shipSprites[type] || workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
-  const image = shipSprites[type] ? shipAtlas : workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
+  const rect = shipMachinerySprites[type] || shipSprites[type] || workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
+  const image = shipMachinerySprites[type] ? shipMachineryAtlas : shipSprites[type] ? shipAtlas : workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
   if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
-  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
+  const rotate = !horizontalHandling(type) && !['press','switchgear','turntable','shipCrane','deckGantry','cargoLift','davitRail'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
   if (rotate) {
     ctx.translate(w,0);
     ctx.rotate(Math.PI/2);
@@ -1703,7 +1711,7 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
-for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas]) {
+for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas]) {
   artwork.addEventListener('load',() => {terrain = paintTerrain();});
 }
 atlas.addEventListener('load',() => {

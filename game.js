@@ -104,6 +104,7 @@ const ctx = canvas.getContext('2d');
 const overlay = get('.overlay');
 const action = get('#action');
 const batteryMeter = get('#power meter');
+const phoneLayout = window.matchMedia('(max-width: 650px), (pointer: coarse) and (max-height: 600px)');
 batteryMeter.setAttribute('aria-label','Battery remaining');
 const keyboard = new Set();
 const brakePointers = new Set();
@@ -727,8 +728,9 @@ function drawPatrol(patrol) {
   ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(x,y);
-  for (let ray=0;ray<=20;ray++) {
-    const angle = phase-1.07+ray*.107;
+  const rays = phoneLayout.matches ? 12 : 20;
+  for (let ray=0;ray<=rays;ray++) {
+    const angle = phase-1.07+ray*2.14/rays;
     let reach = patrol.pursuing ? 104 : patrolRadius;
     for (let distance=4;distance<reach;distance+=4) {
       if (!blockedAt(x+Math.cos(angle)*distance,y+Math.sin(angle)*distance)) continue;
@@ -1310,8 +1312,9 @@ function drawCamera(camera,index) {
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(x,y);
-  for (let i=0;i<=34;i++) {
-    const angle = heading-beamWidth+i*beamWidth/17;
+  const rays = phoneLayout.matches ? 16 : 34;
+  for (let i=0;i<=rays;i++) {
+    const angle = heading-beamWidth+i*2*beamWidth/rays;
     let distance = beamReach;
     for (let length=4;length<beamReach;length+=4) {
       const sx = x+Math.cos(angle)*length;
@@ -1620,7 +1623,7 @@ function steerByTouch(event) {
   const push = Math.min(1,distance/reach);
   const directionX = x/(distance || 1);
   const directionY = y/(distance || 1);
-  const power = Math.max(0,(push-.16)/.84);
+  const power = Math.max(0,(push-.12)/.88);
   stick.x = directionX*power;
   stick.y = directionY*power;
   placeKnob(directionX*push*reach,directionY*push*reach);
@@ -1651,6 +1654,7 @@ for (const type of ['pointerup','pointercancel','lostpointercapture']) {
     brakeButton.classList.toggle('held',brakePointers.size > 0);
   });
 }
+window.addEventListener('orientationchange',clearInputs);
 document.addEventListener('visibilitychange',() => {
   if (!document.hidden) return;
   clearInputs();
@@ -1722,11 +1726,21 @@ atlas.addEventListener('load',() => {
   renderLoadout();
 });
 let last = performance.now();
+let lastRender = -Infinity;
 function frame(now) {
-  if (state === 'flying') update(Math.min((now-last)/1000,1/30));
-  else flightAudio(0,false,false,false);
+  let remaining = Math.min(Math.max(0,(now-last)/1000),.1);
+  while (remaining > 0 && state === 'flying') {
+    const step = Math.min(remaining,1/60);
+    update(step);
+    remaining -= step;
+  }
+  if (state !== 'flying') flightAudio(0,false,false,false);
   last = now;
-  if (currentPage === 'flight') {draw(); hud();}
+  if (currentPage === 'flight' && (!phoneLayout.matches || now-lastRender >= 32)) {
+    draw();
+    hud();
+    lastRender = now;
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

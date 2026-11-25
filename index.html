@@ -25,7 +25,7 @@
 <div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
-<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><button id="action"></button></div></div>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button></div></div></div>
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
@@ -41,7 +41,6 @@
       <button id="jam" aria-label="Jam cameras"><span aria-hidden="true">ϟ</span>Jam</button>
       <button id="brake" data-key=" " aria-label="Hold to brake"><span aria-hidden="true">⏹</span>Brake</button>
       <button id="pause" aria-label="Pause or resume"><span aria-hidden="true">Ⅱ</span>Pause</button>
-      <button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button>
     </div>
   </div>
 </div>

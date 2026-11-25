@@ -472,3 +472,76 @@ header h1{
 #page-story .team-scene div{padding:9px 12px;text-align:center}
 #page-story .team-scene #speaker{display:none}
 #page-story .team-scene #dialogue{color:#acffe9;font-weight:800;letter-spacing:.16em}
+
+.brief-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+#retryFlight{min-height:44px;margin:0}
+@media(max-width:650px), (pointer:coarse) and (max-height:600px){
+  main{
+    height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+    padding:max(5px,env(safe-area-inset-top)) max(7px,env(safe-area-inset-right))
+      max(6px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left));
+  }
+  header{padding:0 0 4px;gap:2px 6px}
+  header h1{font-size:clamp(19px,5.8vw,38px)}
+  header .game-logo img{width:32px;height:auto}
+  header .kicker{display:none}
+  .header-tools{flex-wrap:wrap;margin-left:auto;justify-content:flex-end}
+  .header-tools #audio{min-height:44px;padding:3px 8px}
+  main:has(#page-flight:not([hidden])) header :is(#campaign,#wallet,.inspire-link){display:none}
+  main:has(#page-flight:not([hidden])) header .game-logo img{width:29px}
+  main:has(#page-flight:not([hidden])) header h1{font-size:clamp(18px,5.8vw,37px)}
+  .pages{margin-bottom:4px;gap:3px}
+  .pages button{padding:3px 0;min-height:44px;letter-spacing:0;font-size:clamp(9px,2.55vw,13px)}
+  main .layout{flex:1;min-height:0;overflow:hidden}
+  .layout > .game-menu{
+    max-height:100%;overflow:auto;overscroll-behavior:contain;scroll-padding-block:8px;
+    background:#171728f2;
+  }
+  .case-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:5px}
+  .case-picker button{font-size:clamp(10px,2.8vw,13px);padding:4px}
+  .story-mission-picker{display:grid;grid-template-columns:auto minmax(0,1fr);margin:5px 0;gap:6px}
+  #storyMission{width:100%;font-size:16px;min-height:44px}
+  #page-story .story-scene,#page-race .story-scene{grid-template-columns:clamp(72px,27%,116px) minmax(0,1fr);margin:6px 0}
+  #page-story .credits-scene,#page-story .team-scene{grid-template-columns:1fr}
+  #page-story .team-scene img{max-height:36dvh}
+  #page-story #storyTitle,#page-race #raceTitle{font-size:clamp(15px,4.7vw,22px);margin-bottom:4px}
+  #page-story .pager,#page-missions .pager,#page-race .pager{
+    position:sticky;bottom:0;z-index:1;background:#181c2c;gap:4px;padding:3px 0;margin-top:4px;
+  }
+  #page-story .pager button,#page-race .pager button,#page-missions .pager button{min-height:44px}
+  #page-story #restartStory{margin-top:5px}
+  #page-missions #mission-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-missions #returnFlight,#page-upgrades #backToHangar{min-height:44px}
+  #page-hangar #fleet{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #page-hangar .frame-option{min-height:56px}
+  #page-upgrades #mods{grid-template-columns:1fr}
+  #page-upgrades .tier-selector button{min-height:44px}
+  #page-flight{gap:3px}
+  #page-flight .hud{
+    grid-template-columns:repeat(3,minmax(0,1fr));font-size:clamp(10px,2.7vw,13px);
+    background:#111a2ae8;padding:3px;gap:3px 5px;
+  }
+  #page-flight #power{padding:2px 3px}
+  #page-flight #power meter{width:clamp(20px,7vw,44px);height:11px}
+  #page-flight #power b{min-width:0}
+  #page-flight #raceLive{font-size:11px;line-height:1.3;background:#131b2a;padding:3px}
+  #page-flight .help .keys{padding:2px 1px 0;justify-content:space-between}
+  #page-flight .joystick{--stick-size:clamp(83px,27vw,116px)}
+  #page-flight .flight-actions{grid-template-columns:repeat(3,minmax(48px,1fr))}
+  #page-flight .flight-actions button,#page-flight #action,#page-flight #retryFlight{min-height:44px}
+  #page-flight #field .card{padding:9px;gap:5px}
+  #page-flight #field .card h2{font-size:clamp(17px,4.3vw,22px)}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #page-flight{grid-template-columns:clamp(72px,13vw,107px) minmax(0,1fr) 67px;grid-template-rows:auto minmax(0,1fr) auto}
+  #page-flight .hud{font-size:clamp(9px,2.9dvh,12px)}
+  #page-flight .joystick{--stick-size:clamp(68px,22dvh,94px)}
+  #page-flight .flight-actions button{min-height:44px}
+  #page-flight .flight-actions{align-self:center}
+  #page-flight #field .overlay{padding:5px}
+  #page-story .story-scene,#page-race .story-scene{grid-template-columns:104px minmax(0,1fr)}
+  #page-story .credits-scene,#page-story .team-scene{grid-template-columns:1fr}
+  #page-story .team-scene img{max-height:39dvh}
+  #page-hangar #fleet{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #page-upgrades #mods{grid-template-columns:repeat(3,minmax(0,1fr))}
+}

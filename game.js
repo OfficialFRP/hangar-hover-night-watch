@@ -24,7 +24,8 @@ const courses = [
    cameras:[[314,287,-1.6,'green'],[671,267,1.3,'red'],[873,72,1.3,'red']],
    intro:'Ride out strong crosswinds, scan five targets, then fly straight through the east loading door.'},
   ...chapters,
-  ...northQuayMissions
+  ...northQuayMissions,
+  carrierFinale
 ];
 
 const fleet = [
@@ -221,6 +222,7 @@ function concludeRace(cleared,message) {
 
 }
 
+const storyCases = [['#caseOne',0],['#caseTwo',12],['#caseThree',24]];
 let storyLines = [];
 let lineIndex = 0;
 let sceneTitle;
@@ -240,10 +242,13 @@ function renderStory() {
   const [speaker,dialogue,link] = storyLines[lineIndex];
   get('#storyTitle').textContent = sceneTitle;
   const position = campaignPosition();
-  const secondCase = position >= 12 && storyLines !== campaignReveals[12].lines;
-  get('#caseOne').setAttribute('aria-pressed',String(!secondCase));
-  get('#caseTwo').setAttribute('aria-pressed',String(secondCase));
-  get('#caseTwo').disabled = (progress.campaignNext || 0) < 12;
+  const shownCase = storyLines === campaignReveals[12].lines ? 0 :
+    storyLines === campaignReveals[24].lines ? 1 : Math.min(2,Math.floor(position/12));
+  storyCases.forEach(([selector,first],index) => {
+    const button = get(selector);
+    button.setAttribute('aria-pressed',String(index === shownCase));
+    button.disabled = (progress.campaignNext || 0) < first;
+  });
   const picker = get('#storyMission');
   picker.replaceChildren(...courses.flatMap((mission,index) => {
     if (!canPractice(index)) return [];
@@ -294,7 +299,7 @@ function presentScene(title,lines,label,callback) {
 }
 function startBriefing(index) {
   const [chapter,speaker,line] = campaignBriefs[index];
-  presentScene((index < 12 ? 'Case 01' : 'Case 02') + ' · ' + chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
+  presentScene('Case 0' + (Math.floor(index/12)+1) + ' · ' + chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
     reset(index,false,true);
     showPage('flight');
   });
@@ -303,7 +308,7 @@ function resumeCampaign() {
   const index = campaignPosition();
   if (campaignReveals[index] && (index === courses.length || progress.campaignRevealed !== index)) {
     const {title,lines} = campaignReveals[index];
-    presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : 'Next chapter',() => {
+    presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : index === 24 ? 'Open Case 03' : 'Next chapter',() => {
       if (index === courses.length) {showPage('missions'); return;}
       progress.campaignRevealed = index;
       saveProgress();
@@ -494,7 +499,7 @@ function finish(won, message) {
   const hasNext = won && courseIndex < courses.length - 1;
   if (won && storyFlight) {
     const reveal = campaignReveals[courseIndex+1];
-    const title = hasNext ? (courseIndex === 11 ? 'Case 01 closed' : 'Intel secured') : 'MISSION ACCOMPLISHED';
+    const title = hasNext ? (courseIndex === 11 ? 'Case 01 closed' : courseIndex === 23 ? 'Case 02 closed' : 'Intel secured') : 'MISSION ACCOMPLISHED';
     menu(title,message,reveal ? (hasNext ? 'Chapter reveal' : 'Epilogue') : 'Next briefing',resumeCampaign);
   } else {
     menu(won ? (course.exit ? 'Intel secured' : 'Touchdown!') : 'Flight ended',
@@ -598,7 +603,7 @@ function update(dt) {
   if (course.exit) {
     if (doorOpen && x >= 960) {
       if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
-      else finish(true,'Warehouse cleared in ' + elapsed.toFixed(1) + ' seconds.');
+      else finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
     }
     return;
   }
@@ -654,7 +659,7 @@ function collectRechargePack(x,y) {
 }
 const patrolRadius = 66;
 function planPatrols() {
-  const count = courseIndex === -1 ? course.sentinels || 0 : (courseIndex+1)%3 === 0 ? (courseIndex >= 14 ? 2 : 1) : 0;
+  const count = course.sentinels ?? ((courseIndex+1)%3 === 0 ? (courseIndex >= 14 ? 2 : 1) : 0);
   if (!count) return [];
   const patrolGates = count === 1 ? [1] : [1,course.gates.length-2];
   return patrolGates.map((gateIndex,index) => {
@@ -839,6 +844,7 @@ function reservoir(ctx,w,h) {
     ctx.fillRect(x,h*.47+4,2,16);
   }
 }
+const shipFallback = {deckCargo:'cargo',anchorWinch:'lift',shipVent:'conveyor',lifeboat:'jack',shipCrane:'lift',ballastPump:'server'};
 const equipmentArt = {
   cargo: ['cargo', 'pallet', 'jack'],
   hangar: ['conveyor', 'lift'],
@@ -881,10 +887,13 @@ const workcellSprites = {
   forklift:[3,4,214,141],laser:[228,3,203,144],assembly:[443,5,214,140],
   switchgear:[27,153,165,144],pump:[234,153,192,144],turntable:[443,156,214,137]
 };
+const shipAtlas = new Image();
+shipAtlas.src = 'assets/orison-deck.webp';
+const shipSprites = {"deckCargo":[5,23,210,103],"anchorWinch":[225,28,210,94],"shipVent":[445,25,210,100],"lifeboat":[5,172,210,106],"shipCrane":[225,178,210,93],"ballastPump":[445,177,210,96]};
 const horizontalHandling = type => type === 'forklift' || type === 'jack';
 function drawEquipmentSprite(ctx,w,h,type) {
-  const rect = workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
-  const image = workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
+  const rect = shipSprites[type] || workcellSprites[type] || factorySprites[type] || equipmentSprites[type];
+  const image = shipSprites[type] ? shipAtlas : workcellSprites[type] ? workcellAtlas : factorySprites[type] ? factoryAtlas : equipmentAtlas;
   if (!rect || !image.complete || !image.naturalWidth) return false;
   ctx.save();
   const rotate = !horizontalHandling(type) && !['press','switchgear','turntable'].includes(type) && h > w*1.25 && rect[2] > rect[3]*1.48;
@@ -1064,7 +1073,7 @@ function structure(ctx,[x,y,w,h,footprint],art = footprint) {
   ctx.beginPath();
   ctx.roundRect(0,0,w,h,rounding);
   ctx.clip();
-  const fallbackArt = original || equipmentArt[footprint];
+  const fallbackArt = original || equipmentArt[footprint] || (course.sea ? [shipFallback[type] || 'cargo'] : null);
   if (fallbackArt) {
     const fallback = fallbackArt.filter(variant => w >= h*1.2 || !horizontalHandling(variant));
     paintEquipment(ctx,w,h,fallback[seed%fallback.length] || 'pallet',seed);
@@ -1209,6 +1218,28 @@ function paintTerrain() {
     }
     sprayTag(floor,'NORTH QUAY',469,424,46,'#80c8ae66');
   }
+  if (course.sea) {
+    const sea = floor.createLinearGradient(0,0,960,500);
+    sea.addColorStop(0,'#093852');
+    sea.addColorStop(1,'#031723');
+    floor.fillStyle = sea;
+    floor.fillRect(0,0,960,36);
+    floor.fillRect(0,464,960,36);
+    for (let i=0;i<130;i++) {
+      const x = (i*131)%960;
+      const y = (i*17)%29;
+      floor.fillStyle = i%3 ? '#91e9f326' : '#d6f9ff64';
+      floor.fillRect(x,y+3,9+i%31,1);
+      floor.fillRect(x,469+y,12+i%24,1);
+    }
+    for (const y of [35,464]) {
+      floor.fillStyle = '#9aa1a4';
+      floor.fillRect(12,y,934,2);
+      floor.fillStyle = '#98d7cf';
+      for (let x=18;x<946;x+=45) floor.fillRect(x,y-2,3,6);
+    }
+    sprayTag(floor,'M/V ORISON',460,450,38,'#a2cfca');
+  }
   floor.strokeStyle = '#a2919630';
   for (let x=24;x<960;x+=96) floor.strokeRect(x,27,96,447);
   floor.strokeStyle = '#080911';
@@ -1228,8 +1259,8 @@ function paintTerrain() {
   const graffiti = ['SUBLEVEL','NO SLEEP','LOW SIGNAL','CUT LINE','DEEP END','STATIC','AFTER DARK','GALE WARNING'];
   const tags = course.quay ? ['QUAY CREW','NIGHT SHIFT','LOW TIDE','KEEP MOVING'] : graffiti;
   const tag = courseIndex < 0 ? 'NO BRAKES' : tags[courseIndex%tags.length];
-  sprayTag(floor,tag,473,453,49,course.quay ? '#7bd4bcaa' : '#d77a9a9c');
-  sprayTag(floor,course.quay ? 'STAY LOW' : 'EYES UP',750,66,31,'#8be1dd72');
+  if (!course.sea) sprayTag(floor,tag,473,453,49,course.quay ? '#7bd4bcaa' : '#d77a9a9c');
+  sprayTag(floor,course.sea ? 'RESCUE ACCESS' : course.quay ? 'STAY LOW' : 'EYES UP',750,66,31,'#8be1dd72');
   for (const [x,y] of [course.start,course.pad || [950,course.exit[0]]]) {
     const light = floor.createRadialGradient(x,y,4,x,y,118);
     light.addColorStop(0,'#cab8ff2e');
@@ -1630,14 +1661,18 @@ get('#storyNext').addEventListener('click',() => {
   },() => {button.disabled = false;});
 });
 get('#storyMission').addEventListener('change',event => selectStoryMission(Number(event.target.value)));
-get('#caseOne').addEventListener('click',() => {
-  if (campaignPosition() < 12) resumeCampaign();
-  else selectStoryMission(0);
-});
-get('#caseTwo').addEventListener('click',() => {
-  if ((progress.campaignNext || 0) < 12) return;
-  if (campaignPosition() < 12 || storyLines === campaignReveals[12].lines) selectStoryMission(12);
-  else resumeCampaign();
+storyCases.forEach(([selector,first],index) => {
+  get(selector).addEventListener('click',() => {
+    if ((progress.campaignNext || 0) < first) return;
+    const position = campaignPosition();
+    const last = storyCases[index+1]?.[1] ?? courses.length+1;
+    if (position < first || position >= last) selectStoryMission(first);
+    else if (first > 0 && storyLines === campaignReveals[first]?.lines) {
+      progress.campaignRevealed = first;
+      saveProgress();
+      startBriefing(first);
+    } else resumeCampaign();
+  });
 });
 get('#restartStory').addEventListener('click',() => selectStoryMission(0));
 get('#prevMission').addEventListener('click',() => {missionPage--; renderMissionPage();});
@@ -1662,7 +1697,7 @@ resumeCampaign();
 quayAtlas.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
-for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas]) {
+for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas]) {
   artwork.addEventListener('load',() => {terrain = paintTerrain();});
 }
 atlas.addEventListener('load',() => {

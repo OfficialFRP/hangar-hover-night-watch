@@ -8,7 +8,10 @@ const crew = {
   iman: ['Iman Cruz','Warehouse dispatcher',5],
   reed: ['Special Agent Simone Reed','FBI',6],
   morrow: ['Lucian Morrow','North Quay logistics chairman',8],
-  kade: ['Nico “Wake” Kade','Tug mechanic and drone pilot',9]
+  kade: ['Nico “Wake” Kade','Tug mechanic and drone pilot',9],
+  vey: ['Dorian Vey','International freight magnate',10],
+  leena: ['Commander Leena Sato','Maritime rescue coordinator',11],
+  mateo: ['Mateo Reyes','Freighter deckhand and witness',12]
 };
 const chapters = [
   {name:'Intake Dock', seconds:42, start:[75,250], exit:[250,160], wind:0,
@@ -102,8 +105,33 @@ Object.assign(campaignReveals,{
   24:{title:'Chapter 4 · North Quay Closed',lines:[
     ['rook','Drone recovered. I have the final seal numbers and the complete footage.'],
     ['reed','The FBI and harbor police took Lucian Morrow into custody at North Quay. The warehouse and its records are secured.'],
-    ['kade','The quay hasn’t been this quiet in years. Thanks for bringing the drone home.'],
+    ['cipher','Morrow’s ledger includes a separate account tied to Dorian Vey. His shipping network spans three oceans. One entry lists people as cargo.'],
+    ['vey','Once we’re past the lights, no one will hear them. Keep the deck clear.'],
+    ['mateo','I’m calling from the freighter Orison. There are people below deck. I heard them asking for water. Please tell me someone’s coming.'],
+    ['leena','We’re coming, Mateo. Stay where you’re safe. Rook, we need eyes on the deck before we move.']
+  ]},
+  25:{title:'The Orison · All Accounted For',lines:[
+    ['rook','Last marker confirmed. The passage to the rescue station is clear.'],
+    ['leena','We have everyone from the hold. The medics are with them now. One woman asked me to stay until she fell asleep. I told her I would.'],
+    ['reed','Dorian Vey is in custody. Our international partners are preserving the ship’s records. We’ll take statements when people are ready.'],
+    ['mateo','I heard them call back when I knocked. Tonight, I heard them say their names.'],
+    ['director','We’ll make sure they have somewhere safe to go and someone to call. You can bring the drone home, Rook.'],
     [null,'THANK YOU FOR PLAYING'],
     [null,'@OfficialFRP\nA Feather Rock Production\n\nIn association with Team Inspire - @OFFICIALINSPIRE777','https://www.inspireclothing.art/']
   ]}
 });
+
+const carrierFinale = {
+  name:'Orison at Sea', seconds:64, start:[76,247], exit:[250,137], wind:148,
+  sea:true,sentinels:2,
+  gates:[[212,129],[382,327],[557,139],[740,337],[876,247]],
+  walls:[
+    [96,60,126,38,'lifeboat'],[260,188,84,251,'deckCargo'],
+    [345,60,110,125,'shipCrane'],[471,222,79,204,'shipVent'],
+    [598,55,88,228,'anchorWinch'],[639,411,145,36,'ballastPump'],
+    [785,67,111,103,'deckCargo'],[810,361,104,48,'lifeboat']
+  ],
+  cameras:[[233,165,1.09,'red'],[521,192,-1.08,'green'],[716,276,.7,'red']],
+  intro:'Cross the Orison’s exposed deck. Verify five rescue markers, then fly through the bow opening. Sentinels patrol the deck.'
+};
+campaignBriefs.push(['The Orison','leena','Vey built a network that moved people across borders and erased their names from the records. Right now, the people on this ship need us. Mark the access points and find a clear route to the rescue station.']);

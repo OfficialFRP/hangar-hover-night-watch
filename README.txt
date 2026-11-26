@@ -63,7 +63,8 @@ PHONE CONTROLS
 Drag the left joystick in any direction. A short pull applies gentle
 thrust and a full pull applies maximum thrust. Hold Brake with your
 right thumb while steering, or tap Jam to disable cameras briefly.
-In landscape, the controls move beside the flight deck.
+In landscape, the controls move beside the flight deck. Rotating the
+phone during a flight pauses it until you tap Resume.
 
 NORTH QUAY
 After Sable Freight, continue to Case 02 at a shuttered ferry warehouse.

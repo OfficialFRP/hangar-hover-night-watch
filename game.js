@@ -91,21 +91,37 @@ function freshProgress() {
 function loadProgress(key) {
   const saved = readData(key);
   if (!saved || !Array.isArray(saved.cleared)) return null;
+  const defaults = freshProgress();
+  const missionIds = list => Array.isArray(list) ? [...new Set(list.filter(index =>
+    Number.isInteger(index) && index >= 0 && index < courses.length &&
+    (saved.orisonExpanded || index !== 24)))] : [];
+  const validCount = (value,fallback = 0) => Number.isSafeInteger(value) && value >= 0 ? value : fallback;
   // The original one-mission Orison finale occupied slot 25.
-  if (!saved.orisonExpanded) {
-    saved.cleared = saved.cleared.filter(index => index !== 24);
-    if (saved.campaignNext > 24) saved.campaignNext = 24;
-    if (saved.campaignCursor > 24) saved.campaignCursor = 24;
-  }
+  const lastCheckpoint = saved.orisonExpanded ? courses.length : 24;
+  const next = Math.min(lastCheckpoint,validCount(saved.campaignNext));
   const levels = fleet.map((_,frame) => upgrades.map(({max},index) =>
     Math.max(0,Math.min(max,Math.trunc(saved.levels?.[frame]?.[index]) || 0))));
   const activeLevels = levels.map((modules,frame) => modules.map((owned,index) => {
     const active = saved.activeLevels?.[frame]?.[index];
     return Number.isInteger(active) ? Math.max(0,Math.min(owned,active)) : owned;
   }));
-  const priorRaceWin = saved.raceMatch?.defeated ? 1 : 0;
-  return {...freshProgress(),raceWins:priorRaceWin,raceFinishes:priorRaceWin,
-    ...saved,orisonExpanded:true,levels,activeLevels};
+  const priorRaceWin = saved.raceMatch?.defeated === true ? 1 : 0;
+  const ownedFrames = Array.isArray(saved.ownedFrames) ? [...new Set(saved.ownedFrames.filter(index =>
+    Number.isInteger(index) && fleet[index]?.cost))] : [];
+  const selected = Number.isInteger(saved.selected) && fleet[saved.selected] &&
+    (!fleet[saved.selected].cost || ownedFrames.includes(saved.selected)) ? saved.selected : 0;
+  const bests = {};
+  for (const mode of ['normal','easy']) {
+    bests[mode] = Object.fromEntries(Object.entries(saved.bests?.[mode] || {})
+      .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
+  }
+  return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
+    credits:validCount(saved.credits,defaults.credits),
+    cleared:missionIds(saved.cleared),noJamClears:missionIds(saved.noJamClears),
+    achievements:Array.isArray(saved.achievements) ? [...new Set(saved.achievements.filter(key =>
+      achievements.some(([id]) => id === key)))] : [],
+    raceWins:validCount(saved.raceWins,priorRaceWin),raceFinishes:validCount(saved.raceFinishes,priorRaceWin),
+    campaignNext:next,campaignCursor:Math.min(lastCheckpoint,validCount(saved.campaignCursor,next))};
 }
 let activeSlot = null;
 let progress = freshProgress();
@@ -258,14 +274,35 @@ function raceLine(group) {
   race.lastLine = line;
   return line;
 }
+function validRaceSections(saved) {
+  const pair = value => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+  const coordinates = (values,count) => Array.isArray(values) && values.length >= count &&
+    values.slice(0,count).every(Number.isFinite);
+  return Number.isFinite(saved.finishTime) && saved.finishTime > 0 &&
+    Array.isArray(saved.sections) && saved.sections.length === raceSectionCount &&
+    saved.sections.every((section,index,sections) => {
+      const course = section?.course;
+      return course && typeof course.name === 'string' && Number.isFinite(course.seconds) && course.seconds > 0 &&
+        pair(course.start) && pair(course.exit) && Array.isArray(course.gates) && course.gates.length > 0 &&
+        course.gates.every(pair) && Array.isArray(course.walls) && course.walls.every(wall =>
+          coordinates(wall,4) && typeof wall[4] === 'string') &&
+        Array.isArray(course.cameras) && course.cameras.every(camera => coordinates(camera,3)) &&
+        section.startTime === (index === 0 ? 0 : sections[index-1].startTime+sections[index-1].splits.at(-1)) &&
+        Array.isArray(section.path) && section.path.every(pair) &&
+        Array.isArray(section.splits) && section.splits.length === section.path.length &&
+        section.splits.length > 1 && section.splits.every((split,index) =>
+          Number.isFinite(split) && (index === 0 ? split === 0 : split > section.splits[index-1])) &&
+        (index !== sections.length-1 || saved.finishTime === section.startTime+section.splits.at(-1));
+    });
+}
 function selectRace() {
   if (!race && progress.raceMatch) {
     const saved = progress.raceMatch;
     const frame = fleet.find(frame => frame.name === saved.frame?.name);
-    if (frame && racePilots[saved.rival]) {
-      race = saved.sections?.length === raceSectionCount ? {...saved,frame} :
+    if (frame && Object.hasOwn(racePilots,saved.rival)) {
+      race = validRaceSections(saved) ? {...saved,frame} :
         generateRace(fleet[progress.selected],null,null,saved.rival,frame);
-      race.defeated = saved.defeated;
+      race.defeated = saved.defeated === true;
       progress.raceMatch = race;
       saveProgress();
     }
@@ -420,7 +457,7 @@ function showPage(page) {
     get('#page-' + button.dataset.page).hidden = button.dataset.page !== page;
   });
   get('#page-flight').hidden = page !== 'flight';
-  if (page === 'flight') hud();
+  if (page === 'flight') {hud(); flightNeedsRender = true;}
   if (page === 'story') renderStory();
   if (page === 'missions') {
     missionPage = Math.max(0,Math.floor(courseIndex/missionsPerPage));
@@ -540,7 +577,11 @@ function storedBest() {
 }
 function clearInputs() {
   keyboard.clear();
+  const brakeIds = [...brakePointers];
   brakePointers.clear();
+  for (const pointer of brakeIds) {
+    if (brakeButton.hasPointerCapture(pointer)) brakeButton.releasePointerCapture(pointer);
+  }
   centerJoystick();
   brakeButton.classList.remove('held');
 }
@@ -550,6 +591,7 @@ function menu(title, message, label, callback) {
   action.textContent = label;
   nextAction = callback;
   overlay.hidden = false;
+  flightNeedsRender = true;
 }
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
@@ -581,6 +623,7 @@ function reset(index, fly = false, chapterFlight = false) {
   record = index === -1 ? 0 : storedBest();
   clearInputs();
   state = fly ? 'flying' : 'ready';
+  flightNeedsRender = true;
   refreshLoadout();
   if (fly) {
     sound('launch');
@@ -1870,13 +1913,17 @@ function placeKnob(x,y) {
   joystick.style.setProperty('--stick-x',x+'px');
   joystick.style.setProperty('--stick-y',y+'px');
 }
+let stickBounds;
 function centerJoystick() {
+  const pointer = stick.pointer;
   stick.pointer = null;
+  stickBounds = null;
+  if (pointer !== null && joystick.hasPointerCapture(pointer)) joystick.releasePointerCapture(pointer);
   stick.x = stick.y = 0;
   placeKnob(0,0);
 }
 function steerByTouch(event) {
-  const bounds = joystick.getBoundingClientRect();
+  const bounds = stickBounds;
   const reach = bounds.width*.32;
   const x = event.clientX-bounds.left-bounds.width/2;
   const y = event.clientY-bounds.top-bounds.height/2;
@@ -1894,6 +1941,7 @@ joystick.addEventListener('pointerdown',event => {
   event.preventDefault();
   joystick.setPointerCapture(event.pointerId);
   stick.pointer = event.pointerId;
+  stickBounds = joystick.getBoundingClientRect();
   steerByTouch(event);
 });
 joystick.addEventListener('pointermove',event => {
@@ -1915,13 +1963,28 @@ for (const type of ['pointerup','pointercancel','lostpointercapture']) {
     brakeButton.classList.toggle('held',brakePointers.size > 0);
   });
 }
-window.addEventListener('orientationchange',clearInputs);
+window.matchMedia('(orientation: portrait)').addEventListener('change',() => {
+  clearInputs();
+  if (state === 'flying') togglePause();
+});
+window.addEventListener('resize',() => {
+  if (stick.pointer !== null) stickBounds = joystick.getBoundingClientRect();
+  flightNeedsRender = true;
+});
 document.addEventListener('visibilitychange',() => {
   if (!document.hidden) return;
   clearInputs();
   if (state === 'flying') togglePause();
 });
-pageButtons.forEach(button => button.addEventListener('click',() => button.dataset.page === 'race' ? selectRace() : button.dataset.page === 'story' ? (currentPage === 'story' ? renderStory() : resumeCampaign()) : showPage(button.dataset.page)));
+pageButtons.forEach(button => button.addEventListener('click',() => {
+  const page = button.dataset.page;
+  if (page === currentPage) return;
+  if (page === 'race') {
+    if (courseIndex === -1 && (state === 'flying' || state === 'paused')) showPage('flight');
+    else selectRace();
+  } else if (page === 'story') resumeCampaign();
+  else showPage(page);
+}));
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
@@ -2166,17 +2229,24 @@ function preloadMedia() {
     status.textContent = unavailable ? 'Ready to play · some media may load on demand' : 'Art and audio ready';
   });
 }
-quayAtlas.addEventListener('load',renderLoadout);
-onyxArt.addEventListener('load',renderLoadout);
-storyAtlas.addEventListener('load',renderLoadout);
-fleetArt.addEventListener('load',renderLoadout);
+for (const artwork of [quayAtlas,onyxArt,storyAtlas,fleetArt]) {
+  artwork.addEventListener('load',() => {
+    flightNeedsRender = true;
+    if (currentPage === 'hangar') renderLoadout();
+  });
+}
 for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas]) {
-  artwork.addEventListener('load',() => {if (course) terrain = paintTerrain();});
+  artwork.addEventListener('load',() => {
+    if (course) terrain = paintTerrain();
+    flightNeedsRender = true;
+  });
 }
 atlas.addEventListener('load',() => {
   if (course) terrain = paintTerrain();
+  flightNeedsRender = true;
   renderLoadout();
 });
+let flightNeedsRender = true;
 let last = performance.now();
 let lastRender = -Infinity;
 let wasFlying = false;
@@ -2192,9 +2262,11 @@ function frame(now) {
   if ((wasFlying || startedFlying) && !flying) flightAudio(0,false,false,false);
   wasFlying = flying;
   last = now;
-  if (currentPage === 'flight' && (!phoneLayout.matches || now-lastRender >= 32)) {
+  const animateFlight = flying && (!phoneLayout.matches || now-lastRender >= 32);
+  if (currentPage === 'flight' && (flightNeedsRender || animateFlight)) {
     draw();
     hud();
+    flightNeedsRender = false;
     lastRender = now;
   } else if (currentPage === 'hangar' && now-lastRender >= 33) {
     renderLoadout();

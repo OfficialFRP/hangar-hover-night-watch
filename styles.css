@@ -696,3 +696,10 @@ body::before{
   #power .battery-track{height:7px}
   #batteryCondition{font-size:7px;letter-spacing:.05em}
 }
+
+/* Keep the playfield clear on shorter portrait phones. */
+@media (orientation:portrait) and (max-width:650px) and (max-height:680px){
+  #page-flight .joystick{--stick-size:clamp(80px,15dvh,99px)}
+  #page-flight .flight-actions{gap:4px}
+  #page-flight .flight-actions button{padding:3px 5px}
+}

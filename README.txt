@@ -71,7 +71,8 @@ Cyan fenders and foam bumpers rebound on gentle contact. Hard impacts
 still end the flight. The Kestrel N12 costs 950 credits and the Breaker
 X14 costs 1,450 credits. The glossy Onyx M15 costs 1,800 credits and
 offers strong braking and high stability. All drones leave a colored
-glow trail in flight.
+glow trail in flight. The Onyx has 475 base thrust.
+Drones face steering input, follow their drift, and turn nose-up at hover.
 Once purchased, a frame stays yours.
 
 ACHIEVEMENTS AND CAST

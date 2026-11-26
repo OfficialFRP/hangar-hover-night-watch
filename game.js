@@ -36,7 +36,7 @@ const fleet = [
   {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'},
   {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:950, desc:'Stealth interceptor · compact, fast, and stable'},
   {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:1450, desc:'Heavy rescue frame · exceptional power and endurance'},
-  {name:'Onyx M15', color:'#f6f8ff', thrust:375, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, onyx:true, desc:'Gloss black and white · low speed, strongest braking and stability'}
+  {name:'Onyx M15', color:'#f6f8ff', thrust:475, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, onyx:true, desc:'Gloss black and white · ducted rotors, strongest braking and stability'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
@@ -642,6 +642,14 @@ function togglePause() {
 const pressed = (...keys) => keys.some(key => keyboard.has(key));
 const clamp = (value,min,max) => Math.max(min,Math.min(value,max));
 // Flight physics. Steering changes velocity, so the drone drifts after release.
+// Sprite noses point up. Take the shortest turn, with a little easing.
+function turnNose(angle,dx,dy,dt) {
+  const target = dx || dy ? Math.atan2(dx,-dy) : 0;
+  const difference = target-angle;
+  const turn = Math.atan2(Math.sin(difference),Math.cos(difference));
+  if (Math.abs(turn) < .006) return target;
+  return angle+turn*(1-Math.exp(-19*dt));
+}
 function update(dt) {
   elapsed += dt;
   jam = Math.max(0,jam-dt);
@@ -673,13 +681,15 @@ function update(dt) {
   const previousY = drone.y;
   drone.x += drone.vx * dt;
   drone.y += drone.vy * dt;
-  drone.angle = drone.vx / 500;
   const radius = airframe.size;
   const strikes = course.walls.filter(wall => touchesStructure(wall,drone.x,drone.y,radius));
   if (strikes.length && (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY))) {
     return finish(false,'The drone hit an obstacle. Brake before tight turns.');
   }
   const {x,y,vx,vy} = drone;
+  const drifting = Math.hypot(vx,vy) > 12;
+  drone.angle = dx || dy ? turnNose(drone.angle,dx,dy,dt) :
+    drifting ? turnNose(drone.angle,vx,vy,dt) : turnNose(drone.angle,0,0,dt);
   while (droneTrail.length && elapsed-droneTrail[0].time >= trailLifetime) droneTrail.shift();
   const lastTrailPoint = droneTrail.at(-1);
   if (Math.hypot(vx,vy) > 10 && (!lastTrailPoint || elapsed-lastTrailPoint.time >= trailSampleInterval)) {
@@ -744,7 +754,7 @@ function advanceRaceSection() {
   raceSection++;
   course = race.sections[raceSection].course;
   const [x,y] = course.start;
-  drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:0};
+  drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:drone.angle};
   gate = scan = 0;
   droneTrail.length = 0;
   cameraSignal = '';
@@ -800,7 +810,7 @@ function planPatrols() {
     const x = gx+ox, y = gy+oy;
     const amplitude = [-20,-10,0,10,20].every(dy =>
       !course.walls.some(wall => touchesStructure(wall,x,y+dy,13))) ? 20 : 0;
-    return {x,y,homeX:x,homeY:y,amplitude,phase:index*Math.PI,heading:index*Math.PI,pursuing:false};
+    return {x,y,homeX:x,homeY:y,amplitude,phase:index*Math.PI,heading:index*Math.PI,angle:0,pursuing:false};
   });
 }
 function patrolPosition(patrol) {
@@ -824,11 +834,18 @@ function updatePatrol(patrol,x,y,dt) {
   const distance = Math.hypot(dx,dy);
   const step = Math.min(Math.max(0,distance-(patrol.pursuing ? 33 : 0)),(patrol.pursuing ? 121 : 74)*dt);
   if (!patrol.pursuing) patrol.heading = phase;
-  if (!step) return;
+  if (!step) {
+    patrol.angle = turnNose(patrol.angle,0,0,dt);
+    return;
+  }
   const nextX = patrol.x+dx/distance*step;
   const nextY = patrol.y+dy/distance*step;
   if (nextX < 14 || nextX > 946 || nextY < 14 || nextY > 486 ||
-      course.walls.some(wall => touchesStructure(wall,nextX,nextY,11))) return;
+      course.walls.some(wall => touchesStructure(wall,nextX,nextY,11))) {
+    patrol.angle = turnNose(patrol.angle,0,0,dt);
+    return;
+  }
+  patrol.angle = turnNose(patrol.angle,dx,dy,dt);
   patrol.x = nextX;
   patrol.y = nextY;
 }
@@ -857,6 +874,7 @@ function drawPatrol(patrol) {
   ctx.fill();
   ctx.stroke();
   ctx.translate(x,y);
+  ctx.rotate(patrol.angle);
   paintDrone(ctx,{name:'Sentinel',color,size:14,arms:10,rotor:5},elapsed*20);
   ctx.restore();
   label(muted ? 'JAMMED' : patrol.pursuing ? 'PURSUIT' : 'SENTINEL',x,y-23,color,10);
@@ -1605,25 +1623,25 @@ function paintOnyx(ctx,spin) {
   const hub = surfaceGradient(ctx,-4,-4,5,5,[[0,'#eff8ff'],[.35,'#96aabd'],[1,'#354456']]);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  for (const [x,y] of [[-12,-9],[12,-9],[-12,9],[12,9]]) {
+  for (const [x,y] of [[-11.5,-10.5],[11.5,-10.5],[-12.5,9],[12.5,9]]) {
     const side = Math.sign(x);
     ctx.beginPath();
     ctx.moveTo(side*3,y*.52);
     ctx.lineTo(x,y);
     ctx.strokeStyle = '#070a11';
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 8;
     ctx.stroke();
     ctx.strokeStyle = shell;
-    ctx.lineWidth = 4.3;
+    ctx.lineWidth = 5.4;
     ctx.stroke();
 
-    circle(x,y+.9,7.5,ctx);
+    circle(x,y+1,8.25,ctx);
     ctx.fillStyle = '#080b11';
     ctx.fill();
-    circle(x,y,7,ctx);
+    circle(x,y,7.9,ctx);
     ctx.fillStyle = shell;
     ctx.fill();
-    circle(x,y,5.35,ctx);
+    circle(x,y,6.05,ctx);
     ctx.fillStyle = lacquer;
     ctx.fill();
     ctx.save();
@@ -1643,21 +1661,28 @@ function paintOnyx(ctx,spin) {
     ctx.fillStyle = hub;
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(x,y,6.45,Math.PI*.98,Math.PI*1.42);
+    ctx.arc(x,y,7.15,Math.PI*.95,Math.PI*1.45);
     ctx.strokeStyle = '#ffffffd4';
     ctx.lineWidth = .75;
     ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x,y,7.05,side<0 ? 2.35 : .2,side<0 ? 2.95 : .8);
+    ctx.strokeStyle = '#86ffe8';
+    ctx.lineWidth = .95;
+    ctx.stroke();
   }
   ctx.beginPath();
-  ctx.moveTo(0,-15);
-  ctx.lineTo(6,-12);
-  ctx.lineTo(9,-6);
-  ctx.lineTo(8,7);
-  ctx.lineTo(5,13);
-  ctx.lineTo(-5,13);
-  ctx.lineTo(-8,7);
-  ctx.lineTo(-9,-6);
-  ctx.lineTo(-6,-12);
+  ctx.moveTo(0,-16);
+  ctx.lineTo(4.7,-13.6);
+  ctx.lineTo(7.6,-6);
+  ctx.lineTo(8.4,4);
+  ctx.lineTo(5.1,13.7);
+  ctx.lineTo(2.5,15);
+  ctx.lineTo(-2.5,15);
+  ctx.lineTo(-5.1,13.7);
+  ctx.lineTo(-8.4,4);
+  ctx.lineTo(-7.6,-6);
+  ctx.lineTo(-4.7,-13.6);
   ctx.closePath();
   ctx.fillStyle = shell;
   ctx.fill();
@@ -1712,8 +1737,15 @@ function paintOnyx(ctx,spin) {
   ctx.strokeStyle = '#26364c';
   ctx.lineWidth = 1.05;
   ctx.stroke();
-  ctx.fillStyle = '#d9f9ff';
-  ctx.fillRect(-1,-12.5,2,.65);
+  // Diagonal enamel stripe and a light at the nose keep the heading legible.
+  ctx.beginPath();
+  ctx.moveTo(-4.7,-2.3);
+  ctx.lineTo(4.7,-6);
+  ctx.strokeStyle = '#f4f8ff';
+  ctx.lineWidth = 1.45;
+  ctx.stroke();
+  ctx.fillStyle = '#9affee';
+  ctx.fillRect(-2,-13.2,4,1.15);
   ctx.fillStyle = '#121824';
   ctx.fillRect(-2.6,10,5.2,1.8);
   ctx.fillStyle = '#e3fff9';
@@ -1755,7 +1787,7 @@ function renderLoadout() {
   surface.clearRect(0,0,440,168);
   surface.save();
   surface.translate(220,84);
-  const scale = airframe.onyx ? 3.55 : 4.3;
+  const scale = airframe.onyx ? 3.3 : 4.3;
   surface.scale(scale,scale);
   surface.rotate(-.22);
   paintDrone(surface,airframe,performance.now()*.019);
@@ -2270,14 +2302,18 @@ atlas.addEventListener('load',() => {
 });
 let last = performance.now();
 let lastRender = -Infinity;
+let wasFlying = false;
 function frame(now) {
+  const startedFlying = state === 'flying';
   let remaining = Math.min(Math.max(0,(now-last)/1000),.1);
   while (remaining > 0 && state === 'flying') {
     const step = Math.min(remaining,1/60);
     update(step);
     remaining -= step;
   }
-  if (state !== 'flying' && currentPage !== 'menu') flightAudio(0,false,false,false);
+  const flying = state === 'flying';
+  if ((wasFlying || startedFlying) && !flying) flightAudio(0,false,false,false);
+  wasFlying = flying;
   last = now;
   if (currentPage === 'flight' && (!phoneLayout.matches || now-lastRender >= 32)) {
     draw();

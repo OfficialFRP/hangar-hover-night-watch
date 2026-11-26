@@ -1456,6 +1456,83 @@ function drawCamera(camera,index) {
 function blockedAt(x,y) {
   return course.walls.some(wall => touchesStructure(wall,x,y));
 }
+// Rotor hubs and inner blade radii in the 256px airframe sprite cells.
+const spriteRotors = [
+  [[45,74,33],[211,74,33],[52,192,31],[201,192,31]],
+  [[46,72,54],[209,72,54],[46,183,54],[209,183,54]],
+  [[48,69,39],[207,69,39],[48,199,39],[207,199,39]],
+  [[64,66,45],[190,66,45],[60,185,46],[195,185,46]],
+  [[60,63,45],[197,63,45],[58,181,45],[199,181,45]],
+  [[57,72,41],[197,72,41],[57,191,41],[197,191,41]],
+  [[59,72,43],[197,72,43],[59,192,43],[197,192,43]]
+];
+const airframeLayers = [];
+function spinSprite(ctx,index,spin,size) {
+  const image = index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
+  if (!image.complete || !image.naturalWidth) return false;
+  const column = index < 3 ? index : index < 5 ? index-3 : index-5;
+  if (!airframeLayers[index]) {
+    const shell = document.createElement('canvas');
+    shell.width = shell.height = 256;
+    const paint = shell.getContext('2d');
+    paint.drawImage(image,column*256,0,256,256,0,0,256,256);
+    paint.globalCompositeOperation = 'destination-out';
+    for (const [x,y,r] of spriteRotors[index]) {
+      circle(x,y,r,paint);
+      paint.fill();
+    }
+    paint.globalCompositeOperation = 'source-over';
+    if (index === 1) {
+      // The Swift has exposed blades. Restore its struts under the spinning props.
+      for (const [x,y] of spriteRotors[index]) {
+        paint.beginPath();
+        paint.moveTo(128,y<128 ? 105 : 153);
+        paint.lineTo(x,y);
+        paint.lineWidth = 15;
+        paint.strokeStyle = '#1c1821';
+        paint.stroke();
+        paint.lineWidth = 5;
+        paint.strokeStyle = '#f3aa46';
+        paint.stroke();
+      }
+    }
+    airframeLayers[index] = shell;
+  }
+  ctx.save();
+  ctx.translate(-size/2,-size/2);
+  ctx.scale(size/256,size/256);
+  ctx.drawImage(airframeLayers[index],0,0);
+  for (const [i,[x,y,r]] of spriteRotors[index].entries()) {
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(spin*(i === 0 || i === 3 ? 1 : -1));
+    if (index === 1) {
+      for (const direction of [-1,1]) {
+        ctx.save();
+        ctx.scale(direction,1);
+        ctx.fillStyle = '#ffac4f';
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.quadraticCurveTo(25,-13,46,-5);
+        ctx.quadraticCurveTo(40,7,0,4);
+        ctx.fill();
+        ctx.fillStyle = '#ffe5ad';
+        ctx.fillRect(32,-5,7,1.8);
+        ctx.restore();
+      }
+      circle(0,0,8,ctx);
+      ctx.fillStyle = '#292431';
+      ctx.fill();
+    } else {
+      circle(0,0,r,ctx);
+      ctx.clip();
+      ctx.drawImage(image,column*256+x-r,y-r,2*r,2*r,-r,-r,2*r,2*r);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+  return true;
+}
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
@@ -1463,19 +1540,7 @@ function paintDrone(ctx,frame,spin) {
     paintOnyx(ctx,spin);
     return;
   }
-  if (index >= 5 && quayAtlas.complete && quayAtlas.naturalWidth) {
-    ctx.drawImage(quayAtlas,(index-5)*256,0,256,256,-size/2,-size/2,size,size);
-    return;
-  }
-  if (index >= 3 && index < 5 && storyAtlas.complete && storyAtlas.naturalWidth) {
-    ctx.drawImage(storyAtlas,(index-3)*256,0,256,256,-size/2,-size/2,size,size);
-    return;
-  }
-  if (index >= 0 && index < 3 && fleetArt.complete && fleetArt.naturalWidth) {
-    ctx.drawImage(fleetArt,index*256,0,256,256,-size/2,-size/2,size,size);
-    return;
-  }
-  if (index >= 0 && index < 3 && drawSprite(ctx,index,-size/2,-size/2,size,size)) return;
+  if (index >= 0 && spinSprite(ctx,index,spin,size)) return;
   const {arms,rotor,color} = frame;
   const body = frame === fleet[1] ? 5 : 7;
   ctx.lineCap = 'round';
@@ -1577,6 +1642,11 @@ function paintOnyx(ctx,spin) {
     circle(x,y,1.65,ctx);
     ctx.fillStyle = hub;
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x,y,6.45,Math.PI*.98,Math.PI*1.42);
+    ctx.strokeStyle = '#ffffffd4';
+    ctx.lineWidth = .75;
+    ctx.stroke();
   }
   ctx.beginPath();
   ctx.moveTo(0,-15);
@@ -1595,6 +1665,19 @@ function paintOnyx(ctx,spin) {
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
+  for (const side of [-1,1]) {
+    ctx.save();
+    ctx.scale(side,1);
+    ctx.beginPath();
+    ctx.moveTo(5,-10);
+    ctx.lineTo(8,-5.2);
+    ctx.lineTo(7.4,.7);
+    ctx.lineTo(5.9,-1.5);
+    ctx.closePath();
+    ctx.fillStyle = lacquer;
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.beginPath();
   ctx.moveTo(0,-11);
   ctx.bezierCurveTo(6,-10,6,-2,4,4);
@@ -1619,6 +1702,18 @@ function paintOnyx(ctx,spin) {
     ctx.fillStyle = '#a7fff0';
     ctx.fillRect(side*5.3-.7,9,.95,1.5);
   }
+  ctx.beginPath();
+  ctx.moveTo(-6.8,-6.2);
+  ctx.lineTo(-7.1,-2.1);
+  ctx.lineTo(-5.8,-3.5);
+  ctx.moveTo(6.1,-7);
+  ctx.lineTo(7.2,-4.4);
+  ctx.lineTo(6.55,-1.6);
+  ctx.strokeStyle = '#26364c';
+  ctx.lineWidth = 1.05;
+  ctx.stroke();
+  ctx.fillStyle = '#d9f9ff';
+  ctx.fillRect(-1,-12.5,2,.65);
   ctx.fillStyle = '#121824';
   ctx.fillRect(-2.6,10,5.2,1.8);
   ctx.fillStyle = '#e3fff9';
@@ -1663,7 +1758,7 @@ function renderLoadout() {
   const scale = airframe.onyx ? 3.55 : 4.3;
   surface.scale(scale,scale);
   surface.rotate(-.22);
-  paintDrone(surface,airframe,.5);
+  paintDrone(surface,airframe,performance.now()*.019);
   surface.restore();
 }
 function drawWarehouseExit() {
@@ -1820,6 +1915,8 @@ function remainingBattery() {
 function hud() {
   const battery = Math.ceil(100*remainingBattery());
   const power = get('#power');
+  const hostile = radarLocked || cameraSignal === 'red';
+  updateHudText('#batteryCondition',hostile ? 'Draining' : rechargeFlash > 0 ? 'Charging' : battery <= 20 ? 'Critical' : battery <= 45 ? 'Low' : 'Stable');
   if (batteryMeter.value !== battery) {
     batteryMeter.value = battery;
     power.style.setProperty('--battery-level',battery+'%');
@@ -1832,7 +1929,7 @@ function hud() {
   updateHudText('#time',elapsed.toFixed(1) + ' s');
   updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
-  power.classList.toggle('hostile',radarLocked || cameraSignal === 'red');
+  power.classList.toggle('hostile',hostile);
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);
   get('#retryFlight').hidden = state !== 'paused';
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
@@ -2080,24 +2177,36 @@ sensitivity.addEventListener('input',() => {
 
 function renderCharacterFiles() {
   get('#characterFiles').replaceChildren(...Object.entries(crew).map(([key,[name,role,portrait]]) => {
-    const card = document.createElement('article');
+    const card = document.createElement('button');
+    card.addEventListener('click',() => showCharacterProfile(key));
     const image = document.createElement('img');
     image.src = 'assets/crew-' + portrait + '.webp';
     image.alt = '';
     image.loading = 'lazy';
     image.width = image.height = 88;
-    const text = document.createElement('div');
-    const heading = document.createElement('h3');
+    const text = document.createElement('span');
+    const heading = document.createElement('strong');
     heading.textContent = name;
-    const position = document.createElement('p');
+    const position = document.createElement('span');
     position.className = 'character-role';
     position.textContent = role;
-    const bio = document.createElement('p');
-    bio.textContent = crewBios[key];
+    const bio = document.createElement('span');
+    bio.textContent = 'View full profile';
+    bio.className = 'profile-link';
     text.append(heading,position,bio);
     card.append(image,text);
     return card;
   }));
+}
+function showCharacterProfile(key) {
+  const [name,role,portrait] = crew[key];
+  const art = get('#profileArt');
+  art.src = 'assets/crew-full-' + portrait + '.webp';
+  art.alt = 'Full-body illustration of ' + name;
+  get('#profileName').textContent = name;
+  get('#profileRole').textContent = role;
+  get('#profileBio').textContent = crewBios[key];
+  get('#characterProfile').showModal();
 }
 renderCharacterFiles();
 
@@ -2173,6 +2282,9 @@ function frame(now) {
   if (currentPage === 'flight' && (!phoneLayout.matches || now-lastRender >= 32)) {
     draw();
     hud();
+    lastRender = now;
+  } else if (currentPage === 'hangar' && now-lastRender >= 33) {
+    renderLoadout();
     lastRender = now;
   }
   requestAnimationFrame(frame);

@@ -77,4 +77,4 @@ Once purchased, a frame stays yours.
 ACHIEVEMENTS AND CAST
 Open Achievements in the Hangar to see flight, upgrade, Race, and
 campaign goals. Each achievement pays once per save. Tab 06, Cast,
-lists the characters with portraits and biographies.
+opens a full-body profile and biography for each character.

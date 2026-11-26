@@ -547,18 +547,18 @@ body::before{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:8px;
 }
 #achievementList{padding:0;margin:8px 0 4px;list-style:none}
-#achievementList li,#characterFiles article{
+#achievementList li,#characterFiles button{
   padding:10px;border:1px solid var(--line);border-radius:8px;background:#1d2236;
 }
 #achievementList li.earned{border-color:#56a396}
 #achievementList p,#characterFiles p{margin:5px 0;line-height:1.42;font-size:13px}
 #achievementList li span,#characterFiles .character-role{font-size:12px;color:var(--muted)}
 #achievementList .earned span{color:var(--accent)}
-#characterFiles article{
+#characterFiles button{
   display:grid;grid-template-columns:clamp(50px,20vw,88px) minmax(0,1fr);align-items:start;gap:9px;
 }
 #characterFiles img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:6px}
-#characterFiles h3{margin:0;font-size:15px}
+#characterFiles strong{display:block;font-size:15px}
 @media(max-width:650px),(pointer:coarse) and (max-height:600px){
   .pages button{flex:1;min-width:0;padding-inline:0;font-size:clamp(9px,2.35vw,12px)}
   #characterFiles{grid-template-columns:1fr}
@@ -644,4 +644,55 @@ body::before{
   #page-flight #power{padding:2px 4px 3px;column-gap:3px}
   .battery-heading{gap:4px}
   .battery-track{height:7px}
+}
+
+
+#characterFiles button{
+  width:100%;text-align:left;align-items:center;
+  background:linear-gradient(145deg,#27334a,#192235);
+}
+#characterFiles button:hover,#characterFiles button:focus-visible{
+  border-color:var(--accent);outline-offset:2px;
+}
+#characterFiles button .character-role,#characterFiles .profile-link{display:block;margin-top:5px}
+#characterFiles .profile-link{color:var(--accent);font-size:11px;font-weight:700}
+#characterProfile{
+  box-sizing:border-box;width:min(620px,calc(100% - 24px));max-width:unset;
+  max-height:calc(100dvh - 24px);overscroll-behavior:contain;overflow:auto;
+  padding:12px;background:#11192a;border:1px solid #7485a1;border-radius:14px;
+  color:#f2f5ff;
+}
+#characterProfile::backdrop{background:#070b15c9}
+#characterProfile form{display:flex;justify-content:flex-end;margin-bottom:8px}
+#characterProfile form button{min-height:44px}
+#profileArt{
+  display:block;width:100%;height:min(59dvh,430px);object-fit:contain;
+  background:#0c1322;border:1px solid #44546d;border-radius:8px;
+}
+.profile-copy{padding:8px 3px 0}
+.profile-copy h3{margin:0;font-size:1.19rem}
+.profile-copy p{margin:6px 0;font-size:.87rem;line-height:1.48}
+.profile-copy .character-role{color:#a8f3e2}
+#power{
+  background:linear-gradient(160deg,#263750,#121c2e 55%,#0c1526);
+  border-color:#62728c;
+}
+#power b{font-size:1.15em;letter-spacing:-.025em}
+#power .battery-track{
+  height:10px;border-color:#586c86;
+  background:linear-gradient(180deg,#19263a,#0b1526);
+}
+#power .battery-track::after{
+  background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),#081121 calc(10% - 1px) 10%);
+}
+#power .battery-fill{
+  background:linear-gradient(180deg,#ffffff62 0 16%,transparent 17%),linear-gradient(var(--battery-bright),var(--battery-dark));
+}
+#batteryCondition{
+  grid-column:1/-1;color:var(--battery-bright);text-transform:uppercase;
+  font:700 8px/1 ui-monospace,monospace;letter-spacing:.09em;
+}
+@media(max-width:650px),(pointer:coarse) and (max-height:600px){
+  #power .battery-track{height:7px}
+  #batteryCondition{font-size:7px;letter-spacing:.05em}
 }

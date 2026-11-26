@@ -13,6 +13,20 @@ const crew = {
   leena: ['Commander Leena Sato','Maritime rescue coordinator',11],
   mateo: ['Mateo Reyes','Freighter deckhand and witness',12]
 };
+const crewBios = {
+  rook: 'Mara Vale pilots the covert drones that give the Night Watch team eyes on the ground. From the Sable Freight workshop to the decks of the Orison, she threads tight routes, records evidence, and scouts safe passages for the people moving in behind her.',
+  cipher: 'Jun Sato reads the signals and paperwork behind each mission. He spots the fingerprints of a larger operation in duplicate freight records, transfer accounts, and suspicious manifests, then relays what he finds to Rook and the field team.',
+  patch: 'Rafael Reyes keeps the Night Watch fleet in flying shape. He tunes the airframes, helps Rook match equipment to the route, and occasionally puts his own work to the test as a Race rival.',
+  director: 'Elena Voss leads the investigation and turns incoming evidence into practical flight assignments. She coordinates the team’s work across the freight yards and harbor and keeps the people affected by the cases in view.',
+  sable: 'Adrian Sable runs the freight company at the center of Case 01. His name turns up on a disputed intake order, drawing the team into a network of doubled records and cargo moving under false descriptions.',
+  iman: 'Iman Cruz dispatches freight and knows what belongs in a normal shipment. A damaged consignment puts Iman in a position to describe what the paperwork leaves out, giving the investigators a firsthand account.',
+  reed: 'Special Agent Simone Reed works with the Night Watch crew, local officers, and international partners. She checks what the drone footage and witness statements can establish and coordinates enforcement support as the cases expand.',
+  morrow: 'Lucian Morrow chairs the logistics operation associated with North Quay. The shuttered ferry site, its leases, and its surviving freight records lead the team to examine his connection to Sable’s supply chain.',
+  kade: 'Nico Kade repairs tugs and flies drones around the harbor. Known as Wake, he knows the old ferry routes and industrial equipment at North Quay well enough to guide Rook through unfamiliar lanes and difficult gusts.',
+  vey: 'Dorian Vey is a freight magnate whose shipping network spans three oceans. An account buried in North Quay’s ledger brings his operation under scrutiny and leads the team to the freighter Orison.',
+  leena: 'Commander Leena Sato coordinates the maritime rescue aboard the Orison. She keeps contact with the deckhand, prepares crews and medics, and times their movement using the passages Rook confirms from above.',
+  mateo: 'Mateo Reyes is a deckhand aboard the Orison. He calls for help after hearing people below deck and listens to what they are willing to share, keeping notes the rescuers can use to account for them.'
+};
 const chapters = [
   {name:'Intake Dock', seconds:42, start:[75,250], exit:[250,160], wind:0,
    gates:[[218,251],[448,122],[668,241],[836,258]],

@@ -52,8 +52,8 @@ RACE
 Your rival and course stay assigned until you win, including after a reload.
 After a win, the game draws a different pilot and a fresh course inspired by
 the story maps. Gale Warehouse occasionally brings crosswinds.
-Clear four checkpoints and cross the east shutter. A win pays 110 CR, and a
-completed loss pays 35 CR. The rival drone can overlap yours safely.
+Clear four checkpoints and cross the east shutter. A win pays 160 CR, and a
+completed loss pays 50 CR. The rival drone can overlap yours safely.
 Each upgrade now has five tiers.
 
 Sound adds the original spy-jazz score, reactive rotor hum, and distinct
@@ -68,5 +68,12 @@ In landscape, the controls move beside the flight deck.
 NORTH QUAY
 After Sable Freight, continue to Case 02 at a shuttered ferry warehouse.
 Cyan fenders and foam bumpers rebound on gentle contact. Hard impacts
-still end the flight. The Kestrel N12 costs 450 credits and the Breaker
-X14 costs 700 credits. Once purchased, a frame stays yours.
+still end the flight. The Kestrel N12 costs 950 credits and the Breaker
+X14 costs 1,450 credits. The glossy Onyx M15 costs 1,800 credits and
+offers strong braking, high stability, and a short colored trail.
+Once purchased, a frame stays yours.
+
+ACHIEVEMENTS AND CAST
+Open Achievements in the Hangar to see flight, upgrade, Race, and
+campaign goals. Each achievement pays once per save. Tab 06, Cast,
+lists the characters with portraits and biographies.

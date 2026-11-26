@@ -606,3 +606,31 @@ body::before{
   }
   .launch-screen{align-items:end}
 }
+
+.hangar-note,.achievements>p{color:var(--muted);font-size:13px}
+.achievements{
+  margin-top:12px;padding:0 10px 6px;border:1px solid var(--line);
+  border-radius:9px;background:#111c2c;
+}
+.achievements summary{min-height:44px;padding:12px 0;cursor:pointer;font-weight:700}
+#achievementCount{float:right;color:var(--accent);font-size:12px}
+#achievementList,#characterFiles{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:8px;
+}
+#achievementList{padding:0;margin:8px 0 4px;list-style:none}
+#achievementList li,#characterFiles article{
+  padding:10px;border:1px solid var(--line);border-radius:8px;background:#1d2236;
+}
+#achievementList li.earned{border-color:#56a396}
+#achievementList p,#characterFiles p{margin:5px 0;line-height:1.42;font-size:13px}
+#achievementList li span,#characterFiles .character-role{font-size:12px;color:var(--muted)}
+#achievementList .earned span{color:var(--accent)}
+#characterFiles article{
+  display:grid;grid-template-columns:clamp(50px,20vw,88px) minmax(0,1fr);align-items:start;gap:9px;
+}
+#characterFiles img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:6px}
+#characterFiles h3{margin:0;font-size:15px}
+@media(max-width:650px),(pointer:coarse) and (max-height:600px){
+  .pages button{flex:1;min-width:0;padding-inline:0;font-size:clamp(9px,2.35vw,12px)}
+  #characterFiles{grid-template-columns:1fr}
+}

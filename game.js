@@ -34,13 +34,33 @@ const fleet = [
   {name:'Warden L3', color:'#aebeff', thrust:395, battery:7, brake:10.5, size:18, exposure:.72, arms:13, rotor:7, windResponse:.55, desc:'Extended props · steadier in gusts'},
   {name:'Aurel G7', color:'#ffd771', thrust:414, battery:12, brake:15, size:17, exposure:.84, arms:13, rotor:7, windResponse:.21, stability:2.55, desc:'Gold endurance frame · long battery and low drift'},
   {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'},
-  {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:450, desc:'Stealth interceptor · compact, fast, and stable'},
-  {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:700, desc:'Heavy rescue frame · exceptional power and endurance'}
+  {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:950, desc:'Stealth interceptor · compact, fast, and stable'},
+  {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:1450, desc:'Heavy rescue frame · exceptional power and endurance'},
+  {name:'Onyx M15', color:'#f6f8ff', thrust:375, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, trail:true, desc:'Gloss black and white · low speed, strongest braking and stability'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
   {name:'Motor tuning', description:'+7% thrust per tier', cost:125, max:5},
   {name:'Stabilizer', description:'Stronger braking and easier landings', cost:100, max:5}
+];
+const raceWinCredits = 160;
+const raceFinishCredits = 50;
+const achievements = [
+  ['first-clear','First Extraction','Clear a mission in Story or Practice.',75,() => progress.cleared.length > 0],
+  ['silent','Radio Silence','Clear a mission without using Jam.',90,flight => flight?.noJams],
+  ['silent-five','Ghost Signal','Clear five different missions without using Jam.',175,() => progress.noJamClears.length >= 5],
+  ['power','Power Reserve','Clear a mission with more than 40% battery remaining.',100,flight => flight?.battery > .4],
+  ['clean','Clean Getaway','Clear a mission without taking camera or sentinel battery damage.',100,flight => flight?.clean],
+  ['upgrade','Bench Test','Buy any drone upgrade.',50,() => progress.levels.some(tiers => tiers.some(Boolean))],
+  ['max-module','Master Tuner','Reach tier 5 in any module on one drone.',200,() => progress.levels.some(tiers => tiers.includes(5))],
+  ['max-frame','Fully Tuned','Reach tier 5 in all three modules on the same drone.',300,() => progress.levels.some(tiers => tiers.every(tier => tier === 5))],
+  ['new-frame','Fleet Expansion','Buy a premium drone in the Hangar.',100,() => progress.ownedFrames.length > 0],
+  ['first-race','First Checkered Flag','Finish all three sections of a Race.',75,() => progress.raceFinishes > 0],
+  ['race-win','Beat the Rival','Win a Race.',150,() => progress.raceWins > 0],
+  ['race-five','Circuit Regular','Win five Races.',250,() => progress.raceWins >= 5],
+  ['case-one','Sable Freight Closed','Finish Case 01 in Story.',150,() => progress.campaignNext >= 12],
+  ['case-two','North Quay Closed','Finish Case 02 in Story.',200,() => progress.campaignNext >= 24],
+  ['case-three','All Accounted For','Finish Case 03 in Story.',300,() => progress.campaignNext >= 36]
 ];
 const saveKey = 'hangar-hover-night-watch-v1';
 const slotKeys = [saveKey,saveKey+'-slot-2',saveKey+'-slot-3'];
@@ -66,7 +86,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{}};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -83,12 +103,27 @@ function loadProgress(key) {
     const active = saved.activeLevels?.[frame]?.[index];
     return Number.isInteger(active) ? Math.max(0,Math.min(owned,active)) : owned;
   }));
-  return {...freshProgress(),...saved,orisonExpanded:true,levels,activeLevels};
+  const priorRaceWin = saved.raceMatch?.defeated ? 1 : 0;
+  return {...freshProgress(),raceWins:priorRaceWin,raceFinishes:priorRaceWin,
+    ...saved,orisonExpanded:true,levels,activeLevels};
 }
 let activeSlot = null;
 let progress = freshProgress();
 function saveProgress() {
   writeData(activeSlot,progress);
+}
+function awardAchievements(flight) {
+  let total = 0;
+  for (const [key,,,credits,qualifies] of achievements) {
+    if (progress.achievements.includes(key) || !qualifies(flight)) continue;
+    progress.achievements.push(key);
+    total += credits;
+  }
+  progress.credits += total;
+  return total;
+}
+function achievementMessage(bonus) {
+  return bonus ? ' Achievement bonus: +' + bonus + ' CR.' : '';
 }
 const savedOptions = readData(optionsKey);
 const options = {
@@ -159,6 +194,7 @@ const frameButtons = fleet.map((frame,index) => {
       if (progress.credits < frame.cost) return;
       progress.credits -= frame.cost;
       progress.ownedFrames.push(index);
+      awardAchievements();
     }
     progress.selected = index;
     saveProgress();
@@ -206,6 +242,9 @@ let easyFlight = false;
 let storyFlight = false;
 let race;
 let raceSection = 0;
+let tookSignalDamage = false;
+const droneTrail = [];
+const trailLifetime = .29;
 let nextRaceCall;
 let raceCallouts = 0;
 let wasBraking = false;
@@ -238,17 +277,20 @@ function selectRace() {
   get('#raceSpeaker').textContent = name + ' · ' + role;
   get('#raceQuote').textContent = '“' + raceLine(0) + '”';
   get('#raceTitle').textContent = 'Three-section race';
-  get('#raceMatch').textContent = 'Rival drone: ' + race.frame.name + ' · 3 sections · 110 CR win / 35 CR finish';
+  get('#raceMatch').textContent = 'Rival drone: ' + race.frame.name + ' · 3 sections · ' + raceWinCredits + ' CR win / ' + raceFinishCredits + ' CR finish';
   reset(-1);
   showPage('race');
 }
 function concludeRace(cleared,message) {
   const time = race.finishTime;
   const won = cleared && elapsed < time;
-  const reward = cleared && !race.defeated ? (won ? 110 : 35) : 0;
+  const reward = cleared && !race.defeated ? (won ? raceWinCredits : raceFinishCredits) : 0;
+  if (reward) progress.raceFinishes++;
+  if (reward && won) progress.raceWins++;
   if (won) race.defeated = true;
   progress.credits += reward;
   progress.raceMatch = race;
+  const bonus = awardAchievements();
   saveProgress();
   state = won ? 'won' : 'lost';
   renderHangar();
@@ -256,7 +298,7 @@ function concludeRace(cleared,message) {
   const quote = raceLine(won ? 1 : 2);
   const score = cleared ? 'Your time ' + elapsed.toFixed(2) + ' s · Rival ' + time.toFixed(2) + ' s.' : message + ' Rival target ' + time.toFixed(2) + ' s.';
   const payout = reward ? ' +' + reward + ' CR.' : '';
-  menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+payout+' “'+quote+'”',
+  menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+payout+achievementMessage(bonus)+' “'+quote+'”',
     won ? 'New matchup' : 'Race same rival',won ? selectRace : () => reset(-1,true));
 
 }
@@ -419,8 +461,9 @@ function buyUpgrade(index) {
   if (state === 'flying' || state === 'paused' || modules[index] >= upgrade.max || progress.credits < cost) return;
   progress.credits -= cost;
   modules[index]++;
+  const bonus = awardAchievements();
   setUpgradeTier(index,modules[index]);
-  get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + airframe.name + '. ' + progress.credits + ' credits left.';
+  get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + airframe.name + '. ' + progress.credits + ' credits left.' + achievementMessage(bonus);
 }
 function refreshLoadout() {
   airframe = fleet[progress.selected];
@@ -431,6 +474,7 @@ function refreshLoadout() {
 }
 function renderHangar() {
   const active = state === 'flying' || state === 'paused';
+  renderAchievements();
   get('#campaign').textContent = progress.cleared.length + ' / ' + courses.length + ' missions cleared';
   renderLoadout();
   get('#upgradeTitle').textContent = airframe.name + ' upgrades';
@@ -462,6 +506,23 @@ function renderHangar() {
     button.setAttribute('aria-label',upgrade.name + ': ' + button.textContent);
     button.disabled = active || level >= upgrade.max || progress.credits < cost;
   });
+}
+
+function renderAchievements() {
+  get('#achievementCount').textContent = progress.achievements.length + ' / ' + achievements.length + ' unlocked';
+  get('#achievementList').replaceChildren(...achievements.map(([key,title,description,credits]) => {
+    const item = document.createElement('li');
+    const earned = progress.achievements.includes(key);
+    item.classList.toggle('earned',earned);
+    const name = document.createElement('strong');
+    name.textContent = title;
+    const goal = document.createElement('p');
+    goal.textContent = description;
+    const award = document.createElement('span');
+    award.textContent = (earned ? 'Earned' : 'Locked') + ' · ' + credits + ' CR';
+    item.append(name,goal,award);
+    return item;
+  }));
 }
 
 function bestKey() {
@@ -500,6 +561,8 @@ function reset(index, fly = false, chapterFlight = false) {
   const [x,y] = course.start;
   drone = {x,y,vx:0,vy:0,angle:0};
   elapsed = gate = landing = drained = 0;
+  tookSignalDamage = false;
+  droneTrail.length = 0;
   cameraSignal = '';
   radarLocked = false;
   patrols = planPatrols();
@@ -543,8 +606,11 @@ function finish(won, message) {
       progress.campaignNext = Math.max(progress.campaignNext || 0,courseIndex+1);
       if (progress.campaignRevealed === courseIndex+1) delete progress.campaignRevealed;
     }
+    const noJams = jamsLeft === maxJams;
+    if (noJams && !progress.noJamClears.includes(courseIndex)) progress.noJamClears.push(courseIndex);
+    const bonus = awardAchievements({noJams,battery:remainingBattery(),clean:!tookSignalDamage});
     saveProgress();
-    message += ' +' + payout + ' credits.';
+    message += ' +' + payout + ' credits.' + achievementMessage(bonus);
   }
   renderHangar();
   const hasNext = won && courseIndex < courses.length - 1;
@@ -613,6 +679,13 @@ function update(dt) {
     return finish(false,'The drone hit an obstacle. Brake before tight turns.');
   }
   const {x,y,vx,vy} = drone;
+  if (airframe.trail) {
+    while (droneTrail.length && elapsed-droneTrail[0].time >= trailLifetime) droneTrail.shift();
+    const last = droneTrail.at(-1);
+    if (Math.hypot(vx,vy) > 12 && (!last || elapsed-last.time >= 1/30)) {
+      droneTrail.push({x,y,time:elapsed});
+    }
+  }
   const doorOpen = course.exit && gate === course.gates.length &&
     Math.abs(y-course.exit[0]) < course.exit[1]/2-radius;
   if (x<radius || (x>960-radius && !doorOpen) || y<radius || y>500-radius)
@@ -629,6 +702,7 @@ function update(dt) {
   for (const patrol of patrols) updatePatrol(patrol,x,y,dt);
   radarLocked = jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
   if (radarLocked || cameraSignal === 'red') {
+    tookSignalDamage = true;
     if (!underThreat) sound('drain');
     drained += (radarLocked ? 7 : redCameraDrain) * airframe.exposure * dt * (easyFlight ? .5 : 1);
   }
@@ -673,6 +747,7 @@ function advanceRaceSection() {
   const [x,y] = course.start;
   drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:0};
   gate = scan = 0;
+  droneTrail.length = 0;
   cameraSignal = '';
   radarLocked = false;
   patrols = planPatrols();
@@ -1385,6 +1460,10 @@ function blockedAt(x,y) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
+  if (frame.trail) {
+    paintOnyx(ctx,spin);
+    return;
+  }
   if (index >= 5 && quayAtlas.complete && quayAtlas.naturalWidth) {
     ctx.drawImage(quayAtlas,(index-5)*256,0,256,256,-size/2,-size/2,size,size);
     return;
@@ -1451,6 +1530,79 @@ function paintDrone(ctx,frame,spin) {
   circle(.6,-7.6,.85,ctx);
   ctx.fillStyle = '#b7f4f7';
   ctx.fill();
+}
+function paintOnyx(ctx,spin) {
+  const shell = ctx.createLinearGradient(-9,-12,9,12);
+  shell.addColorStop(0,'#ffffff');
+  shell.addColorStop(.42,'#d3d9e6');
+  shell.addColorStop(.5,'#f9fbff');
+  shell.addColorStop(.88,'#8f99ad');
+  const glass = ctx.createLinearGradient(-5,-8,5,8);
+  glass.addColorStop(0,'#06070d');
+  glass.addColorStop(.42,'#555d70');
+  glass.addColorStop(.5,'#1d222e');
+  glass.addColorStop(1,'#080910');
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (const [x,y] of [[-12,-9],[12,-9],[-12,8],[12,8]]) {
+    ctx.beginPath();
+    ctx.moveTo(0,y*.45);
+    ctx.lineTo(x,y);
+    ctx.strokeStyle = '#070910';
+    ctx.lineWidth = 5.5;
+    ctx.stroke();
+    ctx.strokeStyle = shell;
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+    circle(x,y,6.3,ctx);
+    ctx.fillStyle = glass;
+    ctx.fill();
+    ctx.strokeStyle = '#eef2fa';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(spin*(x<0 ? 1 : -1)+y);
+    ctx.fillStyle = '#becadc';
+    ctx.fillRect(-4.5,-.65,9,1.3);
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.moveTo(0,-13);
+  ctx.lineTo(8,-6);
+  ctx.lineTo(7,8);
+  ctx.lineTo(4,12);
+  ctx.lineTo(-4,12);
+  ctx.lineTo(-7,8);
+  ctx.lineTo(-8,-6);
+  ctx.closePath();
+  ctx.fillStyle = shell;
+  ctx.fill();
+  ctx.strokeStyle = '#080a10';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(0,-2,4.2,6.8,0,0,Math.PI*2);
+  ctx.fillStyle = glass;
+  ctx.fill();
+  ctx.fillStyle = '#c8fff8';
+  ctx.fillRect(-2.2,7,4.4,1.4);
+}
+function drawDroneTrail() {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i=1;i<droneTrail.length;i++) {
+    const a = droneTrail[i-1];
+    const b = droneTrail[i];
+    const strength = 1-(elapsed-a.time)/trailLifetime;
+    ctx.strokeStyle = 'hsla(' + (284-114*strength) + ', 96%, 70%, ' + (.76*strength) + ')';
+    ctx.lineWidth = 1+5*strength;
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 function renderLoadout() {
   if (!airframe) return;
@@ -1596,6 +1748,7 @@ function draw() {
       label('CPU',rival[0],rival[1]-25,'#f3b9ff',10);
     }
   }
+  drawDroneTrail();
   ctx.translate(drone.x,drone.y);
   ctx.rotate(drone.angle);
   paintDrone(ctx,airframe,elapsed*35);
@@ -1605,8 +1758,11 @@ function updateHudText(selector,text) {
   const element = get(selector);
   if (element.textContent !== text) element.textContent = text;
 }
+function remainingBattery() {
+  return clamp(1-(elapsed+drained)/stats.seconds,0,1);
+}
 function hud() {
-  const battery = Math.max(0,Math.ceil(100*(1-(elapsed+drained)/stats.seconds)));
+  const battery = Math.ceil(100*remainingBattery());
   if (batteryMeter.value !== battery) batteryMeter.value = battery;
   const power = get('#power');
   power.classList.toggle('battery-low',battery <= 20);
@@ -1807,7 +1963,7 @@ function openSave(key,saved) {
   activeSlot = key;
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;
-  if (!saved) saveProgress();
+  if (awardAchievements() || !saved) saveProgress();
   reset(0);
   renderMissionPage();
   enterGame();
@@ -1862,6 +2018,29 @@ sensitivity.addEventListener('input',() => {
   get('#sensitivityValue').textContent = options.sensitivity + '%';
   writeData(optionsKey,options);
 });
+
+function renderCharacterFiles() {
+  get('#characterFiles').replaceChildren(...Object.entries(crew).map(([key,[name,role,portrait]]) => {
+    const card = document.createElement('article');
+    const image = document.createElement('img');
+    image.src = 'assets/crew-' + portrait + '.webp';
+    image.alt = '';
+    image.loading = 'lazy';
+    image.width = image.height = 88;
+    const text = document.createElement('div');
+    const heading = document.createElement('h3');
+    heading.textContent = name;
+    const position = document.createElement('p');
+    position.className = 'character-role';
+    position.textContent = role;
+    const bio = document.createElement('p');
+    bio.textContent = crewBios[key];
+    text.append(heading,position,bio);
+    card.append(image,text);
+    return card;
+  }));
+}
+renderCharacterFiles();
 
 function preloadMedia() {
   const portraits = ['crew-expression-7', ...new Set(Object.values(crew).flatMap(([, ,index]) =>

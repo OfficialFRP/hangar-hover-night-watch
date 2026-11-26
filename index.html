@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -69,6 +69,25 @@
   <meter min="0" max="100" value="100"></meter><b aria-hidden="true">100%</b>
   <span class="battery-track" aria-hidden="true"><span class="battery-fill"></span></span><span id="batteryCondition" aria-hidden="true">Stable</span>
 </span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
+<aside id="raceDuel" aria-label="Race pilots and battery" hidden>
+  <div class="racer-card" id="playerRacer">
+    <img id="playerRacerPortrait" alt="" width="64" height="64" hidden>
+    <canvas id="playerRacerDrone" width="96" height="96" aria-hidden="true" hidden></canvas>
+    <div class="racer-info">
+      <span class="racer-tag">You</span><strong id="playerRacerName"></strong><small id="playerRacerFrame"></small>
+      <meter id="playerRaceBattery" min="0" max="100" value="100" aria-label="Your race battery"></meter>
+      <div class="race-life" aria-hidden="true"><span></span><b id="playerRacePercent">100%</b></div>
+    </div>
+  </div>
+  <div class="racer-card" id="rivalRacer">
+    <img id="rivalRacerPortrait" alt="" width="64" height="64">
+    <div class="racer-info">
+      <span class="racer-tag">CPU</span><strong id="rivalRacerName"></strong><small id="rivalRacerFrame"></small>
+      <meter id="rivalRaceBattery" min="0" max="100" value="100" aria-label="Rival battery estimate"></meter>
+      <div class="race-life" aria-hidden="true"><span></span><b id="rivalRacePercent">100%</b></div>
+    </div>
+  </div>
+</aside>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
 <div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFree" hidden>End run</button></div></div></div>
@@ -140,7 +159,7 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="game.js?v=11"></script>
+<script src="game.js?v=12"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

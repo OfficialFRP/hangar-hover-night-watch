@@ -673,6 +673,38 @@ function menu(title, message, label, callback) {
   overlay.hidden = false;
   flightNeedsRender = true;
 }
+function racePortrait(image,key) {
+  const [, ,portrait] = crew[key];
+  image.src = 'assets/crew-' + (portrait < 8 ? 'expression-' : '') + portrait + '.webp';
+}
+function drawRaceLoadout() {
+  const preview = get('#playerRacerDrone');
+  if (courseIndex !== -1 || flightLoadout?.pilot || !airframe) return;
+  const surface = preview.getContext('2d');
+  surface.clearRect(0,0,96,96);
+  surface.save();
+  surface.translate(48,48);
+  surface.scale(2,2);
+  paintDrone(surface,airframe,.45);
+  surface.restore();
+}
+function configureRaceHud() {
+  const racing = courseIndex === -1;
+  get('#raceDuel').hidden = !racing;
+  get('#power').hidden = racing;
+  if (!racing) return;
+  const pilot = flightLoadout?.pilot;
+  const portrait = get('#playerRacerPortrait');
+  portrait.hidden = !pilot;
+  get('#playerRacerDrone').hidden = Boolean(pilot);
+  if (pilot) racePortrait(portrait,pilot);
+  else drawRaceLoadout();
+  racePortrait(get('#rivalRacerPortrait'),race.rival);
+  updateHudText('#playerRacerName',pilot ? crew[pilot][0] : 'Custom pilot');
+  updateHudText('#playerRacerFrame',airframe.name);
+  updateHudText('#rivalRacerName',crew[race.rival][0]);
+  updateHudText('#rivalRacerFrame',race.frame.name);
+}
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
   courseIndex = index;
@@ -708,6 +740,7 @@ function reset(index, fly = false, chapterFlight = false) {
   state = fly ? 'flying' : 'ready';
   flightNeedsRender = true;
   refreshLoadout();
+  configureRaceHud();
   if (fly) {
     sound('launch');
     overlay.hidden = true;
@@ -1987,10 +2020,31 @@ function updateHudText(selector,text) {
 function remainingBattery() {
   return clamp(1-(elapsed+drained)/stats.seconds,0,1);
 }
+const raceMeters = [
+  {meter:get('#playerRaceBattery'),card:get('#playerRacer'),value:get('#playerRacePercent')},
+  {meter:get('#rivalRaceBattery'),card:get('#rivalRacer'),value:get('#rivalRacePercent')}
+];
+function updateRaceBattery(playerBattery,hostile) {
+  // The scripted rival pays normal time-based battery use until it finishes.
+  const rivalCapacity = race.sections[0].course.seconds + race.frame.battery;
+  const rivalCharge = Math.ceil(100*clamp(1-Math.min(elapsed,race.finishTime)/rivalCapacity,0,1));
+  for (const [index,charge] of [playerBattery,rivalCharge].entries()) {
+    const {meter,card,value} = raceMeters[index];
+    if (meter.value !== charge) {
+      meter.value = charge;
+      card.style.setProperty('--race-charge',charge+'%');
+      value.textContent = charge+'%';
+    }
+    card.classList.toggle('race-critical',charge <= 20);
+    card.classList.toggle('race-low',charge > 20 && charge <= 45);
+  }
+  raceMeters[0].card.classList.toggle('race-draining',hostile);
+}
 function hud() {
   const battery = Math.ceil(100*remainingBattery());
   const power = get('#power');
   const hostile = radarLocked || cameraSignal === 'red';
+  if (courseIndex === -1) updateRaceBattery(battery,hostile);
   updateHudText('#batteryCondition',hostile ? 'Draining' : rechargeFlash > 0 ? 'Charging' : battery <= 20 ? 'Critical' : battery <= 45 ? 'Low' : 'Stable');
   if (batteryMeter.value !== battery) {
     batteryMeter.value = battery;
@@ -2372,6 +2426,7 @@ for (const artwork of [quayAtlas,onyxArt,clubAtlas,storyAtlas,fleetArt]) {
   artwork.addEventListener('load',() => {
     flightNeedsRender = true;
     if (currentPage === 'hangar') renderLoadout();
+    if (currentPage === 'flight') drawRaceLoadout();
   });
 }
 for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas]) {

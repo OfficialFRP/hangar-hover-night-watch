@@ -711,3 +711,59 @@ body::before{
 @media(max-width:650px){
   .pages [data-page=free] strong{max-width:6ch}
 }
+
+#raceDuel{
+  grid-column:1;grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;min-width:0;align-content:start;
+}
+#page-flight:has(#raceDuel:not([hidden])){
+  grid-template-rows:auto auto minmax(0,1fr) auto auto;
+}
+#page-flight:has(#raceDuel:not([hidden])) #field{grid-row:3}
+#page-flight:has(#raceDuel:not([hidden])) #raceLive{grid-row:4}
+#page-flight:has(#raceDuel:not([hidden])) .help{grid-row:5}
+.racer-card{
+  --racer-accent:#a4ffe1;--racer-shade:#27a58e;
+  display:grid;grid-template-columns:clamp(30px,7vw,56px) minmax(0,1fr);
+  align-items:center;gap:6px;min-width:0;padding:5px;
+  background:linear-gradient(155deg,#273852,#111827 68%);
+  border:1px solid #567083;border-radius:7px;
+}
+#rivalRacer{--racer-accent:#e5baff;--racer-shade:#9764c5}
+#raceDuel .race-low{--racer-accent:#ffe3a5;--racer-shade:#aa6830}
+#raceDuel :is(.race-critical,.race-draining){--racer-accent:#ffc3ca;--racer-shade:#cb4164;border-color:#b45476}
+.racer-card img,#page-flight .racer-card canvas{
+  width:100%;height:auto;aspect-ratio:1;object-fit:cover;
+  background:#121b2c;border:1px solid #778ca5;border-radius:5px;
+}
+.racer-info{display:grid;gap:2px;min-width:0}
+.racer-tag{color:var(--racer-accent);font:700 8px/1 ui-monospace,monospace;text-transform:uppercase}
+.racer-info strong,.racer-info small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.racer-info strong{font-size:clamp(10px,2.45vw,14px);line-height:1.15}
+.racer-info small{font-size:10px;line-height:1.1;color:#d9e3f0}
+.racer-info meter{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
+.race-life{position:relative;height:15px;overflow:hidden;border:1px solid #647e90;border-radius:3px;background:#0a1021}
+.race-life span{
+  display:block;width:var(--race-charge,100%);height:100%;
+  background:linear-gradient(#ffffff55 0 18%,transparent 19%),linear-gradient(var(--racer-accent),var(--racer-shade));
+}
+.race-life b{
+  position:absolute;inset:0 3px 0 0;color:#fff;text-align:right;
+  font:800 10px/13px ui-monospace,monospace;text-shadow:0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000;
+}
+@media(min-width:850px) and (min-height:541px){
+  #page-flight:has(#raceDuel:not([hidden])){grid-template-columns:180px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto}
+  #raceDuel{grid-template-columns:1fr;grid-row:2;align-self:center}
+  #page-flight:has(#raceDuel:not([hidden])) .hud{grid-column:1/-1}
+  #page-flight:has(#raceDuel:not([hidden])) #field{grid-column:2;grid-row:2}
+  #page-flight:has(#raceDuel:not([hidden])) #raceLive{grid-column:2;grid-row:3}
+  #page-flight:has(#raceDuel:not([hidden])) .help{grid-column:1/-1;grid-row:4}
+  .racer-card{grid-template-columns:48px minmax(0,1fr)}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #raceDuel{grid-column:2}
+  #page-flight:has(#raceDuel:not([hidden])) :is(.joystick,.flight-actions){grid-row:3}
+  #page-flight:has(.overlay:not([hidden])) #raceDuel{grid-column:1}
+  .racer-card{grid-template-columns:29px minmax(0,1fr);padding:3px}
+  .racer-info small{display:none}
+}

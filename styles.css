@@ -724,7 +724,7 @@ body::before{
 #page-flight:has(#raceDuel:not([hidden])) .help{grid-row:5}
 .racer-card{
   --racer-accent:#a4ffe1;--racer-shade:#27a58e;
-  display:grid;grid-template-columns:clamp(30px,7vw,56px) minmax(0,1fr);
+  display:grid;grid-template-columns:clamp(42px,10vw,68px) minmax(0,1fr);
   align-items:center;gap:6px;min-width:0;padding:5px;
   background:linear-gradient(155deg,#273852,#111827 68%);
   border:1px solid #567083;border-radius:7px;
@@ -752,18 +752,61 @@ body::before{
   font:800 10px/13px ui-monospace,monospace;text-shadow:0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000;
 }
 @media(min-width:850px) and (min-height:541px){
-  #page-flight:has(#raceDuel:not([hidden])){grid-template-columns:180px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto}
-  #raceDuel{grid-template-columns:1fr;grid-row:2;align-self:center}
+  #page-flight:has(#raceDuel:not([hidden])){
+    grid-template-columns:clamp(145px,16vw,220px) minmax(0,1fr) clamp(145px,16vw,220px);
+    grid-template-rows:auto minmax(0,1fr) auto auto;
+    column-gap:9px;
+  }
+  #raceDuel{display:contents}
+  #raceDuel .racer-card{
+    grid-row:2;grid-template-columns:minmax(0,1fr);align-self:center;
+    padding:clamp(8px,1.2vw,14px);gap:9px;
+  }
+  #playerRacer{grid-column:1}
+  #rivalRacer{grid-column:3;text-align:right}
+  #raceDuel :is(img,canvas){width:min(100%,142px);justify-self:center}
+  #raceDuel .racer-tag{font-size:10px}
+  #raceDuel .racer-info strong{font-size:clamp(15px,1.55vw,20px);white-space:normal}
+  #raceDuel .racer-info small{font-size:12px}
+  #raceDuel .race-life{height:21px}
+  #raceDuel .race-life b{font-size:12px;line-height:19px}
   #page-flight:has(#raceDuel:not([hidden])) .hud{grid-column:1/-1}
   #page-flight:has(#raceDuel:not([hidden])) #field{grid-column:2;grid-row:2}
   #page-flight:has(#raceDuel:not([hidden])) #raceLive{grid-column:2;grid-row:3}
   #page-flight:has(#raceDuel:not([hidden])) .help{grid-column:1/-1;grid-row:4}
-  .racer-card{grid-template-columns:48px minmax(0,1fr)}
 }
 @media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
   #raceDuel{grid-column:2}
   #page-flight:has(#raceDuel:not([hidden])) :is(.joystick,.flight-actions){grid-row:3}
   #page-flight:has(.overlay:not([hidden])) #raceDuel{grid-column:1}
-  .racer-card{grid-template-columns:29px minmax(0,1fr);padding:3px}
+  .racer-card{grid-template-columns:36px minmax(0,1fr);padding:3px}
   .racer-info small{display:none}
+}
+
+
+.header-tools .inspire-link{
+  display:inline-flex;align-items:center;min-height:44px;padding:0 5px;
+  font:800 clamp(14px,1.5vw,18px)/1.1 system-ui,sans-serif;white-space:nowrap;
+  text-decoration-thickness:2px;text-underline-offset:4px;
+}
+.pages .tab-symbol{
+  width:26px;height:26px;border-radius:7px;
+  border-color:color-mix(in srgb,var(--tab-accent) 66%,#314761);
+  background:linear-gradient(145deg,#243653,#101729);
+}
+.tab-symbol svg{
+  width:18px;height:18px;fill:none;stroke:currentColor;
+  stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round;
+}
+@media(max-width:650px),(pointer:coarse) and (max-height:600px){
+  .pages .tab-symbol{width:20px;height:20px;border-radius:4px}
+  .tab-symbol svg{width:14px;height:14px}
+}
+@media(max-width:849px),(max-height:540px){
+  #rivalRacer{grid-template-columns:minmax(0,1fr) clamp(42px,10vw,68px);text-align:right}
+  #rivalRacer .racer-info{grid-row:1;grid-column:1}
+  #rivalRacer img{grid-row:1;grid-column:2}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #rivalRacer{grid-template-columns:minmax(0,1fr) 36px}
 }

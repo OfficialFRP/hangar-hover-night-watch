@@ -36,7 +36,7 @@ const fleet = [
   {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'},
   {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:950, desc:'Stealth interceptor · compact, fast, and stable'},
   {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:1450, desc:'Heavy rescue frame · exceptional power and endurance'},
-  {name:'Onyx M15', color:'#f6f8ff', thrust:375, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, trail:true, desc:'Gloss black and white · low speed, strongest braking and stability'}
+  {name:'Onyx M15', color:'#f6f8ff', thrust:375, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, onyx:true, desc:'Gloss black and white · low speed, strongest braking and stability'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
@@ -244,7 +244,8 @@ let race;
 let raceSection = 0;
 let tookSignalDamage = false;
 const droneTrail = [];
-const trailLifetime = .29;
+const trailLifetime = .74;
+const trailSampleInterval = 1/30;
 let nextRaceCall;
 let raceCallouts = 0;
 let wasBraking = false;
@@ -679,12 +680,10 @@ function update(dt) {
     return finish(false,'The drone hit an obstacle. Brake before tight turns.');
   }
   const {x,y,vx,vy} = drone;
-  if (airframe.trail) {
-    while (droneTrail.length && elapsed-droneTrail[0].time >= trailLifetime) droneTrail.shift();
-    const last = droneTrail.at(-1);
-    if (Math.hypot(vx,vy) > 12 && (!last || elapsed-last.time >= 1/30)) {
-      droneTrail.push({x,y,time:elapsed});
-    }
+  while (droneTrail.length && elapsed-droneTrail[0].time >= trailLifetime) droneTrail.shift();
+  const lastTrailPoint = droneTrail.at(-1);
+  if (Math.hypot(vx,vy) > 10 && (!lastTrailPoint || elapsed-lastTrailPoint.time >= trailSampleInterval)) {
+    droneTrail.push({x,y,time:elapsed});
   }
   const doorOpen = course.exit && gate === course.gates.length &&
     Math.abs(y-course.exit[0]) < course.exit[1]/2-radius;
@@ -1460,7 +1459,7 @@ function blockedAt(x,y) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
-  if (frame.trail) {
+  if (frame.onyx) {
     paintOnyx(ctx,spin);
     return;
   }
@@ -1532,74 +1531,124 @@ function paintDrone(ctx,frame,spin) {
   ctx.fill();
 }
 function paintOnyx(ctx,spin) {
-  const shell = ctx.createLinearGradient(-9,-12,9,12);
-  shell.addColorStop(0,'#ffffff');
-  shell.addColorStop(.42,'#d3d9e6');
-  shell.addColorStop(.5,'#f9fbff');
-  shell.addColorStop(.88,'#8f99ad');
-  const glass = ctx.createLinearGradient(-5,-8,5,8);
-  glass.addColorStop(0,'#06070d');
-  glass.addColorStop(.42,'#555d70');
-  glass.addColorStop(.5,'#1d222e');
-  glass.addColorStop(1,'#080910');
+  const shell = surfaceGradient(ctx,-14,-13,15,13,[
+    [0,'#6a7486'],[.24,'#f8fbff'],[.43,'#c6d1e0'],[.48,'#ffffff'],[1,'#8e9bae']
+  ]);
+  const lacquer = surfaceGradient(ctx,-8,-10,8,10,[
+    [0,'#06080e'],[.28,'#121723'],[.39,'#6d798c'],[.46,'#303a4c'],[.56,'#0a0e17'],[1,'#222a36']
+  ]);
+  const hub = surfaceGradient(ctx,-4,-4,5,5,[[0,'#eff8ff'],[.35,'#96aabd'],[1,'#354456']]);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  for (const [x,y] of [[-12,-9],[12,-9],[-12,8],[12,8]]) {
+  for (const [x,y] of [[-12,-9],[12,-9],[-12,9],[12,9]]) {
+    const side = Math.sign(x);
     ctx.beginPath();
-    ctx.moveTo(0,y*.45);
+    ctx.moveTo(side*3,y*.52);
     ctx.lineTo(x,y);
-    ctx.strokeStyle = '#070910';
-    ctx.lineWidth = 5.5;
+    ctx.strokeStyle = '#070a11';
+    ctx.lineWidth = 7;
     ctx.stroke();
     ctx.strokeStyle = shell;
-    ctx.lineWidth = 2.6;
+    ctx.lineWidth = 4.3;
     ctx.stroke();
-    circle(x,y,6.3,ctx);
-    ctx.fillStyle = glass;
+
+    circle(x,y+.9,7.5,ctx);
+    ctx.fillStyle = '#080b11';
     ctx.fill();
-    ctx.strokeStyle = '#eef2fa';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    circle(x,y,7,ctx);
+    ctx.fillStyle = shell;
+    ctx.fill();
+    circle(x,y,5.35,ctx);
+    ctx.fillStyle = lacquer;
+    ctx.fill();
     ctx.save();
     ctx.translate(x,y);
-    ctx.rotate(spin*(x<0 ? 1 : -1)+y);
-    ctx.fillStyle = '#becadc';
-    ctx.fillRect(-4.5,-.65,9,1.3);
+    ctx.rotate(spin*side+y);
+    ctx.fillStyle = '#dceaf6';
+    for (let blade=0;blade<3;blade++) {
+      ctx.rotate(2*Math.PI/3);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.quadraticCurveTo(2,-2.1,4.7,-.75);
+      ctx.quadraticCurveTo(4.2,1.2,0,0);
+      ctx.fill();
+    }
     ctx.restore();
+    circle(x,y,1.65,ctx);
+    ctx.fillStyle = hub;
+    ctx.fill();
   }
   ctx.beginPath();
-  ctx.moveTo(0,-13);
-  ctx.lineTo(8,-6);
-  ctx.lineTo(7,8);
-  ctx.lineTo(4,12);
-  ctx.lineTo(-4,12);
-  ctx.lineTo(-7,8);
-  ctx.lineTo(-8,-6);
+  ctx.moveTo(0,-15);
+  ctx.lineTo(6,-12);
+  ctx.lineTo(9,-6);
+  ctx.lineTo(8,7);
+  ctx.lineTo(5,13);
+  ctx.lineTo(-5,13);
+  ctx.lineTo(-8,7);
+  ctx.lineTo(-9,-6);
+  ctx.lineTo(-6,-12);
   ctx.closePath();
   ctx.fillStyle = shell;
   ctx.fill();
-  ctx.strokeStyle = '#080a10';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = '#070a11';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0,-11);
+  ctx.bezierCurveTo(6,-10,6,-2,4,4);
+  ctx.lineTo(2.5,8);
+  ctx.lineTo(-2.5,8);
+  ctx.lineTo(-4,4);
+  ctx.bezierCurveTo(-6,-2,-6,-10,0,-11);
+  ctx.fillStyle = lacquer;
+  ctx.fill();
+  ctx.strokeStyle = '#111725';
+  ctx.lineWidth = .75;
   ctx.stroke();
   ctx.beginPath();
-  ctx.ellipse(0,-2,4.2,6.8,0,0,Math.PI*2);
-  ctx.fillStyle = glass;
-  ctx.fill();
-  ctx.fillStyle = '#c8fff8';
-  ctx.fillRect(-2.2,7,4.4,1.4);
+  ctx.moveTo(-3.2,-7);
+  ctx.quadraticCurveTo(-1.3,-9.3,1.7,-8.6);
+  ctx.strokeStyle = '#f5fbff9c';
+  ctx.lineWidth = .7;
+  ctx.stroke();
+  for (const side of [-1,1]) {
+    ctx.fillStyle = '#151e2c';
+    for (let rib=0;rib<3;rib++) ctx.fillRect(side*6-1,2+rib*1.55,2,.64);
+    ctx.fillStyle = '#a7fff0';
+    ctx.fillRect(side*5.3-.7,9,.95,1.5);
+  }
+  ctx.fillStyle = '#121824';
+  ctx.fillRect(-2.6,10,5.2,1.8);
+  ctx.fillStyle = '#e3fff9';
+  ctx.fillRect(-1.4,10.4,2.8,.85);
 }
-function drawDroneTrail() {
+function surfaceGradient(ctx,x1,y1,x2,y2,stops) {
+  const gradient = ctx.createLinearGradient(x1,y1,x2,y2);
+  stops.forEach(([offset,color]) => gradient.addColorStop(offset,color));
+  return gradient;
+}
+function drawDroneTrail(points,frame,end) {
+  if (points.length < 2) return;
+  const ink = frame.onyx ? '#84fff1' : frame.color;
   ctx.save();
   ctx.lineCap = 'round';
-  for (let i=1;i<droneTrail.length;i++) {
-    const a = droneTrail[i-1];
-    const b = droneTrail[i];
-    const strength = 1-(elapsed-a.time)/trailLifetime;
-    ctx.strokeStyle = 'hsla(' + (284-114*strength) + ', 96%, 70%, ' + (.76*strength) + ')';
-    ctx.lineWidth = 1+5*strength;
+  for (let i=0;i<points.length;i++) {
+    const a = points[i];
+    const b = points[i+1] ?? end;
+    if (!b) break;
+    const strength = Math.max(0,1-(elapsed-a.time)/trailLifetime);
+    const hue = frame.onyx && strength < .55 ? '#bf76ff' : ink;
     ctx.beginPath();
     ctx.moveTo(a.x,a.y);
     ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle = hue;
+    ctx.globalAlpha = .2*strength;
+    ctx.lineWidth = 2+12*strength;
+    ctx.stroke();
+    ctx.globalAlpha = .76*strength;
+    ctx.lineWidth = .5+3.6*strength;
     ctx.stroke();
   }
   ctx.restore();
@@ -1610,8 +1659,9 @@ function renderLoadout() {
   const surface = preview.getContext('2d');
   surface.clearRect(0,0,440,168);
   surface.save();
-  surface.translate(220,80);
-  surface.scale(4.3,4.3);
+  surface.translate(220,84);
+  const scale = airframe.onyx ? 3.55 : 4.3;
+  surface.scale(scale,scale);
   surface.rotate(-.22);
   paintDrone(surface,airframe,.5);
   surface.restore();
@@ -1739,6 +1789,12 @@ function draw() {
   if (courseIndex === -1 && state !== 'ready') {
     const rival = rivalPosition(race,elapsed);
     if (rival && rival[3] === raceSection) {
+      const wake = [];
+      for (let age=trailLifetime;age>0;age-=.06) {
+        const point = rivalPosition(race,elapsed-age);
+        if (point?.[3] === raceSection) wake.push({x:point[0],y:point[1],time:elapsed-age});
+      }
+      drawDroneTrail(wake,race.frame,{x:rival[0],y:rival[1]});
       ctx.save();
       ctx.translate(rival[0],rival[1]);
       ctx.rotate(rival[2]);
@@ -1748,7 +1804,7 @@ function draw() {
       label('CPU',rival[0],rival[1]-25,'#f3b9ff',10);
     }
   }
-  drawDroneTrail();
+  drawDroneTrail(droneTrail,airframe);
   ctx.translate(drone.x,drone.y);
   ctx.rotate(drone.angle);
   paintDrone(ctx,airframe,elapsed*35);
@@ -1763,8 +1819,11 @@ function remainingBattery() {
 }
 function hud() {
   const battery = Math.ceil(100*remainingBattery());
-  if (batteryMeter.value !== battery) batteryMeter.value = battery;
   const power = get('#power');
+  if (batteryMeter.value !== battery) {
+    batteryMeter.value = battery;
+    power.style.setProperty('--battery-level',battery+'%');
+  }
   power.classList.toggle('battery-low',battery <= 20);
   power.classList.toggle('battery-warn',battery > 20 && battery <= 45);
   power.classList.toggle('battery-charge',rechargeFlash > 0);

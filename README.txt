@@ -70,7 +70,8 @@ After Sable Freight, continue to Case 02 at a shuttered ferry warehouse.
 Cyan fenders and foam bumpers rebound on gentle contact. Hard impacts
 still end the flight. The Kestrel N12 costs 950 credits and the Breaker
 X14 costs 1,450 credits. The glossy Onyx M15 costs 1,800 credits and
-offers strong braking, high stability, and a short colored trail.
+offers strong braking and high stability. All drones leave a colored
+glow trail in flight.
 Once purchased, a frame stays yours.
 
 ACHIEVEMENTS AND CAST

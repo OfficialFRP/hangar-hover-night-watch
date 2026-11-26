@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -57,12 +57,16 @@
 <main hidden>
 <header><a class="game-logo" href="assets/hangar-hover-logo.png" download="Hangar-Hover.png" aria-label="Download Hangar Hover logo"><img src="assets/icon-192.png" alt="Hangar Hover — Cipher" width="72" height="72"></a><div><span class="kicker">Night Watch / Underground Surveillance</span><h1>HANGAR <em>HOVER</em></h1></div><div class="header-tools"><span id="campaign"></span><span id="wallet" aria-label="Credit balance"></span><a class="inspire-link" href="https://www.inspireclothing.art/" target="_blank" rel="noopener noreferrer">Inspire Clothing ↗</a><button id="openMenu">Menu</button><button id="audio" aria-pressed="false">Sound off</button></div></header>
 <nav class="pages" aria-label="Game pages">
-<button data-page="story" aria-pressed="true"><span>01</span><strong>Story</strong></button><button data-page="missions" aria-pressed="false"><span>02</span><strong>Practice</strong></button><button data-page="hangar" aria-pressed="false"><span>03</span><strong>Hangar</strong></button><button data-page="upgrades" aria-pressed="false"><span>04</span><strong>Upgrades</strong></button>
-<button data-page="race" aria-pressed="false"><span>05</span><strong>Race</strong></button>
-<button data-page="characters" aria-pressed="false"><span>06</span><strong>Cast</strong></button>
+<button data-page="story" aria-pressed="true"><span class="tab-number" aria-hidden="true">01</span><span class="tab-symbol" aria-hidden="true">▤</span><strong>Story</strong></button><button data-page="missions" aria-pressed="false"><span class="tab-number" aria-hidden="true">02</span><span class="tab-symbol" aria-hidden="true">◎</span><strong>Practice</strong></button><button data-page="hangar" aria-pressed="false"><span class="tab-number" aria-hidden="true">03</span><span class="tab-symbol" aria-hidden="true">◇</span><strong>Hangar</strong></button><button data-page="upgrades" aria-pressed="false"><span class="tab-number" aria-hidden="true">04</span><span class="tab-symbol" aria-hidden="true">⛭</span><strong>Upgrades</strong></button>
+<button data-page="race" aria-pressed="false"><span class="tab-number" aria-hidden="true">05</span><span class="tab-symbol" aria-hidden="true">⚑</span><strong>Race</strong></button>
+<button data-page="characters" aria-pressed="false"><span class="tab-number" aria-hidden="true">06</span><span class="tab-symbol" aria-hidden="true">▣</span><strong>Cast</strong></button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
-<div class="hud"><span id="power">Battery <meter min="0" max="100" value="100"></meter> <b>100%</b></span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
+<div class="hud"><span id="power">
+  <span class="battery-heading"><span class="battery-icon" aria-hidden="true"></span>Battery</span>
+  <meter min="0" max="100" value="100"></meter><b aria-hidden="true">100%</b>
+  <span class="battery-track" aria-hidden="true"><span class="battery-fill"></span></span>
+</span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
 <div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button></div></div></div>
@@ -121,7 +125,7 @@
 <script src="story.js?v=4"></script>
 <script src="race.js"></script>
 <script src="audio.js"></script>
-<script src="game.js?v=4"></script>
+<script src="game.js?v=5"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

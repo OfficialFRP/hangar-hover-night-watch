@@ -137,7 +137,7 @@ const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249
 const quayAtlas = new Image();
 quayAtlas.src = 'assets/north-quay-drones.webp';
 const onyxArt = new Image();
-onyxArt.src = 'assets/onyx-m15.webp';
+onyxArt.src = 'assets/onyx-m15.webp?v=2';
 const storyAtlas = new Image();
 storyAtlas.src = 'assets/specialty-drones.webp';
 const fleetArt = new Image();
@@ -651,8 +651,8 @@ function easeNose(angle,target,dt,hovering = false) {
   const difference = target-angle;
   const turn = Math.atan2(Math.sin(difference),Math.cos(difference));
   if (Math.abs(turn) < .006) return target;
-  const maxStep = (hovering ? 2.8 : 6.8)*dt;
-  return angle+clamp(turn*(1-Math.exp(-(hovering ? 5 : 9)*dt)),-maxStep,maxStep);
+  const maxStep = (hovering ? 2.5 : 5.3)*dt;
+  return angle+clamp(turn*(1-Math.exp(-(hovering ? 4.4 : 7.4)*dt)),-maxStep,maxStep);
 }
 function turnNose(angle,dx,dy,dt) {
   const moving = Boolean(dx || dy);
@@ -1493,7 +1493,8 @@ const spriteRotors = [
   [[64,66,45],[190,66,45],[60,185,46],[195,185,46]],
   [[60,63,45],[197,63,45],[58,181,45],[199,181,45]],
   [[57,72,41],[197,72,41],[57,191,41],[197,191,41]],
-  [[59,72,43],[197,72,43],[59,192,43],[197,192,43]]
+  [[59,72,43],[197,72,43],[59,192,43],[197,192,43]],
+  [[57,72,41],[197,72,41],[53,193,41],[201,193,41]]
 ];
 const airframeLayers = [];
 function spinSprite(ctx,index,spin,size) {
@@ -1501,7 +1502,7 @@ function spinSprite(ctx,index,spin,size) {
   const image = isOnyx ? onyxArt : index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
   if (!image.complete || !image.naturalWidth) return false;
   const column = isOnyx ? 0 : index < 3 ? index : index < 5 ? index-3 : index-5;
-  const rotorLayout = spriteRotors[isOnyx ? 5 : index];
+  const rotorLayout = spriteRotors[index];
   if (!airframeLayers[index]) {
     const shell = document.createElement('canvas');
     shell.width = shell.height = 256;

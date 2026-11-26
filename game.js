@@ -36,7 +36,11 @@ const fleet = [
   {name:'Vector B9', color:'#66caff', thrust:507, battery:5, brake:17, size:16, exposure:.78, arms:12, rotor:7, windResponse:.13, stability:2.8, desc:'Blue ducted frame · tight turns and gust resistance'},
   {name:'Kestrel N12', color:'#79ffdb', thrust:580, battery:13, brake:19, size:15, exposure:.64, arms:12, rotor:7, windResponse:.11, stability:3.1, cost:950, desc:'Stealth interceptor · compact, fast, and stable'},
   {name:'Breaker X14', color:'#ffac72', thrust:645, battery:19, brake:21, size:17, exposure:.55, arms:13, rotor:7, windResponse:.08, stability:3.4, cost:1450, desc:'Heavy rescue frame · exceptional power and endurance'},
-  {name:'Onyx M15', color:'#f6f8ff', thrust:475, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, onyx:true, desc:'Gloss black and white · ducted rotors, strongest braking and stability'}
+  {name:'Onyx M15', color:'#f6f8ff', thrust:475, battery:11, brake:25, size:16, exposure:.7, arms:12, rotor:7, windResponse:.035, stability:5.8, cost:1800, onyx:true, desc:'Gloss black and white · ducted rotors, strongest braking and stability'},
+  {name:'Ember E6',color:'#ff906a',thrust:468,battery:5,brake:14,size:16,exposure:.9,arms:12,rotor:7,windResponse:.6,stability:2.5,cost:325,desc:'Responsive everyday frame'},
+  {name:'Harbor H8',color:'#7bead6',thrust:430,battery:8,brake:17,size:16,exposure:.86,arms:12,rotor:7,windResponse:.4,stability:2.9,cost:375,desc:'Steady handling and extra battery'},
+  {name:'Nova N8',color:'#d49eff',thrust:492,battery:4,brake:15,size:16,exposure:.94,arms:12,rotor:7,windResponse:.55,stability:2.6,cost:425,desc:'Midweight sprint frame'},
+  {name:'Cirrus C9',color:'#a4c7ff',thrust:450,battery:7,brake:18,size:16,exposure:.81,arms:12,rotor:7,windResponse:.32,stability:3.2,cost:475,desc:'Crosswind control and strong braking'}
 ];
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
@@ -60,8 +64,27 @@ const achievements = [
   ['race-five','Circuit Regular','Win five Races.',250,() => progress.raceWins >= 5],
   ['case-one','Sable Freight Closed','Finish Case 01 in Story.',150,() => progress.campaignNext >= 12],
   ['case-two','North Quay Closed','Finish Case 02 in Story.',200,() => progress.campaignNext >= 24],
-  ['case-three','All Accounted For','Finish Case 03 in Story.',300,() => progress.campaignNext >= 36]
+  ['case-three','All Accounted For','Finish Case 03 in Story.',300,() => progress.campaignNext >= 36],
+  ['ten-missions','Flight Log','Clear ten different Story or Practice missions.',125,() => progress.cleared.length >= 10],
+  ['twenty-missions','Veteran Pilot','Clear twenty different Story or Practice missions.',175,() => progress.cleared.length >= 20],
+  ['full-map','Every Airspace','Clear all 36 Story or Practice missions.',275,() => progress.cleared.length >= courses.length],
+  ['silent-dozen','Dead Air','Clear twelve different missions without Jam.',225,() => progress.noJamClears.length >= 12],
+  ['power-sixty','Efficient Operator','Clear a mission with over 60% battery.',160,flight => flight?.battery > .6],
+  ['battery-pack','Field Recharge','Pick up a battery pack and clear the mission.',90,flight => flight?.pack],
+  ['one-percent','Last Charge','Clear a mission with less than 5% battery.',125,flight => flight?.battery < .05 && flight?.battery > 0],
+  ['storm','Gust Rider','Clear a crosswind mission.',100,flight => flight?.wind],
+  ['sentinel','Radar Runner','Clear a mission with a sentinel on patrol.',100,flight => flight?.sentinels],
+  ['three-frames','Full Hangar','Purchase three additional drones.',150,() => progress.ownedFrames.length >= 3],
+  ['all-pilots','Full Roster','Unlock every pilot through Story.',160,() => unlockedPilots().length === Object.keys(pilotUnlocks).length],
+  ['clean-race','No Interference','Win a race without jamming.',125,flight => flight?.raceWin && flight.noJams],
+  ['free-first','Open Skies','Clear your first Free Flight sector.',75,() => progress.freeBest >= 1],
+  ['free-five','Long Haul','Clear five Free Flight sectors in one run.',175,() => progress.freeBest >= 5],
+  ['free-ten','Beyond the Horizon','Clear ten Free Flight sectors in one run.',300,() => progress.freeBest >= 10]
 ];
+const pilotUnlocks = {rook:1,cipher:3,patch:2,director:1,sable:3,iman:6,reed:6,morrow:18,kade:12,vey:24,leena:24,mateo:24};
+const freeFlightIndex = -2;
+const allObstacles = [...new Set(courses.flatMap(mission => mission.walls.map(wall => wall[4])))];
+const freeFlightBattery = 37;
 const saveKey = 'hangar-hover-night-watch-v1';
 const slotKeys = [saveKey,saveKey+'-slot-2',saveKey+'-slot-3'];
 const optionsKey = saveKey+'-options';
@@ -86,7 +109,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -116,7 +139,7 @@ function loadProgress(key) {
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
-    credits:validCount(saved.credits,defaults.credits),
+    credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
     cleared:missionIds(saved.cleared),noJamClears:missionIds(saved.noJamClears),
     achievements:Array.isArray(saved.achievements) ? [...new Set(saved.achievements.filter(key =>
       achievements.some(([id]) => id === key)))] : [],
@@ -127,6 +150,48 @@ let activeSlot = null;
 let progress = freshProgress();
 function saveProgress() {
   writeData(activeSlot,progress);
+}
+function unlockedPilots() {
+  return Object.keys(pilotUnlocks).filter(key => progress.campaignNext >= pilotUnlocks[key]);
+}
+function assignPilotFrames() {
+  const keys = Object.keys(pilotUnlocks);
+  const saved = keys.map(key => progress.pilotFrames?.[key]);
+  if (new Set(saved).size === keys.length && saved.every(index => Number.isInteger(index) && fleet[index])) return false;
+  const available = fleet.map((_,index) => index);
+  progress.pilotFrames = Object.fromEntries(keys.map(key =>
+    [key,available.splice(Math.floor(Math.random()*available.length),1)[0]]));
+  return true;
+}
+const arcadeChoice = {race:'equipped',free:'equipped'};
+function arcadeOptions(mode) {
+  const select = get('#'+mode+'Pilot');
+  select.replaceChildren();
+  const add = (value,label,disabled = false) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    option.disabled = disabled;
+    select.append(option);
+  };
+  add('equipped','Equipped · '+fleet[progress.selected].name);
+  fleet.forEach((frame,index) => {
+    if (!frame.cost || progress.ownedFrames.includes(index)) add('owned-'+index,frame.name);
+  });
+  for (const [key,mission] of Object.entries(pilotUnlocks)) {
+    const unlocked = progress.campaignNext >= mission;
+    add(key,crew[key][0]+' · '+(unlocked ? fleet[progress.pilotFrames[key]].name : 'Unlock after Story '+mission),!unlocked);
+  }
+  select.value = arcadeChoice[mode];
+  if (!select.value || select.selectedOptions[0]?.disabled) select.value = 'equipped';
+  arcadeChoice[mode] = select.value;
+}
+function arcadeLoadout(index) {
+  const mode = index === -1 ? 'race' : 'free';
+  const choice = arcadeChoice[mode];
+  if (unlockedPilots().includes(choice)) return {frame:progress.pilotFrames[choice],pilot:choice};
+  const owned = choice.startsWith('owned-') ? Number(choice.slice(6)) : progress.selected;
+  return {frame:fleet[owned] && (!fleet[owned].cost || progress.ownedFrames.includes(owned)) ? owned : progress.selected};
 }
 function awardAchievements(flight) {
   let total = 0;
@@ -153,7 +218,9 @@ const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249
 const quayAtlas = new Image();
 quayAtlas.src = 'assets/north-quay-drones.webp';
 const onyxArt = new Image();
-onyxArt.src = 'assets/onyx-m15.webp?v=2';
+onyxArt.src = 'assets/onyx-m15.webp?v=3';
+const clubAtlas = new Image();
+clubAtlas.src = 'assets/club-drones.webp';
 const storyAtlas = new Image();
 storyAtlas.src = 'assets/specialty-drones.webp';
 const fleetArt = new Image();
@@ -260,6 +327,9 @@ let easyFlight = false;
 let storyFlight = false;
 let race;
 let raceSection = 0;
+let freeSector = 0;
+let freeBonus = 0;
+let flightLoadout;
 let rivalAngle = 0;
 let tookSignalDamage = false;
 const droneTrail = [];
@@ -296,9 +366,10 @@ function validRaceSections(saved) {
     });
 }
 function selectRace() {
+  const loadout = arcadeLoadout(-1);
   if (!race && progress.raceMatch) {
     const saved = progress.raceMatch;
-    const frame = fleet.find(frame => frame.name === saved.frame?.name);
+    const frame = fleet[progress.pilotFrames?.[saved.rival]] || fleet.find(frame => frame.name === saved.frame?.name);
     if (frame && Object.hasOwn(racePilots,saved.rival)) {
       race = validRaceSections(saved) ? {...saved,frame} :
         generateRace(fleet[progress.selected],null,null,saved.rival,frame);
@@ -307,8 +378,9 @@ function selectRace() {
       saveProgress();
     }
   }
-  if (!race || race.defeated) {
-    race = generateRace(fleet[progress.selected],race?.rival,race?.sections[0].course.name);
+  if (!race || race.defeated || race.rival === loadout.pilot) {
+    const opponent = pick(Object.keys(racePilots).filter(key => key !== loadout.pilot && key !== race?.rival));
+    race = generateRace(fleet[loadout.frame],race?.rival,race?.sections[0].course.name,opponent);
     progress.raceMatch = race;
     saveProgress();
   }
@@ -331,7 +403,7 @@ function concludeRace(cleared,message) {
   if (won) race.defeated = true;
   progress.credits += reward;
   progress.raceMatch = race;
-  const bonus = awardAchievements();
+  const bonus = awardAchievements({raceWin:won,noJams:jamsLeft === maxJams});
   saveProgress();
   state = won ? 'won' : 'lost';
   renderHangar();
@@ -452,13 +524,16 @@ function showPage(page) {
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
-    const selected = button.dataset.page === (page === 'flight' ? (courseIndex === -1 ? 'race' : storyFlight ? 'story' : 'missions') : page);
+    const selected = button.dataset.page === (page === 'flight' ? (courseIndex === freeFlightIndex ? 'free' : courseIndex === -1 ? 'race' : storyFlight ? 'story' : 'missions') : page);
     button.setAttribute('aria-pressed',selected);
     get('#page-' + button.dataset.page).hidden = button.dataset.page !== page;
   });
   get('#page-flight').hidden = page !== 'flight';
   if (page === 'flight') {hud(); flightNeedsRender = true;}
   if (page === 'story') renderStory();
+  if (page === 'race' || page === 'free') arcadeOptions(page);
+  if (page === 'free') get('#freeRecord').textContent = 'Best: '+progress.freeBest+' sectors';
+  if (page === 'characters') renderCharacterFiles();
   if (page === 'missions') {
     missionPage = Math.max(0,Math.floor(courseIndex/missionsPerPage));
     renderMissionPage();
@@ -482,7 +557,7 @@ function renderMissionPage() {
 }
 function activateJam() {
   if (currentPage !== 'flight' || state !== 'flying' || jam > 0 || jamsLeft === 0) return;
-  jamsLeft--;
+  if (courseIndex !== freeFlightIndex) jamsLeft--;
   jam = 2.5;
   sound('jam');
 }
@@ -504,11 +579,12 @@ function buyUpgrade(index) {
   modules[index]++;
   const bonus = awardAchievements();
   setUpgradeTier(index,modules[index]);
-  get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + airframe.name + '. ' + progress.credits + ' credits left.' + achievementMessage(bonus);
+  get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + fleet[progress.selected].name + '. ' + progress.credits + ' credits left.' + achievementMessage(bonus);
 }
 function refreshLoadout() {
-  airframe = fleet[progress.selected];
-  const [battery,motors,stabilizer] = progress.activeLevels[progress.selected];
+  const index = flightLoadout?.frame ?? progress.selected;
+  airframe = fleet[index];
+  const [battery,motors,stabilizer] = flightLoadout?.pilot ? [0,0,0] : progress.activeLevels[index];
   stats = {seconds:Math.round((course.seconds + airframe.battery + battery*4)*(easyFlight ? 1.3 : 1)), thrust:airframe.thrust * (1+.07*motors),
     brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
   renderHangar();
@@ -518,11 +594,15 @@ function renderHangar() {
   renderAchievements();
   get('#campaign').textContent = progress.cleared.length + ' / ' + courses.length + ' missions cleared';
   renderLoadout();
-  get('#upgradeTitle').textContent = airframe.name + ' upgrades';
+  get('#upgradeTitle').textContent = fleet[progress.selected].name + ' upgrades';
   get('#funds').textContent = progress.credits.toLocaleString() + ' credits';
   get('#wallet').textContent = progress.credits.toLocaleString() + ' CR';
-  get('#loadoutName').textContent = airframe.name;
-  get('#loadoutStats').textContent = stats.seconds + ' s battery · ' + Math.round(stats.thrust) + ' thrust · ' + stats.brake.toFixed(1) + ' braking';
+  get('#loadoutName').textContent = fleet[progress.selected].name;
+  const equippedFrame = fleet[progress.selected];
+  const [battery,motors,stabilizer] = progress.activeLevels[progress.selected];
+  get('#loadoutStats').textContent = Math.round((course.seconds+equippedFrame.battery+battery*4)*(easyFlight ? 1.3 : 1)) +
+    ' s battery · ' + Math.round(equippedFrame.thrust*(1+.07*motors)) + ' thrust · ' +
+    (equippedFrame.brake+2*stabilizer).toFixed(1) + ' braking';
   get('#purchaseStatus').textContent = active ? 'Finish or restart the mission to change your loadout.' : '';
   frameButtons.forEach((button,index) => {
     const frame = fleet[index];
@@ -596,14 +676,17 @@ function menu(title, message, label, callback) {
 function reset(index, fly = false, chapterFlight = false) {
   storyFlight = chapterFlight;
   courseIndex = index;
-  easyFlight = index !== -1 && options.difficulty === 'easy';
+  flightLoadout = index < 0 ? arcadeLoadout(index) : null;
+  freeSector = freeBonus = 0;
+  easyFlight = index >= 0 && options.difficulty === 'easy';
   raceSection = 0;
   rivalAngle = 0;
-  course = index === -1 ? race.sections[0].course : courses[index];
+  course = index === freeFlightIndex ? generateFreeSector() : index === -1 ? race.sections[0].course : courses[index];
   nextRaceCall = 3;
   raceCallouts = 0;
   wasBraking = false;
-  get('#raceLive').hidden = index !== -1;
+  get('#raceLive').hidden = index >= 0;
+  if (index === freeFlightIndex) get('#raceLive').textContent = 'Sector 1 · '+course.name;
   if (index === -1) get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(0) + '”';
   const [x,y] = course.start;
   drone = {x,y,vx:0,vy:0,angle:0};
@@ -620,7 +703,7 @@ function reset(index, fly = false, chapterFlight = false) {
   jamsLeft = maxJams;
   cellCollected = false;
   terrain = paintTerrain();
-  record = index === -1 ? 0 : storedBest();
+  record = index < 0 ? 0 : storedBest();
   clearInputs();
   state = fly ? 'flying' : 'ready';
   flightNeedsRender = true;
@@ -632,11 +715,19 @@ function reset(index, fly = false, chapterFlight = false) {
   } else {
     const warning = (patrols.length || index === -1) ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
     const recharge = rechargePack ? ' Fly through the battery pack for a top-up.' : '';
-    menu(course.name,course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
+    const pilot = flightLoadout?.pilot ? crew[flightLoadout.pilot][0]+' · '+airframe.name+'. ' : '';
+    menu(course.name,pilot+course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
   }
 }
 function finish(won, message) {
   if (courseIndex === -1) {concludeRace(won,message); return;}
+  if (courseIndex === freeFlightIndex) {
+    state = 'lost';
+    clearInputs();
+    sound('crash');
+    menu('Free Flight ended',message+' Sectors cleared: '+freeSector+'. '+freeBonus+' bonus CR.','Free Flight setup',() => showPage('free'));
+    return;
+  }
   state = won ? 'won' : 'lost';
   sound(won ? 'complete' : 'crash');
   if (won && (!record || elapsed < record)) {
@@ -656,7 +747,7 @@ function finish(won, message) {
     }
     const noJams = jamsLeft === maxJams;
     if (noJams && !progress.noJamClears.includes(courseIndex)) progress.noJamClears.push(courseIndex);
-    const bonus = awardAchievements({noJams,battery:remainingBattery(),clean:!tookSignalDamage});
+    const bonus = awardAchievements({noJams,battery:remainingBattery(),clean:!tookSignalDamage,pack:packCollected || cellCollected,wind:Boolean(course.wind),sentinels:patrols.length>0});
     saveProgress();
     message += ' +' + payout + ' credits.' + achievementMessage(bonus);
   }
@@ -783,14 +874,15 @@ function update(dt) {
   const target = course.gates[gate];
   const onTarget = target && Math.hypot(x-target[0],y-target[1]) < (easyFlight ? 36 : 29);
   scan = onTarget ? scan + dt*(cameraSignal === 'green' ? 1.6 : 1) : 0;
-  if (scan >= .24 || (courseIndex === -1 && onTarget)) {
+  if (scan >= .24 || (courseIndex < 0 && onTarget)) {
     gate++;
     scan = 0;
     sound('scan');
   }
   if (course.exit) {
     if (doorOpen && x >= 960) {
-      if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
+      if (courseIndex === freeFlightIndex) advanceFreeSector();
+      else if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
       else finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
     }
     return;
@@ -804,9 +896,41 @@ function update(dt) {
     finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
 }
+function generateFreeSector() {
+  const theme = pick(courses);
+  const district = {name:theme.name,props:allObstacles,y:[250,250,250,250].map(y => y+randomBetween(-85,85)),
+    wind:Math.random()<.45 ? pick([85,120,175,230]) : 0};
+  const {course:sector} = generateRaceSection(district,freeSector);
+  sector.seconds = freeFlightBattery;
+  sector.sea = Boolean(theme.sea);
+  sector.quay = Boolean(theme.quay);
+  sector.sentinels = Math.random()<.24 ? 2 : Math.random()<.65 ? 1 : 0;
+  while (sector.cameras.length < 2) {
+    const [x,y] = pick(sector.gates);
+    sector.cameras.push([x-44,y-34,.8,Math.random()<.72 ? 'red' : 'green']);
+  }
+  sector.intro = 'Clear four checkpoints and exit east. Each new sector refills your battery. Unlimited Jams have a short cooldown.';
+  return sector;
+}
+function advanceFreeSector() {
+  freeSector++;
+  progress.freeBest = Math.max(progress.freeBest,freeSector);
+  const bonus = awardAchievements();
+  freeBonus += bonus;
+  saveProgress();
+  course = generateFreeSector();
+  drained = -elapsed;
+  moveToNextSector();
+  rechargeFlash = 1.1;
+  get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+achievementMessage(bonus);
+}
 function advanceRaceSection() {
   raceSection++;
   course = race.sections[raceSection].course;
+  moveToNextSector();
+  get('#raceLive').textContent = 'Section ' + (raceSection+1) + ' / ' + raceSectionCount + ' · ' + course.name;
+}
+function moveToNextSector() {
   const [x,y] = course.start;
   drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:drone.angle};
   gate = scan = 0;
@@ -817,7 +941,6 @@ function advanceRaceSection() {
   rechargePack = planRechargePack();
   packCollected = false;
   terrain = paintTerrain();
-  get('#raceLive').textContent = 'Section ' + (raceSection+1) + ' / ' + raceSectionCount + ' · ' + course.name;
   sound('scan');
 }
 function planRechargePack() {
@@ -1541,11 +1664,12 @@ const spriteRotors = [
 ];
 const airframeLayers = [];
 function spinSprite(ctx,index,spin,size) {
+  const club = index >= 8;
   const isOnyx = fleet[index].onyx;
-  const image = isOnyx ? onyxArt : index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
+  const image = club ? clubAtlas : isOnyx ? onyxArt : index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
   if (!image.complete || !image.naturalWidth) return false;
-  const column = isOnyx ? 0 : index < 3 ? index : index < 5 ? index-3 : index-5;
-  const rotorLayout = spriteRotors[index];
+  const column = club ? index-8 : isOnyx ? 0 : index < 3 ? index : index < 5 ? index-3 : index-5;
+  const rotorLayout = spriteRotors[club ? [5,3,4,6][index-8] : index];
   if (!airframeLayers[index]) {
     const shell = document.createElement('canvas');
     shell.width = shell.height = 256;
@@ -1706,10 +1830,10 @@ function renderLoadout() {
   surface.clearRect(0,0,440,168);
   surface.save();
   surface.translate(220,84);
-  const scale = airframe.onyx ? 4.05 : 4.3;
+  const scale = fleet[progress.selected].onyx ? 4.05 : 4.3;
   surface.scale(scale,scale);
   surface.rotate(-.22);
-  paintDrone(surface,airframe,performance.now()*.019);
+  paintDrone(surface,fleet[progress.selected],performance.now()*.019);
   surface.restore();
 }
 function drawWarehouseExit() {
@@ -1800,7 +1924,7 @@ function draw() {
   patrols.forEach(drawPatrol);
   const cell = chargeCells[courseIndex];
   if (cell && !cellCollected) drawBatteryPickup(...cell);
-  label(courseIndex === -1 ? 'RACE ' + (raceSection+1) + '/' + raceSectionCount : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
+  label(courseIndex === freeFlightIndex ? 'SECTOR '+(freeSector+1) : courseIndex === -1 ? 'RACE ' + (raceSection+1) + '/' + raceSectionCount : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
   label(state === 'flying' ? '● LIVE' : '○ STANDBY',884,27,'#acd2ce',15);
   course.gates.forEach(([x,y], index) => {
     const active = index === gate;
@@ -1881,10 +2005,11 @@ function hud() {
   updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
   power.classList.toggle('hostile',hostile);
-  updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : 'Jams ' + jamsLeft + '/' + maxJams);
+  updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : courseIndex === freeFlightIndex ? 'Jams ∞' : 'Jams ' + jamsLeft + '/' + maxJams);
   get('#retryFlight').hidden = state !== 'paused';
+  get('#endFree').hidden = state !== 'paused' || courseIndex !== freeFlightIndex;
   get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
-  updateHudText('#best',courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
+  updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
 window.addEventListener('keydown',event => {
@@ -1982,9 +2107,18 @@ pageButtons.forEach(button => button.addEventListener('click',() => {
   if (page === 'race') {
     if (courseIndex === -1 && (state === 'flying' || state === 'paused')) showPage('flight');
     else selectRace();
-  } else if (page === 'story') resumeCampaign();
+  } else if (page === 'free' && courseIndex === freeFlightIndex && (state === 'flying' || state === 'paused')) showPage('flight');
+  else if (page === 'story') resumeCampaign();
   else showPage(page);
 }));
+for (const mode of ['race','free']) {
+  get('#'+mode+'Pilot').addEventListener('change',event => {
+    arcadeChoice[mode] = event.target.value;
+    if (mode === 'race' && race?.rival === event.target.value) selectRace();
+  });
+}
+get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});
+get('#endFree').addEventListener('click',() => {finish(false,'Run ended.'); showPage('free');});
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
@@ -2090,7 +2224,9 @@ function openSave(key,saved) {
   activeSlot = key;
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;
-  if (awardAchievements() || !saved) saveProgress();
+  arcadeChoice.race = arcadeChoice.free = 'equipped';
+  const pilotsAssigned = assignPilotFrames();
+  if (awardAchievements() || pilotsAssigned || !saved) saveProgress();
   reset(0);
   renderMissionPage();
   enterGame();
@@ -2162,7 +2298,9 @@ function renderCharacterFiles() {
     position.className = 'character-role';
     position.textContent = role;
     const bio = document.createElement('span');
-    bio.textContent = 'View full profile';
+    const unlocked = unlockedPilots().includes(key);
+    card.disabled = !unlocked;
+    bio.textContent = unlocked ? 'View full profile · '+fleet[progress.pilotFrames[key]].name : 'Unlock after Story '+pilotUnlocks[key];
     bio.className = 'profile-link';
     text.append(heading,position,bio);
     card.append(image,text);
@@ -2170,6 +2308,7 @@ function renderCharacterFiles() {
   }));
 }
 function showCharacterProfile(key) {
+  if (!unlockedPilots().includes(key)) return;
   const [name,role,portrait] = crew[key];
   const art = get('#profileArt');
   art.src = 'assets/crew-full-' + portrait + '.webp';
@@ -2187,7 +2326,7 @@ function preloadMedia() {
   const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
     lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
   const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt];
-  const atlases = [atlas,quayAtlas,onyxArt,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
+  const atlases = [atlas,quayAtlas,onyxArt,clubAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
   const media = [
     ...atlases.map(image => () => image.decode()),
     ...art.map(url => () => {
@@ -2229,7 +2368,7 @@ function preloadMedia() {
     status.textContent = unavailable ? 'Ready to play · some media may load on demand' : 'Art and audio ready';
   });
 }
-for (const artwork of [quayAtlas,onyxArt,storyAtlas,fleetArt]) {
+for (const artwork of [quayAtlas,onyxArt,clubAtlas,storyAtlas,fleetArt]) {
   artwork.addEventListener('load',() => {
     flightNeedsRender = true;
     if (currentPage === 'hangar') renderLoadout();

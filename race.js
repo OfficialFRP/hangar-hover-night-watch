@@ -21,7 +21,7 @@ const raceDistricts = [
 const raceSectionCount = 3;
 function generateRace(playerFrame,previousRival,previousCourse,existingRival,existingFrame) {
   const rival = existingRival || pick(Object.keys(racePilots).filter(name => name !== previousRival));
-  const frame = existingFrame || pick(fleet.filter(frame => frame !== playerFrame));
+  const frame = existingFrame || fleet[progress.pilotFrames?.[rival]] || pick(fleet.filter(frame => frame !== playerFrame));
   const crosswind = raceDistricts.find(district => district.wind);
   const available = raceDistricts.filter(district => !district.wind && district.name !== previousCourse);
   const sections = [];

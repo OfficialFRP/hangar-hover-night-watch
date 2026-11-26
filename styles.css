@@ -703,3 +703,11 @@ body::before{
   #page-flight .flight-actions{gap:4px}
   #page-flight .flight-actions button{padding:3px 5px}
 }
+
+.pages [data-page=free]{--tab-accent:#a8f5ab}
+.arcade-pilot{display:grid;gap:5px;margin:12px 0;color:var(--accent)}
+.arcade-pilot select{min-width:0;max-width:100%;min-height:44px;font-size:16px;padding:5px;background:#142438;color:#eef8ff}
+#endFree,#freeFly{min-height:44px}
+@media(max-width:650px){
+  .pages [data-page=free] strong{max-width:6ch}
+}

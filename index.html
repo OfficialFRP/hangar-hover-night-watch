@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -61,6 +61,7 @@
 <button data-page="story" aria-pressed="true"><span class="tab-number" aria-hidden="true">01</span><span class="tab-symbol" aria-hidden="true">▤</span><strong>Story</strong></button><button data-page="missions" aria-pressed="false"><span class="tab-number" aria-hidden="true">02</span><span class="tab-symbol" aria-hidden="true">◎</span><strong>Practice</strong></button><button data-page="hangar" aria-pressed="false"><span class="tab-number" aria-hidden="true">03</span><span class="tab-symbol" aria-hidden="true">◇</span><strong>Hangar</strong></button><button data-page="upgrades" aria-pressed="false"><span class="tab-number" aria-hidden="true">04</span><span class="tab-symbol" aria-hidden="true">⛭</span><strong>Upgrades</strong></button>
 <button data-page="race" aria-pressed="false"><span class="tab-number" aria-hidden="true">05</span><span class="tab-symbol" aria-hidden="true">⚑</span><strong>Race</strong></button>
 <button data-page="characters" aria-pressed="false"><span class="tab-number" aria-hidden="true">06</span><span class="tab-symbol" aria-hidden="true">▣</span><strong>Cast</strong></button>
+<button data-page="free" aria-pressed="false"><span class="tab-number" aria-hidden="true">07</span><span class="tab-symbol" aria-hidden="true">✧</span><strong>Free Flight</strong></button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
 <div class="hud"><span id="power">
@@ -70,7 +71,7 @@
 </span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span></div>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
-<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button></div></div></div>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFree" hidden>End run</button></div></div></div>
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
@@ -114,7 +115,15 @@
 <section id="page-race" class="panel game-menu" hidden>
 <h2 id="raceTitle">Race</h2>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
+<label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label>
 <div class="pager"><span id="raceMatch"></span><button id="raceFly">Open race deck</button></div>
+</section>
+<section id="page-free" class="panel game-menu" hidden>
+<h2>Free Flight</h2>
+<p>Fly through endless randomized sectors. Clear each checkpoint and exit east for a fresh battery. Jam is unlimited.</p>
+<p id="freeRecord"></p>
+<label class="arcade-pilot">Pilot or drone <select id="freePilot"></select></label>
+<div class="pager"><button id="freeFly">Open flight deck</button></div>
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
 <h2>Character Files</h2>
@@ -129,9 +138,9 @@
 </main>
 <script src="north-quay.js"></script>
 <script src="story.js?v=5"></script>
-<script src="race.js"></script>
+<script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="game.js?v=10"></script>
+<script src="game.js?v=11"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

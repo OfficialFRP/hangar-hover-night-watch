@@ -80,3 +80,11 @@ ACHIEVEMENTS AND CAST
 Open Achievements in the Hangar to see flight, upgrade, Race, and
 campaign goals. Each achievement pays once per save. Tab 06, Cast,
 opens a full-body profile and biography for each character.
+
+FREE FLIGHT AND PILOTS
+Tab 07 generates successive randomized sectors from the campaign's obstacle
+pool. Clear the four checkpoints and exit east. Battery refills at the
+next sector. Jam uses are unlimited, with the existing cooldown.
+Race and Free Flight let you fly an owned drone with its installed modules,
+or select an unlocked pilot and their assigned stock drone. Pilot assignments
+are shuffled once per save, and clearing Story missions unlocks the Cast.

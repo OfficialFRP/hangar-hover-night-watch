@@ -136,6 +136,8 @@ const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
 const quayAtlas = new Image();
 quayAtlas.src = 'assets/north-quay-drones.webp';
+const onyxArt = new Image();
+onyxArt.src = 'assets/onyx-m15.webp';
 const storyAtlas = new Image();
 storyAtlas.src = 'assets/specialty-drones.webp';
 const fleetArt = new Image();
@@ -242,6 +244,7 @@ let easyFlight = false;
 let storyFlight = false;
 let race;
 let raceSection = 0;
+let rivalAngle = 0;
 let tookSignalDamage = false;
 const droneTrail = [];
 const trailLifetime = .74;
@@ -553,6 +556,7 @@ function reset(index, fly = false, chapterFlight = false) {
   courseIndex = index;
   easyFlight = index !== -1 && options.difficulty === 'easy';
   raceSection = 0;
+  rivalAngle = 0;
   course = index === -1 ? race.sections[0].course : courses[index];
   nextRaceCall = 3;
   raceCallouts = 0;
@@ -642,13 +646,17 @@ function togglePause() {
 const pressed = (...keys) => keys.some(key => keyboard.has(key));
 const clamp = (value,min,max) => Math.max(min,Math.min(value,max));
 // Flight physics. Steering changes velocity, so the drone drifts after release.
-// Sprite noses point up. Take the shortest turn, with a little easing.
-function turnNose(angle,dx,dy,dt) {
-  const target = dx || dy ? Math.atan2(dx,-dy) : 0;
+// Ease toward the shortest turn. Hover recovery has a slower turn and ease-out.
+function easeNose(angle,target,dt,hovering = false) {
   const difference = target-angle;
   const turn = Math.atan2(Math.sin(difference),Math.cos(difference));
   if (Math.abs(turn) < .006) return target;
-  return angle+turn*(1-Math.exp(-19*dt));
+  const maxStep = (hovering ? 2.8 : 6.8)*dt;
+  return angle+clamp(turn*(1-Math.exp(-(hovering ? 5 : 9)*dt)),-maxStep,maxStep);
+}
+function turnNose(angle,dx,dy,dt) {
+  const moving = Boolean(dx || dy);
+  return easeNose(angle,moving ? Math.atan2(dx,-dy) : 0,dt,!moving);
 }
 function update(dt) {
   elapsed += dt;
@@ -661,12 +669,15 @@ function update(dt) {
   if (braking && !wasBraking) sound('brake');
   wasBraking = braking;
   flightAudio(Math.hypot(drone.vx,drone.vy),Boolean(dx || dy),braking,true);
-  if (courseIndex === -1 && elapsed >= nextRaceCall && raceCallouts < 4) {
-    nextRaceCall += 3.2;
-    raceCallouts++;
+  if (courseIndex === -1) {
     const rival = rivalPosition(race,elapsed);
-    const ahead = rival && (raceSection > rival[3] || (raceSection === rival[3] && drone.x >= rival[0]));
-    get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
+    if (rival) rivalAngle = easeNose(rivalAngle,rival[2],dt);
+    if (elapsed >= nextRaceCall && raceCallouts < 4) {
+      nextRaceCall += 3.2;
+      raceCallouts++;
+      const ahead = rival && (raceSection > rival[3] || (raceSection === rival[3] && drone.x >= rival[0]));
+      get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
+    }
   }
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .55 : 1) : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
@@ -1486,23 +1497,25 @@ const spriteRotors = [
 ];
 const airframeLayers = [];
 function spinSprite(ctx,index,spin,size) {
-  const image = index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
+  const isOnyx = fleet[index].onyx;
+  const image = isOnyx ? onyxArt : index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
   if (!image.complete || !image.naturalWidth) return false;
-  const column = index < 3 ? index : index < 5 ? index-3 : index-5;
+  const column = isOnyx ? 0 : index < 3 ? index : index < 5 ? index-3 : index-5;
+  const rotorLayout = spriteRotors[isOnyx ? 5 : index];
   if (!airframeLayers[index]) {
     const shell = document.createElement('canvas');
     shell.width = shell.height = 256;
     const paint = shell.getContext('2d');
     paint.drawImage(image,column*256,0,256,256,0,0,256,256);
     paint.globalCompositeOperation = 'destination-out';
-    for (const [x,y,r] of spriteRotors[index]) {
+    for (const [x,y,r] of rotorLayout) {
       circle(x,y,r,paint);
       paint.fill();
     }
     paint.globalCompositeOperation = 'source-over';
     if (index === 1) {
       // The Swift has exposed blades. Restore its struts under the spinning props.
-      for (const [x,y] of spriteRotors[index]) {
+      for (const [x,y] of rotorLayout) {
         paint.beginPath();
         paint.moveTo(128,y<128 ? 105 : 153);
         paint.lineTo(x,y);
@@ -1514,13 +1527,24 @@ function spinSprite(ctx,index,spin,size) {
         paint.stroke();
       }
     }
-    airframeLayers[index] = shell;
+    // Bake the clipping masks once so phone frames only rotate and blit the blades.
+    const propellers = index === 1 ? [] : rotorLayout.map(([x,y,r]) => {
+      const blade = document.createElement('canvas');
+      blade.width = blade.height = 2*r;
+      const prop = blade.getContext('2d');
+      circle(r,r,r,prop);
+      prop.clip();
+      prop.drawImage(image,column*256+x-r,y-r,2*r,2*r,0,0,2*r,2*r);
+      return blade;
+    });
+    airframeLayers[index] = {shell,propellers};
   }
   ctx.save();
   ctx.translate(-size/2,-size/2);
   ctx.scale(size/256,size/256);
-  ctx.drawImage(airframeLayers[index],0,0);
-  for (const [i,[x,y,r]] of spriteRotors[index].entries()) {
+  const {shell,propellers} = airframeLayers[index];
+  ctx.drawImage(shell,0,0);
+  for (const [i,[x,y,r]] of rotorLayout.entries()) {
     ctx.save();
     ctx.translate(x,y);
     ctx.rotate(spin*(i === 0 || i === 3 ? 1 : -1));
@@ -1542,9 +1566,7 @@ function spinSprite(ctx,index,spin,size) {
       ctx.fillStyle = '#292431';
       ctx.fill();
     } else {
-      circle(0,0,r,ctx);
-      ctx.clip();
-      ctx.drawImage(image,column*256+x-r,y-r,2*r,2*r,-r,-r,2*r,2*r);
+      ctx.drawImage(propellers[i],-r,-r);
     }
     ctx.restore();
   }
@@ -1554,10 +1576,6 @@ function spinSprite(ctx,index,spin,size) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
-  if (frame.onyx) {
-    paintOnyx(ctx,spin);
-    return;
-  }
   if (index >= 0 && spinSprite(ctx,index,spin,size)) return;
   const {arms,rotor,color} = frame;
   const body = frame === fleet[1] ? 5 : 7;
@@ -1613,149 +1631,6 @@ function paintDrone(ctx,frame,spin) {
   ctx.fillStyle = '#b7f4f7';
   ctx.fill();
 }
-function paintOnyx(ctx,spin) {
-  const shell = surfaceGradient(ctx,-14,-13,15,13,[
-    [0,'#6a7486'],[.24,'#f8fbff'],[.43,'#c6d1e0'],[.48,'#ffffff'],[1,'#8e9bae']
-  ]);
-  const lacquer = surfaceGradient(ctx,-8,-10,8,10,[
-    [0,'#06080e'],[.28,'#121723'],[.39,'#6d798c'],[.46,'#303a4c'],[.56,'#0a0e17'],[1,'#222a36']
-  ]);
-  const hub = surfaceGradient(ctx,-4,-4,5,5,[[0,'#eff8ff'],[.35,'#96aabd'],[1,'#354456']]);
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  for (const [x,y] of [[-11.5,-10.5],[11.5,-10.5],[-12.5,9],[12.5,9]]) {
-    const side = Math.sign(x);
-    ctx.beginPath();
-    ctx.moveTo(side*3,y*.52);
-    ctx.lineTo(x,y);
-    ctx.strokeStyle = '#070a11';
-    ctx.lineWidth = 8;
-    ctx.stroke();
-    ctx.strokeStyle = shell;
-    ctx.lineWidth = 5.4;
-    ctx.stroke();
-
-    circle(x,y+1,8.25,ctx);
-    ctx.fillStyle = '#080b11';
-    ctx.fill();
-    circle(x,y,7.9,ctx);
-    ctx.fillStyle = shell;
-    ctx.fill();
-    circle(x,y,6.05,ctx);
-    ctx.fillStyle = lacquer;
-    ctx.fill();
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(spin*side+y);
-    ctx.fillStyle = '#dceaf6';
-    for (let blade=0;blade<3;blade++) {
-      ctx.rotate(2*Math.PI/3);
-      ctx.beginPath();
-      ctx.moveTo(0,0);
-      ctx.quadraticCurveTo(2,-2.1,4.7,-.75);
-      ctx.quadraticCurveTo(4.2,1.2,0,0);
-      ctx.fill();
-    }
-    ctx.restore();
-    circle(x,y,1.65,ctx);
-    ctx.fillStyle = hub;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x,y,7.15,Math.PI*.95,Math.PI*1.45);
-    ctx.strokeStyle = '#ffffffd4';
-    ctx.lineWidth = .75;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x,y,7.05,side<0 ? 2.35 : .2,side<0 ? 2.95 : .8);
-    ctx.strokeStyle = '#86ffe8';
-    ctx.lineWidth = .95;
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(0,-16);
-  ctx.lineTo(4.7,-13.6);
-  ctx.lineTo(7.6,-6);
-  ctx.lineTo(8.4,4);
-  ctx.lineTo(5.1,13.7);
-  ctx.lineTo(2.5,15);
-  ctx.lineTo(-2.5,15);
-  ctx.lineTo(-5.1,13.7);
-  ctx.lineTo(-8.4,4);
-  ctx.lineTo(-7.6,-6);
-  ctx.lineTo(-4.7,-13.6);
-  ctx.closePath();
-  ctx.fillStyle = shell;
-  ctx.fill();
-  ctx.strokeStyle = '#070a11';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-
-  for (const side of [-1,1]) {
-    ctx.save();
-    ctx.scale(side,1);
-    ctx.beginPath();
-    ctx.moveTo(5,-10);
-    ctx.lineTo(8,-5.2);
-    ctx.lineTo(7.4,.7);
-    ctx.lineTo(5.9,-1.5);
-    ctx.closePath();
-    ctx.fillStyle = lacquer;
-    ctx.fill();
-    ctx.restore();
-  }
-  ctx.beginPath();
-  ctx.moveTo(0,-11);
-  ctx.bezierCurveTo(6,-10,6,-2,4,4);
-  ctx.lineTo(2.5,8);
-  ctx.lineTo(-2.5,8);
-  ctx.lineTo(-4,4);
-  ctx.bezierCurveTo(-6,-2,-6,-10,0,-11);
-  ctx.fillStyle = lacquer;
-  ctx.fill();
-  ctx.strokeStyle = '#111725';
-  ctx.lineWidth = .75;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-3.2,-7);
-  ctx.quadraticCurveTo(-1.3,-9.3,1.7,-8.6);
-  ctx.strokeStyle = '#f5fbff9c';
-  ctx.lineWidth = .7;
-  ctx.stroke();
-  for (const side of [-1,1]) {
-    ctx.fillStyle = '#151e2c';
-    for (let rib=0;rib<3;rib++) ctx.fillRect(side*6-1,2+rib*1.55,2,.64);
-    ctx.fillStyle = '#a7fff0';
-    ctx.fillRect(side*5.3-.7,9,.95,1.5);
-  }
-  ctx.beginPath();
-  ctx.moveTo(-6.8,-6.2);
-  ctx.lineTo(-7.1,-2.1);
-  ctx.lineTo(-5.8,-3.5);
-  ctx.moveTo(6.1,-7);
-  ctx.lineTo(7.2,-4.4);
-  ctx.lineTo(6.55,-1.6);
-  ctx.strokeStyle = '#26364c';
-  ctx.lineWidth = 1.05;
-  ctx.stroke();
-  // Diagonal enamel stripe and a light at the nose keep the heading legible.
-  ctx.beginPath();
-  ctx.moveTo(-4.7,-2.3);
-  ctx.lineTo(4.7,-6);
-  ctx.strokeStyle = '#f4f8ff';
-  ctx.lineWidth = 1.45;
-  ctx.stroke();
-  ctx.fillStyle = '#9affee';
-  ctx.fillRect(-2,-13.2,4,1.15);
-  ctx.fillStyle = '#121824';
-  ctx.fillRect(-2.6,10,5.2,1.8);
-  ctx.fillStyle = '#e3fff9';
-  ctx.fillRect(-1.4,10.4,2.8,.85);
-}
-function surfaceGradient(ctx,x1,y1,x2,y2,stops) {
-  const gradient = ctx.createLinearGradient(x1,y1,x2,y2);
-  stops.forEach(([offset,color]) => gradient.addColorStop(offset,color));
-  return gradient;
-}
 function drawDroneTrail(points,frame,end) {
   if (points.length < 2) return;
   const ink = frame.onyx ? '#84fff1' : frame.color;
@@ -1787,7 +1662,7 @@ function renderLoadout() {
   surface.clearRect(0,0,440,168);
   surface.save();
   surface.translate(220,84);
-  const scale = airframe.onyx ? 3.3 : 4.3;
+  const scale = airframe.onyx ? 4.05 : 4.3;
   surface.scale(scale,scale);
   surface.rotate(-.22);
   paintDrone(surface,airframe,performance.now()*.019);
@@ -1924,7 +1799,7 @@ function draw() {
       drawDroneTrail(wake,race.frame,{x:rival[0],y:rival[1]});
       ctx.save();
       ctx.translate(rival[0],rival[1]);
-      ctx.rotate(rival[2]);
+      ctx.rotate(rivalAngle);
       ctx.globalAlpha = .69;
       paintDrone(ctx,race.frame,elapsed*15);
       ctx.restore();
@@ -2248,7 +2123,7 @@ function preloadMedia() {
   const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
     lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
   const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt];
-  const atlases = [atlas,quayAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
+  const atlases = [atlas,quayAtlas,onyxArt,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
   const media = [
     ...atlases.map(image => () => image.decode()),
     ...art.map(url => () => {
@@ -2291,6 +2166,7 @@ function preloadMedia() {
   });
 }
 quayAtlas.addEventListener('load',renderLoadout);
+onyxArt.addEventListener('load',renderLoadout);
 storyAtlas.addEventListener('load',renderLoadout);
 fleetArt.addEventListener('load',renderLoadout);
 for (const artwork of [equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas]) {

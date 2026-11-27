@@ -345,10 +345,8 @@ const effects = Object.fromEntries(['launch','scan','jam','drain','charge','cras
 }));
 let soundEnabled = false;
 function sound(name) {
-  if (!soundEnabled) return;
-  const player = effects[name];
-  player.currentTime = 0;
-  player.play().catch(() => {});
+  if (!soundEnabled || document.hidden) return;
+  playFlightEffect(effects[name],name === 'scan');
 }
 
 const get = selector => document.querySelector(selector);
@@ -2515,7 +2513,10 @@ function refreshFlightViewport() {
 window.addEventListener('resize',refreshFlightViewport);
 window.visualViewport?.addEventListener('resize',refreshFlightViewport);
 document.addEventListener('visibilitychange',() => {
+  setAudioFocus(soundEnabled && !document.hidden);
+  syncGameMusic();
   if (!document.hidden) return;
+  stopFlightEffects(Object.values(effects));
   clearInputs();
   if (state === 'flying') togglePause();
 });
@@ -2595,10 +2596,13 @@ jamButton.addEventListener('click',event => {
 get('#openUpgrades').addEventListener('click',() => showPage('upgrades'));
 get('#backToHangar').addEventListener('click',() => showPage('hangar'));
 function syncGameMusic() {
-  const mode = currentPage === 'battle' ? (battle?.mode || get('#battleMode').value) :
+  const mode = currentPage === 'menu' ? 'menu' : currentPage === 'battle' ? (battle?.mode || get('#battleMode').value) :
     currentPage === 'race' || (currentPage === 'flight' && courseIndex === -1) ? 'race' :
     currentPage === 'free' || (currentPage === 'flight' && courseIndex === freeFlightIndex) ? 'free' : 'story';
-  setTechnoMusic(soundEnabled,mode);
+  const active = (currentPage === 'flight' && state === 'flying') ||
+    (currentPage === 'battle' && battle && !battle.paused && !battle.result);
+  const level = active ? .23 : currentPage === 'menu' ? .16 : .095;
+  setTechnoMusic(soundEnabled && !document.hidden,mode,level);
 }
 function applyAudio(startMusic = true) {
   soundEnabled = options.sound;
@@ -2606,8 +2610,9 @@ function applyAudio(startMusic = true) {
   get('#audio').setAttribute('aria-pressed',soundEnabled);
   get('#soundSetting').checked = soundEnabled;
   if (soundEnabled) enableFlightAudio();
+  setAudioFocus(soundEnabled && !document.hidden);
   if (startMusic) syncGameMusic();
-  if (!soundEnabled) Object.values(effects).forEach(effect => effect.pause());
+  if (!soundEnabled) stopFlightEffects(Object.values(effects));
 }
 function changeAudio(enabled) {
   options.sound = enabled;
@@ -2924,6 +2929,7 @@ let flightNeedsRender = true;
 let last = performance.now();
 let lastRender = -Infinity;
 let wasFlying = false;
+let wasMixActive = false;
 function frame(now) {
   const startedFlying = state === 'flying';
   let remaining = Math.min(Math.max(0,(now-last)/1000),.1);
@@ -2934,6 +2940,12 @@ function frame(now) {
     remaining -= step;
   }
   const flying = state === 'flying';
+  const mixActive = (currentPage === 'flight' && flying) ||
+    Boolean(currentPage === 'battle' && battle && !battle.paused && !battle.result);
+  if (mixActive !== wasMixActive) {
+    wasMixActive = mixActive;
+    syncGameMusic();
+  }
   if ((wasFlying || startedFlying) && !flying) flightAudio(0,false,false,false);
   wasFlying = flying;
   last = now;

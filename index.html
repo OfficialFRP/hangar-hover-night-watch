@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -163,7 +163,7 @@
   <div id="battleArena" hidden>
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
-      <span id="battleHealth"></span><meter id="battleHull" min="0" max="100" value="100" aria-label="Your hull"></meter>
+      <span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><meter id="battleHull" min="0" max="100" value="100" aria-label="Your hull"></meter>
       <button id="battleFullscreen" aria-pressed="false">Fullscreen</button><button id="battlePause">Pause</button><button id="battleExit">End battle</button>
     </div>
     <div class="battle-stage">
@@ -223,7 +223,7 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="battle.js?v=8"></script>
+<script src="battle.js?v=9"></script>
 <script src="game.js?v=20"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

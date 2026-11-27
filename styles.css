@@ -1130,3 +1130,7 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   .pilot-faces button{grid-template-columns:26px minmax(0,1fr)}
   .pilot-faces img{width:26px;height:26px}
 }
+
+.battle-pilot.battle-controlled{border-color:#75ffab;box-shadow:inset 0 0 0 1px #75ffab}
+#battlePilotStatus{color:#b1ffc9;font-size:12px}
+@media(max-width:650px){#battlePilotStatus{font-size:10px}}

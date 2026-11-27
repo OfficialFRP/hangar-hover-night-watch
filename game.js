@@ -413,7 +413,7 @@ function concludeRace(cleared,message) {
   const payout = reward ? ' +' + reward + ' CR.' : '';
   menu(won ? 'Race won' : cleared ? 'Rival wins' : 'Run ended',score+payout+achievementMessage(bonus)+' “'+quote+'”',
     won ? 'New matchup' : 'Race same rival',won ? selectRace : () => reset(-1,true));
-
+  get('#backToRacePilots').hidden = false;
 }
 
 const storyCases = [['#caseOne',0],['#caseTwo',12],['#caseThree',24]];
@@ -670,6 +670,7 @@ function menu(title, message, label, callback) {
   get('#brief').textContent = message;
   action.textContent = label;
   nextAction = callback;
+  get('#backToRacePilots').hidden = true;
   overlay.hidden = false;
   flightNeedsRender = true;
 }
@@ -2173,6 +2174,10 @@ for (const mode of ['race','free']) {
 }
 get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});
 get('#endFree').addEventListener('click',() => {finish(false,'Run ended.'); showPage('free');});
+get('#backToRacePilots').addEventListener('click',() => {
+  selectRace();
+  get('#racePilot').focus();
+});
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});

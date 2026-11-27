@@ -42,11 +42,15 @@ function renderBattleSetup() {
   const pilot = get('#battlePilot');
   const previousPilot = pilot.value;
   pilot.replaceChildren(new Option('Equipped · '+fleet[progress.selected].name,'equipped'));
+  if (frameAvailable(omegaFrameIndex) && progress.selected !== omegaFrameIndex) {
+    pilot.append(new Option(fleet[omegaFrameIndex].name,'owned-'+omegaFrameIndex));
+  }
   for (const key of unlockedPilots()) {
     pilot.append(new Option(crew[key][0]+' · '+fleet[progress.pilotFrames[key]].name,key));
   }
   pilot.value = [...pilot.options].some(option => option.value === previousPilot) ? previousPilot : 'equipped';
-  renderPilotFaces(get('#battlePilotFaces'),pilot,['equipped',...unlockedPilots()],renderBattleSetup);
+  const omegaChoice = [...pilot.options].some(option => option.value === 'owned-'+omegaFrameIndex) ? ['owned-'+omegaFrameIndex] : [];
+  renderPilotFaces(get('#battlePilotFaces'),pilot,['equipped',...omegaChoice,...unlockedPilots()],renderBattleSetup);
   const roster = unlockedPilots().length;
   const minimum = get('#battleMode').value === 'capture' ? 2 : 1;
   get('#battleGuardNote').hidden = minimum === 1;
@@ -102,7 +106,9 @@ function startBattle() {
   const takePilot = () => available.splice(Math.floor(Math.random()*available.length),1)[0];
   const allyCount = Number(get('#battleAllies').value);
   const enemyCount = Number(get('#battleEnemies').value);
-  const playerFrame = pilot === 'equipped' ? progress.selected : progress.pilotFrames[pilot];
+  const customOmega = pilot === 'owned-'+omegaFrameIndex;
+  const playerFrame = customOmega ? omegaFrameIndex :
+    pilot === 'equipped' ? progress.selected : progress.pilotFrames[pilot];
   const spawn = (team,key,frameIndex,index,total) => ({
     omega:fleet[frameIndex].omega ? {...progress.omega} : null,
     team,key,frame:fleet[frameIndex],modules:index === 0 && team === 0 ? progress.battleLevels[frameIndex] : [0,0,0],
@@ -110,7 +116,7 @@ function startBattle() {
     angle:team ? -Math.PI/2 : Math.PI/2,health:battleHullCapacity,maxHull:battleHullCapacity,shotWait:.4+index*.12,scatterWait:0,
     shieldWait:0,shield:0,trail:[],dealt:0,taken:0,totalDealt:0,totalTaken:0,player:team === 0 && index === 0
   });
-  const units = [spawn(0,pilot,playerFrame,0,allyCount)];
+  const units = [spawn(0,customOmega ? 'equipped' : pilot,playerFrame,0,allyCount)];
   for (let i=1;i<allyCount;i++) {
     const key = selected.shift() || takePilot();
     units.push(spawn(0,key,progress.pilotFrames[key],i,allyCount));
@@ -266,9 +272,9 @@ function battlePulseEnd(source) {
 function moveBattleUnit(unit,dx,dy,dt) {
   const beforeX = unit.x,beforeY = unit.y;
   const scale = Math.max(1,Math.hypot(dx,dy));
-  const thrust = unit.omega?.thrust ?? unit.frame.thrust;
+  const pilotSpeed = unit.omega ? 24+unit.omega.thrust*.217 : 144+(unit.frame.thrust-395)*.16;
   const modeSpeed = battle.mode === 'capture' ? .78 : 1;
-  const speed = modeSpeed*(unit.player ? 144+(thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
+  const speed = modeSpeed*(unit.player ? pilotSpeed : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
   const [minX,maxX] = unit.defender ? captureCells[unit.team] : [14,946];
   const x = clamp(unit.x+dx/scale*speed*dt,minX,maxX);
   const y = clamp(unit.y+dy/scale*speed*dt,14,436);
@@ -923,6 +929,9 @@ function drawBattle() {
     surface.rotate(unit.angle);
     drawBattleOutline(surface,unit.frame,color);
     paintDrone(surface,unit.frame,battle.elapsed*29);
+    if (unit.omega && !reduceFlightEffects.matches) {
+      drawOmegaShine(surface,-12,-8,3,.9*Math.max(0,Math.cos(battle.elapsed*4))**6);
+    }
     surface.restore();
     surface.fillStyle = '#0b1324';
     surface.fillRect(unit.x-17,unit.y-27,34,4);
@@ -1007,7 +1016,7 @@ function createFullscreenControl(element,button,expandedClass,onResize) {
 let exitBattleFullscreen;
 function initBattleControls() {
   exitBattleFullscreen = createFullscreenControl(get('#battleArena'),get('#battleFullscreen'),'battle-expanded');
-  for (const art of [onyxArt,clubAtlas,quayAtlas,storyAtlas,fleetArt]) {
+  for (const art of [omegaArt,onyxArt,clubAtlas,quayAtlas,storyAtlas,fleetArt]) {
     art.addEventListener('load',() => battleOutlines.clear());
   }
   get('#battlePilot').addEventListener('change',renderBattleSetup);
@@ -1053,10 +1062,16 @@ function initBattleControls() {
   const stick = get('#battleStick');
   function steer(event) {
     const bounds = stick.getBoundingClientRect();
-    battleStick.x = clamp((event.clientX-bounds.left-bounds.width/2)/(bounds.width*.35),-1,1);
-    battleStick.y = clamp((event.clientY-bounds.top-bounds.height/2)/(bounds.height*.35),-1,1);
-    stick.style.setProperty('--stick-x',battleStick.x*20+'px');
-    stick.style.setProperty('--stick-y',battleStick.y*20+'px');
+    const dx = event.clientX-bounds.left-bounds.width/2;
+    const dy = event.clientY-bounds.top-bounds.height/2;
+    const distance = Math.hypot(dx,dy);
+    const push = Math.min(1,distance/(bounds.width*.35));
+    const power = touchSteeringPower(push);
+    const x = dx/(distance || 1),y = dy/(distance || 1);
+    battleStick.x = x*power;
+    battleStick.y = y*power;
+    stick.style.setProperty('--stick-x',x*push*20+'px');
+    stick.style.setProperty('--stick-y',y*push*20+'px');
   }
   stick.addEventListener('pointerdown',event => {
     if (!canControlBattle() || event.button !== 0 || battleStick.id !== null) return;

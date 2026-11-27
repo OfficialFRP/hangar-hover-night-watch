@@ -41,8 +41,9 @@ const fleet = [
   {name:'Harbor H8',color:'#7bead6',thrust:430,battery:8,brake:17,size:16,exposure:.86,arms:12,rotor:7,windResponse:.4,stability:2.9,cost:375,desc:'Steady handling and extra battery'},
   {name:'Nova N8',color:'#d49eff',thrust:492,battery:4,brake:15,size:16,exposure:.94,arms:12,rotor:7,windResponse:.55,stability:2.6,cost:425,desc:'Midweight sprint frame'},
   {name:'Cirrus C9',color:'#a4c7ff',thrust:450,battery:7,brake:18,size:16,exposure:.81,arms:12,rotor:7,windResponse:.32,stability:3.2,cost:475,desc:'Crosswind control and strong braking'},
-  {name:'Omega',color:'#ffc775',thrust:1000,battery:0,brake:100,size:19,exposure:.55,arms:15,rotor:8,windResponse:.08,stability:3,omega:true,desc:'Achievement reward · adjustable flight and battle systems'}
+  {name:'Omega XLR',color:'#ffffff',thrust:1000,battery:0,brake:100,size:19,exposure:.55,arms:15,rotor:8,windResponse:.08,stability:3,omega:true,desc:'Achievement reward · adjustable flight and battle systems'}
 ];
+const omegaFrameIndex = fleet.findIndex(frame => frame.omega);
 const omegaSettings = [
   ['seconds','Battery (seconds)',1,300,300],
   ['thrust','Thrust',1,1000,1000],
@@ -210,6 +211,12 @@ function renderPilotFaces(container,select,keys,onChoose) {
     const name = document.createElement('span');
     if (key === 'equipped') {
       name.textContent = 'Equipped';
+    } else if (key === 'owned-'+omegaFrameIndex) {
+      const portrait = document.createElement('img');
+      portrait.alt = '';
+      portrait.src = omegaArt.src;
+      button.append(portrait);
+      name.textContent = fleet[omegaFrameIndex].name;
     } else {
       const portrait = document.createElement('img');
       portrait.alt = '';
@@ -231,7 +238,8 @@ function renderPilotFaces(container,select,keys,onChoose) {
 }
 function refreshRacePilotFaces() {
   const select = get('#racePilot');
-  renderPilotFaces(get('#racePilotFaces'),select,['equipped',...unlockedPilots()],
+  const omegaChoice = frameAvailable(omegaFrameIndex) && progress.selected !== omegaFrameIndex ? ['owned-'+omegaFrameIndex] : [];
+  renderPilotFaces(get('#racePilotFaces'),select,['equipped',...omegaChoice,...unlockedPilots()],
     () => select.dispatchEvent(new Event('change')));
 }
 function arcadeOptions(mode) {
@@ -276,7 +284,7 @@ function awardAchievements(flight) {
   if (!progress.completionReward && achievements.every(([key]) => progress.achievements.includes(key))) {
     progress.completionReward = true;
     total += 2500;
-    unlocked.push('Omega awarded for completing all achievements');
+    unlocked.push('Omega XLR awarded for completing all achievements');
   }
   progress.credits += total;
   if (unlocked.length) notifyAchievements(unlocked,total);
@@ -305,6 +313,8 @@ const chargeCells = [null,[467,252],[454,270],[451,241],[707,293],[447,277],[730
 const spriteBounds = [[8, 20, 284, 260], [308, 24, 284, 252], [608, 25, 284, 249], [91, 308, 117, 284], [391, 308, 117, 284], [671, 308, 158, 284], [8, 658, 284, 184], [308, 656, 284, 188], [608, 612, 284, 276]];
 const quayAtlas = new Image();
 quayAtlas.src = 'assets/north-quay-drones.webp';
+const omegaArt = new Image();
+omegaArt.src = 'assets/omega-xlr.webp';
 const onyxArt = new Image();
 onyxArt.src = 'assets/onyx-m15.webp?v=3';
 const clubAtlas = new Image();
@@ -472,7 +482,7 @@ function selectRace() {
   if (!race && progress.raceMatch) {
     const saved = progress.raceMatch;
     const frame = fleet[progress.pilotFrames?.[saved.rival]] || fleet.find(frame => frame.name === saved.frame?.name);
-    if (frame && Object.hasOwn(racePilots,saved.rival)) {
+    if (frame && !frame.omega && Object.hasOwn(racePilots,saved.rival)) {
       race = validRaceSections(saved) ? {...saved,frame} :
         generateRace(fleet[progress.selected],null,null,saved.rival,frame);
       race.defeated = saved.defeated === true;
@@ -505,7 +515,7 @@ function concludeRace(cleared,message) {
   if (won) race.defeated = true;
   progress.credits += reward;
   progress.raceMatch = race;
-  const bonus = awardAchievements({raceWin:won,noJams:jamsLeft === maxJams});
+  const bonus = awardAchievements({raceWin:won});
   saveProgress();
   state = won ? 'won' : 'lost';
   renderHangar();
@@ -1880,7 +1890,7 @@ const spriteRotors = [
 ];
 const airframeLayers = [];
 function spinSprite(ctx,index,spin,size) {
-  const club = index >= 8;
+  const club = index >= 8 && index < omegaFrameIndex;
   const isOnyx = fleet[index].onyx;
   const image = club ? clubAtlas : isOnyx ? onyxArt : index < 3 ? fleetArt : index < 5 ? storyAtlas : quayAtlas;
   if (!image.complete || !image.naturalWidth) return false;
@@ -1960,7 +1970,9 @@ function spinSprite(ctx,index,spin,size) {
 function paintDrone(ctx,frame,spin) {
   const index = fleet.indexOf(frame);
   const size = frame.size*2.25;
-  if (index >= 0 && spinSprite(ctx,index,spin,size)) return;
+  if (frame.omega) {
+    if (paintOmega(ctx,spin)) return;
+  } else if (index >= 0 && spinSprite(ctx,index,spin,size)) return;
   const {arms,rotor,color} = frame;
   const body = frame.omega ? 10 : frame === fleet[1] ? 5 : 7;
   ctx.lineCap = 'round';
@@ -2001,10 +2013,10 @@ function paintDrone(ctx,frame,spin) {
   ctx.closePath();
   if (frame.omega) {
     const finish = ctx.createLinearGradient(-body,-8,body,9);
-    finish.addColorStop(0,'#290f48');
-    finish.addColorStop(.48,'#a579d7');
-    finish.addColorStop(.64,'#f3d7a9');
-    finish.addColorStop(1,'#291838');
+    finish.addColorStop(0,'#728294');
+    finish.addColorStop(.48,'#fdfefe');
+    finish.addColorStop(.64,'#ffffff');
+    finish.addColorStop(1,'#627b93');
     ctx.fillStyle = finish;
   } else ctx.fillStyle = '#b8c0cb';
   ctx.fill();
@@ -2022,6 +2034,50 @@ function paintDrone(ctx,frame,spin) {
   ctx.fillStyle = '#b7f4f7';
   ctx.fill();
 }
+const omegaRotorWells = [[-11.5,-5.2,4.15],[11.5,-5.2,4.15],[-7.9,10.5,2.85],[7.9,10.5,2.85]];
+function drawOmegaRotors(surface,spin) {
+  for (const [i,[x,y,radius]] of omegaRotorWells.entries()) {
+    surface.save();
+    surface.translate(x,y);
+    surface.rotate(spin*(i%2 ? -1 : 1));
+    surface.fillStyle = '#cadff1';
+    surface.beginPath();
+    surface.moveTo(-radius,radius*.25);
+    surface.quadraticCurveTo(-radius*.6,-radius*.55,0,-radius*.13);
+    surface.quadraticCurveTo(radius*.64,-radius*.6,radius,-radius*.25);
+    surface.quadraticCurveTo(radius*.52,radius*.52,0,radius*.14);
+    surface.quadraticCurveTo(-radius*.57,radius*.57,-radius,radius*.25);
+    surface.fill();
+    circle(0,0,radius*.25,surface);
+    surface.fillStyle = '#f6fdff';
+    surface.fill();
+    surface.restore();
+  }
+}
+function paintOmega(surface,spin) {
+  if (!omegaArt.complete || !omegaArt.naturalWidth) return false;
+  surface.drawImage(omegaArt,-24,-24,48,48);
+  drawOmegaRotors(surface,spin);
+  return true;
+}
+const reduceFlightEffects = window.matchMedia('(prefers-reduced-motion: reduce)');
+function drawOmegaShine(surface,x,y,radius,opacity) {
+  surface.save();
+  surface.globalAlpha = opacity;
+  surface.fillStyle = '#fff';
+  surface.beginPath();
+  surface.moveTo(x,y-radius);
+  surface.lineTo(x+radius*.21,y-radius*.21);
+  surface.lineTo(x+radius*.76,y);
+  surface.lineTo(x+radius*.21,y+radius*.21);
+  surface.lineTo(x,y+radius);
+  surface.lineTo(x-radius*.21,y+radius*.21);
+  surface.lineTo(x-radius*.76,y);
+  surface.lineTo(x-radius*.21,y-radius*.21);
+  surface.closePath();
+  surface.fill();
+  surface.restore();
+}
 function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed,teamColor) {
   if (points.length < 2) return;
   const ink = teamColor || (frame.onyx ? '#84fff1' : frame.color);
@@ -2036,13 +2092,17 @@ function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed,teamColor
     surface.beginPath();
     surface.moveTo(a.x,a.y);
     surface.lineTo(b.x,b.y);
-    surface.strokeStyle = hue;
+    surface.strokeStyle = frame.omega && !teamColor ? '#b5dbff' : hue;
     surface.globalAlpha = .2*strength;
     surface.lineWidth = 2+12*strength;
     surface.stroke();
+    surface.strokeStyle = frame.omega ? '#fff' : hue;
     surface.globalAlpha = .76*strength;
-    surface.lineWidth = .5+3.6*strength;
+    surface.lineWidth = .5+(frame.omega ? 4.8 : 3.6)*strength;
     surface.stroke();
+    if (frame.omega && !reduceFlightEffects.matches && strength > .2 && Math.round(a.time/trailSampleInterval)%5 === 0) {
+      drawOmegaShine(surface,a.x,a.y,1+3.5*strength,.85*strength);
+    }
   }
   surface.restore();
 }
@@ -2053,10 +2113,16 @@ function renderLoadout() {
   surface.clearRect(0,0,440,168);
   surface.save();
   surface.translate(220,84);
-  const scale = fleet[progress.selected].onyx ? 4.05 : 4.3;
+  const frame = fleet[progress.selected];
+  const scale = frame.omega ? 3.1 : frame.onyx ? 4.05 : 4.3;
   surface.scale(scale,scale);
   surface.rotate(-.22);
-  paintDrone(surface,fleet[progress.selected],performance.now()*.019);
+  const seconds = performance.now()/1000;
+  paintDrone(surface,frame,seconds*19);
+  if (frame.omega && !reduceFlightEffects.matches) {
+    const gleam = Math.max(0,Math.cos(seconds*2.5))**6;
+    drawOmegaShine(surface,-12,-8,2.6,.78*gleam);
+  }
   surface.restore();
 }
 function drawWarehouseExit() {
@@ -2201,6 +2267,9 @@ function draw() {
   ctx.translate(drone.x,drone.y);
   ctx.rotate(drone.angle);
   paintDrone(ctx,airframe,elapsed*35);
+  if (airframe.omega && !reduceFlightEffects.matches) {
+    drawOmegaShine(ctx,-12,-8,3,.9*Math.max(0,Math.cos(elapsed*4))**6);
+  }
   ctx.restore();
 }
 function updateHudText(selector,text) {
@@ -2295,6 +2364,9 @@ function centerJoystick() {
   stick.x = stick.y = 0;
   placeKnob(0,0);
 }
+function touchSteeringPower(push) {
+  return clamp((push-.12)/.88*options.sensitivity/100,0,1);
+}
 function steerByTouch(event) {
   const bounds = stickBounds;
   const reach = bounds.width*.32;
@@ -2304,7 +2376,7 @@ function steerByTouch(event) {
   const push = Math.min(1,distance/reach);
   const directionX = x/(distance || 1);
   const directionY = y/(distance || 1);
-  const power = Math.min(1,Math.max(0,(push-.12)/.88)*options.sensitivity/100);
+  const power = touchSteeringPower(push);
   stick.x = directionX*power;
   stick.y = directionY*power;
   placeKnob(directionX*push*reach,directionY*push*reach);
@@ -2628,7 +2700,7 @@ function preloadMedia() {
   const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
     lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
   const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt];
-  const atlases = [atlas,quayAtlas,onyxArt,clubAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
+  const atlases = [atlas,quayAtlas,omegaArt,onyxArt,clubAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
   const media = [
     ...atlases.map(image => () => image.decode()),
     ...art.map(url => () => {
@@ -2670,7 +2742,7 @@ function preloadMedia() {
     status.textContent = unavailable ? 'Ready to play · some media may load on demand' : 'Art and audio ready';
   });
 }
-for (const artwork of [quayAtlas,onyxArt,clubAtlas,storyAtlas,fleetArt]) {
+for (const artwork of [quayAtlas,omegaArt,onyxArt,clubAtlas,storyAtlas,fleetArt]) {
   artwork.addEventListener('load',() => {
     flightNeedsRender = true;
     if (currentPage === 'hangar') renderLoadout();

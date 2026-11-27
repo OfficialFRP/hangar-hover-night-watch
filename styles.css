@@ -1113,3 +1113,20 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   .launch-screen :is(button,select),.game-menu :is(button,summary){touch-action:manipulation}
   .layout > .game-menu{scroll-padding-block-end:56px}
 }
+
+.pilot-faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:6px;margin:8px 0 13px}
+.pilot-faces button{
+  display:grid;grid-template-columns:32px minmax(0,1fr);align-items:center;gap:5px;
+  min-width:0;min-height:48px;padding:4px;text-align:left;touch-action:manipulation;
+  border:1px solid #617791;border-radius:7px;background:#1a2a40;color:#f0f7ff;
+}
+.pilot-faces button[aria-pressed=true]{background:#a5fae6;color:#13263a;border-color:#a5fae6}
+.pilot-faces button:first-child span{grid-column:1/-1;text-align:center}
+.pilot-faces img,#battleAllyList img{width:32px;height:32px;object-fit:cover;border-radius:4px}
+.pilot-faces span{font-size:11px;line-height:1.2}
+#battleAllyList label{min-width:0;overflow-wrap:anywhere}
+@media(max-width:650px){
+  .pilot-faces{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px}
+  .pilot-faces button{grid-template-columns:26px minmax(0,1fr)}
+  .pilot-faces img{width:26px;height:26px}
+}

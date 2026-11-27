@@ -37,6 +37,7 @@ function renderBattleSetup() {
     pilot.append(new Option(crew[key][0]+' · '+fleet[progress.pilotFrames[key]].name,key));
   }
   pilot.value = [...pilot.options].some(option => option.value === previousPilot) ? previousPilot : 'equipped';
+  renderPilotFaces(get('#battlePilotFaces'),pilot,['equipped',...unlockedPilots()],renderBattleSetup);
   const roster = unlockedPilots().length;
   const allyCount = Math.trunc(Number(get('#battleAllies').value)) || 1;
   const enemyCount = Math.trunc(Number(get('#battleEnemies').value)) || 1;
@@ -69,7 +70,11 @@ function renderBattleAllyPicker() {
         checkbox.disabled = !checkbox.checked && allyChoices.size >= max;
       }
     });
-    label.append(box,document.createTextNode(crew[key][0]));
+    const portrait = document.createElement('img');
+    portrait.alt = '';
+    portrait.loading = 'lazy';
+    racePortrait(portrait,key);
+    label.append(box,portrait,document.createTextNode(crew[key][0]));
     return label;
   }));
 
@@ -100,7 +105,15 @@ function startBattle() {
     units.push(spawn(1,key,progress.pilotFrames[key],i,enemyCount));
   }
   battle = {units,player:units[0],round:1,wins:0,losses:0};
-  for (const unit of units) unit.spawn = {x:unit.x,y:unit.y,angle:unit.angle,shotWait:unit.shotWait};
+  const firstStyle = [Math.random()<.5,Math.random()<.5];
+  for (const [index,unit] of units.entries()) {
+    unit.spawn = {x:unit.x,y:unit.y,angle:unit.angle,shotWait:unit.shotWait};
+    if (!unit.player) unit.ai = {
+      defensive:firstStyle[unit.team] !== Boolean(index%2),turn:Math.random()<.5 ? -1 : 1,
+      phase:Math.random()*Math.PI*2,pace:.8+Math.random()*.35,
+      rangeOffset:(Math.random()-.5)*65
+    };
+  }
   renderBattleRoster();
   resetBattleRound();
   renderBattleSetup();
@@ -201,28 +214,70 @@ function moveBattleUnit(unit,dx,dy,dt) {
   if (!battleWallAt(unit.x,y,11)) unit.y = y;
   unit.angle = turnNose(unit.angle,dx,dy,dt);
 }
+function battleLineClear(x,y,dx,dy) {
+  const steps = Math.ceil(Math.hypot(dx,dy)/14);
+  for (let i=1;i<steps;i++) {
+    if (battleWallAt(x+dx*i/steps,y+dy*i/steps,3)) return false;
+  }
+  return true;
+}
+function incomingBattleShot(unit) {
+  return battle.shots.find(shot => {
+    if (shot.team === unit.team) return false;
+    const dx = unit.x-shot.x,dy = unit.y-shot.y;
+    if (dx*dx+dy*dy > 116**2) return false;
+    const speed = Math.hypot(shot.vx,shot.vy);
+    return (dx*shot.vx+dy*shot.vy)/speed > 0 &&
+      Math.abs(dx*shot.vy-dy*shot.vx)/speed < 22;
+  });
+}
 function steerBattleAI(unit,dt) {
   const enemy = nearestBattleEnemy(unit);
   if (!enemy) return;
+  const ai = unit.ai;
+  const enemyDX = enemy.x-unit.x,enemyDY = enemy.y-unit.y;
+  const enemyRange = Math.hypot(enemyDX,enemyDY);
   const boundary = [322,641].find(x => (x-unit.x)*(x-enemy.x)<0 && Math.abs(x-enemy.x)>12);
-  const gap = boundary === 322 ? 205 : 250;
-  const aimY = boundary ? gap : enemy.y;
-  const aimX = boundary && Math.abs(unit.y-gap)>35 && Math.abs(unit.x-boundary)<65 ?
-    boundary+(unit.x<boundary ? -39 : 39) : enemy.x;
+  const gap = (boundary === 322 ? 205 : 250)+Math.sin(ai.phase)*28;
+  const threat = incomingBattleShot(unit);
+  if (threat && (ai.defensive || unit.health<66 || enemyRange<110)) shieldBattleUnit(unit);
+  const repair = ai.defensive && unit.health<69 && battle.packs
+    .filter(pack => pack.readyAt<=battle.elapsed && Math.floor(pack.x/320)===Math.floor(unit.x/320) &&
+      battleLineClear(unit.x,unit.y,pack.x-unit.x,pack.y-unit.y))
+    .sort((a,b) => (a.x-unit.x)**2+(a.y-unit.y)**2-(b.x-unit.x)**2-(b.y-unit.y)**2)[0];
+  const aimY = repair?.y ?? (boundary ? gap : enemy.y);
+  const aimX = repair?.x ?? (boundary && Math.abs(unit.y-gap)>32 && Math.abs(unit.x-boundary)<72 ?
+    boundary+(unit.x<boundary ? -41 : 41) : enemy.x);
   const dx = aimX-unit.x;
   const dy = aimY-unit.y;
   const range = Math.hypot(dx,dy);
-  const approach = boundary || range > 205 ? 1 : range < 115 ? -.7 : 0;
+  const idealRange = (ai.defensive ? 237 : 143)+ai.rangeOffset;
   if (range > 1) {
-    const blocked = battleWallAt(unit.x+dx/range*30,unit.y+dy/range*30,12);
-    const strafe = blocked ? (unit.y<225 ? 1 : -1) : boundary ? 0 : .34;
-    moveBattleUnit(unit,approach*dx/range-strafe*dy/range,approach*dy/range+strafe*dx/range,dt);
+    const approach = repair || boundary || range>idealRange+35 ? 1 : range<idealRange-38 ? -.72 : 0;
+    const orbit = ai.turn*(.43+.27*Math.sin(battle.elapsed*ai.pace+ai.phase));
+    const strafe = repair || boundary ? 0 : orbit;
+    let moveX = (approach*dx-strafe*dy)/range;
+    let moveY = (approach*dy+strafe*dx)/range;
+    if (threat && unit.shield === 0) {
+      const speed = Math.hypot(threat.vx,threat.vy);
+      moveX -= ai.turn*threat.vy/speed;
+      moveY += ai.turn*threat.vx/speed;
+    }
+    if (battleWallAt(unit.x+moveX*25,unit.y+moveY*25,12)) {
+      const directions = [[-moveY,moveX],[moveY,-moveX]];
+      if (ai.turn < 0) directions.reverse();
+      const detour = directions.find(([x,y]) => !battleWallAt(unit.x+x*28,unit.y+y*28,12));
+      if (detour) [moveX,moveY] = detour;
+    }
+    moveBattleUnit(unit,moveX*ai.pace,moveY*ai.pace,dt);
   }
-  if (!boundary && range < 375 && unit.shotWait <= 0) {
-    fireBattleShot(unit,Math.random()<.16 ? 'powered' : 'pulse');
-    unit.shotWait = .66+Math.random()*.6;
+  if (enemyRange < 365 && battleLineClear(unit.x,unit.y,enemy.x-unit.x,enemy.y-unit.y)) {
+    if (!ai.defensive && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
+    if (unit.shotWait <= 0) {
+      fireBattleShot(unit,Math.random()<(ai.defensive ? .29 : .14) ? 'powered' : 'pulse');
+      unit.shotWait = (ai.defensive ? .93 : .53)+Math.random()*.58;
+    }
   }
-  if (!boundary && unit.health < 70 && unit.shieldWait <= 0) shieldBattleUnit(unit);
 }
 function battleCameraHeading(camera,index) {
   return camera[2]+Math.sin(battle.elapsed*1.12+index*1.6)*.85;
@@ -313,6 +368,7 @@ function renderBattleRoster() {
       bar.setAttribute('aria-label',battlePilotName(unit)+' hull');
       const health = document.createElement('small');
       health.textContent = '100%';
+      if (unit.ai) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
       info.append(name,bar,health);
       card.append(image,info);
       unit.roster = {card,bar,health};

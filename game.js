@@ -181,6 +181,37 @@ function assignPilotFrames() {
   return true;
 }
 const arcadeChoice = {race:'equipped',free:'equipped'};
+function renderPilotFaces(container,select,keys,onChoose) {
+  container.replaceChildren(...keys.map(key => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    const name = document.createElement('span');
+    if (key === 'equipped') {
+      name.textContent = 'Equipped';
+    } else {
+      const portrait = document.createElement('img');
+      portrait.alt = '';
+      portrait.loading = 'lazy';
+      racePortrait(portrait,key);
+      button.append(portrait);
+      name.textContent = crew[key][0];
+    }
+    button.append(name);
+    button.setAttribute('aria-pressed',String(select.value === key));
+    button.addEventListener('click',() => {
+      select.value = key;
+      onChoose();
+      const selected = [...container.children].find(card => card.getAttribute('aria-pressed') === 'true');
+      selected?.focus({preventScroll:true});
+    });
+    return button;
+  }));
+}
+function refreshRacePilotFaces() {
+  const select = get('#racePilot');
+  renderPilotFaces(get('#racePilotFaces'),select,['equipped',...unlockedPilots()],
+    () => select.dispatchEvent(new Event('change')));
+}
 function arcadeOptions(mode) {
   const select = get('#'+mode+'Pilot');
   select.replaceChildren();
@@ -202,6 +233,7 @@ function arcadeOptions(mode) {
   select.value = arcadeChoice[mode];
   if (!select.value || select.selectedOptions[0]?.disabled) select.value = 'equipped';
   arcadeChoice[mode] = select.value;
+  if (mode === 'race') refreshRacePilotFaces();
 }
 function arcadeLoadout(index) {
   const mode = index === -1 ? 'race' : 'free';
@@ -2269,6 +2301,7 @@ for (const mode of ['race','free']) {
   get('#'+mode+'Pilot').addEventListener('change',event => {
     arcadeChoice[mode] = event.target.value;
     if (mode === 'race' && race?.rival === event.target.value) selectRace();
+    else if (mode === 'race') refreshRacePilotFaces();
   });
 }
 get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});

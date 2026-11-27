@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="stylesheet" href="styles.css?v=18">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -136,6 +136,7 @@
 <h2 id="raceTitle">Race</h2>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
 <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label>
+<div id="racePilotFaces" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
 <div class="pager"><span id="raceMatch"></span><button id="raceFly">Open race deck</button></div>
 </section>
 <section id="page-free" class="panel game-menu" hidden>
@@ -154,6 +155,7 @@
       <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
       <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
     </div>
+    <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
     <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Play all three rounds with a fresh hull each round.</p>
     <button id="battleStart">Start battle</button>
@@ -221,8 +223,8 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="battle.js?v=6"></script>
-<script src="game.js?v=19"></script>
+<script src="battle.js?v=7"></script>
+<script src="game.js?v=20"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

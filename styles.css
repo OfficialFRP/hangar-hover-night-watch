@@ -896,6 +896,10 @@ body::before{
   border-radius:8px;font-weight:700;box-shadow:0 4px 18px #08101c;
 }
 .battle-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.battle-setup-start{grid-column:2;justify-self:end;min-height:44px}
+#omegaFields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:12px;padding:0;border:0;margin:0}
+#omegaFields label{display:grid;gap:5px;color:var(--accent);font-size:.875rem}
+#omegaFields input{width:100%;min-width:0;min-height:44px;padding:6px 10px;font:inherit;font-size:16px;color:inherit;background:#101622;border:1px solid #536278;border-radius:6px}
 .battle-settings label{display:grid;gap:4px;color:var(--accent)}
 #battleCanvas{display:block;width:100%;height:auto;aspect-ratio:960/450;border:1px solid #576f8a;border-radius:7px}
 .battle-status,.battle-controls,.battle-weapons{display:flex;align-items:center;flex-wrap:wrap;gap:7px}

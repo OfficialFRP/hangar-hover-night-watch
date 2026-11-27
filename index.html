@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=22">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -119,11 +119,11 @@
 <p class="hangar-note">Win a Race to earn 160 CR, or finish all three sections to earn 50 CR.</p>
 <details class="achievements">
   <summary>Achievements <span id="achievementCount"></span></summary>
-  <p>Each achievement pays its credit bonus once per save.</p>
+  <p>Complete every achievement to earn an extra 2,500 CR and unlock Omega.</p>
   <ul id="achievementList"></ul>
 </details>
 </section>
-<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><h3>Battle modules</h3><div id="battleMods"></div><p id="purchaseStatus" role="status"></p></section>
+<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><section id="omegaSettings" hidden><h3>Omega tuning</h3><fieldset id="omegaFields" aria-label="Omega flight and combat settings"></fieldset></section><div id="standardUpgrades"><div id="mods"></div><h3>Battle modules</h3><div id="battleMods"></div></div><p id="purchaseStatus" role="status"></p></section>
 <section id="page-story" class="panel game-menu">
 <div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
@@ -151,6 +151,7 @@
   <p id="battleLocked">Locked · Complete all three Story cases to unlock Drone Battle.</p>
   <div id="battleSetup" hidden>
     <div class="battle-settings">
+      <button id="battleStart" class="battle-setup-start">Start battle</button>
       <label>Game mode <select id="battleMode"><option value="elimination">Battle Royal</option><option value="capture">Capture the Flag</option></select></label>
       <label>Pilot <select id="battlePilot"></select></label>
       <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
@@ -159,9 +160,8 @@
     <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
     <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Each drone starts the round with three lives.</p>
-    <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad while the others attack.</p>
+    <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad. Hunters engage enemy drones and runners make for the opposing pad.</p>
     <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round. Drones with lives left respawn after three seconds.</p>
-    <button id="battleStart">Start battle</button>
   </div>
   <div id="battleArena" hidden>
     <div class="battle-status">
@@ -225,10 +225,10 @@
 </dialog>
 <script src="north-quay.js"></script>
 <script src="story.js?v=5"></script>
-<script src="race.js?v=2"></script>
-<script src="audio.js?v=2"></script>
-<script src="battle.js?v=13"></script>
-<script src="game.js?v=20"></script>
+<script src="race.js?v=3"></script>
+<script src="audio.js?v=3"></script>
+<script src="battle.js?v=14"></script>
+<script src="game.js?v=21"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

@@ -40,8 +40,28 @@ const fleet = [
   {name:'Ember E6',color:'#ff906a',thrust:468,battery:5,brake:14,size:16,exposure:.9,arms:12,rotor:7,windResponse:.6,stability:2.5,cost:325,desc:'Responsive everyday frame'},
   {name:'Harbor H8',color:'#7bead6',thrust:430,battery:8,brake:17,size:16,exposure:.86,arms:12,rotor:7,windResponse:.4,stability:2.9,cost:375,desc:'Steady handling and extra battery'},
   {name:'Nova N8',color:'#d49eff',thrust:492,battery:4,brake:15,size:16,exposure:.94,arms:12,rotor:7,windResponse:.55,stability:2.6,cost:425,desc:'Midweight sprint frame'},
-  {name:'Cirrus C9',color:'#a4c7ff',thrust:450,battery:7,brake:18,size:16,exposure:.81,arms:12,rotor:7,windResponse:.32,stability:3.2,cost:475,desc:'Crosswind control and strong braking'}
+  {name:'Cirrus C9',color:'#a4c7ff',thrust:450,battery:7,brake:18,size:16,exposure:.81,arms:12,rotor:7,windResponse:.32,stability:3.2,cost:475,desc:'Crosswind control and strong braking'},
+  {name:'Omega',color:'#ffc775',thrust:1000,battery:0,brake:100,size:19,exposure:.55,arms:15,rotor:8,windResponse:.08,stability:3,omega:true,desc:'Achievement reward · adjustable flight and battle systems'}
 ];
+const omegaSettings = [
+  ['seconds','Battery (seconds)',1,300,300],
+  ['thrust','Thrust',1,1000,1000],
+  ['brake','Braking',1,100,100],
+  ['hull','Hull integrity',1,1120,1120],
+  ['pulse','Pulse (% of target hull)',1,100,100],
+  ['scatter','Scatter (% of target hull per volley)',1,50,50],
+  ['shield','Shield recharge (seconds)',0,5,0]
+];
+function normalizeOmega(saved) {
+  return Object.fromEntries(omegaSettings.map(([key,,min,max,initial]) => {
+    const value = saved?.[key];
+    return [key,Number.isFinite(value) ? Math.min(max,Math.max(min,Math.round(value))) : initial];
+  }));
+}
+function frameAvailable(index,save = progress) {
+  const frame = fleet[index];
+  return Boolean(frame && (frame.omega ? save.completionReward === true : !frame.cost || save.ownedFrames.includes(index)));
+}
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
   {name:'Motor tuning', description:'+7% thrust per tier', cost:125, max:5},
@@ -109,7 +129,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules()};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules(),omega:normalizeOmega(),completionReward:false};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -132,14 +152,14 @@ function loadProgress(key) {
   const ownedFrames = Array.isArray(saved.ownedFrames) ? [...new Set(saved.ownedFrames.filter(index =>
     Number.isInteger(index) && fleet[index]?.cost))] : [];
   const selected = Number.isInteger(saved.selected) && fleet[saved.selected] &&
-    (!fleet[saved.selected].cost || ownedFrames.includes(saved.selected)) ? saved.selected : 0;
+    frameAvailable(saved.selected,{ownedFrames,completionReward:saved.completionReward}) ? saved.selected : 0;
   const bests = {};
   for (const mode of ['normal','easy']) {
     bests[mode] = Object.fromEntries(Object.entries(saved.bests?.[mode] || {})
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
-    playerName:cleanSaveName(saved.playerName),
+    playerName:cleanSaveName(saved.playerName),omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
     battleLevels:fleet.map((_,frame) => battleModules.map((_,index) =>
       Math.min(battleTierLimit,validCount(saved.battleLevels?.[frame]?.[index])))),
     credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
@@ -158,10 +178,12 @@ function cleanSaveName(name) {
   return typeof name === 'string' ? name.trim().slice(0,28) : '';
 }
 function hasKingAccess() {
-  return progress.playerName.replace(/\s+/g,' ').toUpperCase() === 'KING JAK';
+  return progress.playerName.trim().replace(/\s+/g,' ').toUpperCase() === 'KING JAK';
 }
 function applyKingUpgrades() {
   if (!hasKingAccess()) return;
+  progress.cleared = courses.map((_,index) => index);
+  progress.achievements = achievements.map(([key]) => key);
   progress.ownedFrames = fleet.flatMap((frame,index) => frame.cost ? [index] : []);
   progress.activeLevels = progress.activeLevels.map((tiers,frame) => tiers.map((tier,index) =>
     progress.levels[frame][index] < upgrades[index].max ? upgrades[index].max : tier));
@@ -174,8 +196,8 @@ function unlockedPilots() {
 function assignPilotFrames() {
   const keys = Object.keys(pilotUnlocks);
   const saved = keys.map(key => progress.pilotFrames?.[key]);
-  if (new Set(saved).size === keys.length && saved.every(index => Number.isInteger(index) && fleet[index])) return false;
-  const available = fleet.map((_,index) => index);
+  if (new Set(saved).size === keys.length && saved.every(index => Number.isInteger(index) && fleet[index] && !fleet[index].omega)) return false;
+  const available = fleet.flatMap((frame,index) => frame.omega ? [] : [index]);
   progress.pilotFrames = Object.fromEntries(keys.map(key =>
     [key,available.splice(Math.floor(Math.random()*available.length),1)[0]]));
   return true;
@@ -224,7 +246,7 @@ function arcadeOptions(mode) {
   };
   add('equipped','Equipped · '+fleet[progress.selected].name);
   fleet.forEach((frame,index) => {
-    if (!frame.cost || progress.ownedFrames.includes(index)) add('owned-'+index,frame.name);
+    if (frameAvailable(index)) add('owned-'+index,frame.name);
   });
   for (const [key,mission] of Object.entries(pilotUnlocks)) {
     const unlocked = hasKingAccess() || progress.campaignNext >= mission;
@@ -240,7 +262,7 @@ function arcadeLoadout(index) {
   const choice = arcadeChoice[mode];
   if (unlockedPilots().includes(choice)) return {frame:progress.pilotFrames[choice],pilot:choice};
   const owned = choice.startsWith('owned-') ? Number(choice.slice(6)) : progress.selected;
-  return {frame:fleet[owned] && (!fleet[owned].cost || progress.ownedFrames.includes(owned)) ? owned : progress.selected};
+  return {frame:frameAvailable(owned) ? owned : progress.selected};
 }
 function awardAchievements(flight) {
   let total = 0;
@@ -250,6 +272,11 @@ function awardAchievements(flight) {
     progress.achievements.push(key);
     total += credits;
     unlocked.push(title);
+  }
+  if (!progress.completionReward && achievements.every(([key]) => progress.achievements.includes(key))) {
+    progress.completionReward = true;
+    total += 2500;
+    unlocked.push('Omega awarded for completing all achievements');
   }
   progress.credits += total;
   if (unlocked.length) notifyAchievements(unlocked,total);
@@ -349,6 +376,7 @@ const frameButtons = fleet.map((frame,index) => {
 function equipFrame(index,purchasing) {
   if (state === 'flying' || state === 'paused') return;
   const frame = fleet[index];
+  if (frame.omega && !frameAvailable(index)) return;
   if (purchasing && frame.cost && !progress.ownedFrames.includes(index)) {
     if (progress.credits < frame.cost) return;
     progress.credits -= frame.cost;
@@ -612,6 +640,7 @@ function showPage(page) {
   if (page === 'characters') renderCharacterFiles();
   if (page === 'battle') renderBattleSetup();
   if (page === 'upgrades') renderBattleModules();
+  syncGameMusic();
   if (page === 'missions') {
     missionPage = Math.max(0,Math.floor(courseIndex/missionsPerPage));
     renderMissionPage();
@@ -703,12 +732,37 @@ function buyUpgrade(index) {
   setUpgradeTier(index,modules[index]);
   get('#purchaseStatus').textContent = upgrade.name + ' installed on ' + fleet[progress.selected].name + '. ' + progress.credits + ' credits left.' + achievementMessage(bonus);
 }
+function flightStats(index,pilot) {
+  const frame = fleet[index];
+  if (frame.omega) return {...progress.omega,landingSpeed:38};
+  const [battery,motors,stabilizer] = pilot ? [0,0,0] : progress.activeLevels[index];
+  return {seconds:Math.round((course.seconds + frame.battery + battery*4)*(easyFlight ? 1.3 : 1)),
+    thrust:frame.thrust*(1+.07*motors),brake:frame.brake+2*stabilizer,landingSpeed:38+6*stabilizer};
+}
+const omegaInputs = omegaSettings.map(([key,label,min,max]) => {
+  const field = document.createElement('label');
+  const input = document.createElement('input');
+  field.textContent = label;
+  input.type = 'number';
+  input.min = min;
+  input.max = max;
+  input.step = 1;
+  input.inputMode = 'numeric';
+  input.addEventListener('change',() => {
+    if (state === 'flying' || state === 'paused' || battle) return;
+    const value = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : progress.omega[key];
+    progress.omega = normalizeOmega({...progress.omega,[key]:value});
+    saveProgress();
+    reset(courseIndex,false,storyFlight);
+  });
+  field.append(input);
+  get('#omegaFields').append(field);
+  return [key,input];
+});
 function refreshLoadout() {
   const index = flightLoadout?.frame ?? progress.selected;
   airframe = fleet[index];
-  const [battery,motors,stabilizer] = flightLoadout?.pilot ? [0,0,0] : progress.activeLevels[index];
-  stats = {seconds:Math.round((course.seconds + airframe.battery + battery*4)*(easyFlight ? 1.3 : 1)), thrust:airframe.thrust * (1+.07*motors),
-    brake:airframe.brake + 2*stabilizer, landingSpeed:38+6*stabilizer};
+  stats = flightStats(index,flightLoadout?.pilot);
   renderHangar();
 }
 function renderHangar() {
@@ -722,18 +776,21 @@ function renderHangar() {
   get('#wallet').textContent = progress.credits.toLocaleString() + ' CR';
   get('#loadoutName').textContent = fleet[progress.selected].name;
   const equippedFrame = fleet[progress.selected];
-  const [battery,motors,stabilizer] = progress.activeLevels[progress.selected];
-  get('#loadoutStats').textContent = Math.round((course.seconds+equippedFrame.battery+battery*4)*(easyFlight ? 1.3 : 1)) +
-    ' s battery · ' + Math.round(equippedFrame.thrust*(1+.07*motors)) + ' thrust · ' +
-    (equippedFrame.brake+2*stabilizer).toFixed(1) + ' braking';
+  const equipped = flightStats(progress.selected);
+  get('#loadoutStats').textContent = equipped.seconds + ' s battery · ' + Math.round(equipped.thrust) +
+    ' thrust · ' + equipped.brake.toFixed(1) + ' braking';
+  get('#omegaSettings').hidden = !equippedFrame.omega;
+  get('#standardUpgrades').hidden = Boolean(equippedFrame.omega);
+  get('#omegaFields').disabled = active || Boolean(battle);
+  for (const [key,input] of omegaInputs) input.value = progress.omega[key];
   get('#purchaseStatus').textContent = active ? 'Finish or restart the mission to change your loadout.' : '';
   frameButtons.forEach((button,index) => {
     const frame = fleet[index];
     const selected = index === progress.selected;
-    const locked = frame.cost && !progress.ownedFrames.includes(index);
-    button.disabled = active || (locked && progress.credits < frame.cost);
+    const locked = !frameAvailable(index);
+    button.disabled = active || (locked && (frame.omega || progress.credits < frame.cost));
     button.setAttribute('aria-pressed',selected);
-    button.innerHTML = '<strong>' + frame.name + '</strong><small>' + frame.desc + '</small><span>' + (selected ? '✓ EQUIPPED' : locked ? 'UNLOCK · '+frame.cost+' CR' : 'EQUIP') + '</span>';
+    button.innerHTML = '<strong>' + frame.name + '</strong><small>' + frame.desc + '</small><span>' + (selected ? '✓ EQUIPPED' : locked ? (frame.omega ? 'COMPLETE ALL ACHIEVEMENTS' : 'UNLOCK · '+frame.cost+' CR') : 'EQUIP') + '</span>';
   });
   modButtons.forEach(({button,info,tiers},index) => {
     const upgrade = upgrades[index];
@@ -742,13 +799,13 @@ function renderHangar() {
     const equipped = progress.activeLevels[progress.selected][index];
     info.innerHTML = '<strong>' + upgrade.name + '</strong><small>' + upgrade.description + '</small><span>Active ' + equipped + ' · Owned through ' + level + '</span>';
     tiers.forEach((option,tier) => {
-      option.disabled = active || tier > level;
+      option.disabled = active || equippedFrame.omega || tier > level;
       option.setAttribute('aria-pressed',tier === equipped);
     });
     const shortfall = cost - progress.credits;
     button.textContent = level === upgrade.max ? 'Maxed' : shortfall > 0 ? 'Need ' + shortfall + ' CR more' : 'Buy next tier · ' + cost + ' CR';
     button.setAttribute('aria-label',upgrade.name + ': ' + button.textContent);
-    button.disabled = active || level >= upgrade.max || progress.credits < cost;
+    button.disabled = active || equippedFrame.omega || level >= upgrade.max || progress.credits < cost;
   });
 }
 
@@ -1905,7 +1962,7 @@ function paintDrone(ctx,frame,spin) {
   const size = frame.size*2.25;
   if (index >= 0 && spinSprite(ctx,index,spin,size)) return;
   const {arms,rotor,color} = frame;
-  const body = frame === fleet[1] ? 5 : 7;
+  const body = frame.omega ? 10 : frame === fleet[1] ? 5 : 7;
   ctx.lineCap = 'round';
   for (const [x,y] of [[-arms,-arms*.65],[arms,-arms*.65],[-arms,arms*.65],[arms,arms*.65]]) {
     ctx.beginPath();
@@ -1942,7 +1999,14 @@ function paintDrone(ctx,frame,spin) {
   ctx.lineTo(-body,8);
   ctx.lineTo(-body,-5);
   ctx.closePath();
-  ctx.fillStyle = '#b8c0cb';
+  if (frame.omega) {
+    const finish = ctx.createLinearGradient(-body,-8,body,9);
+    finish.addColorStop(0,'#290f48');
+    finish.addColorStop(.48,'#a579d7');
+    finish.addColorStop(.64,'#f3d7a9');
+    finish.addColorStop(1,'#291838');
+    ctx.fillStyle = finish;
+  } else ctx.fillStyle = '#b8c0cb';
   ctx.fill();
   ctx.strokeStyle = '#17131d';
   ctx.lineWidth = 1.2;
@@ -2358,13 +2422,19 @@ jamButton.addEventListener('click',event => {
 });
 get('#openUpgrades').addEventListener('click',() => showPage('upgrades'));
 get('#backToHangar').addEventListener('click',() => showPage('hangar'));
+function syncGameMusic() {
+  const mode = currentPage === 'battle' ? (battle?.mode || get('#battleMode').value) :
+    currentPage === 'race' || (currentPage === 'flight' && courseIndex === -1) ? 'race' :
+    currentPage === 'free' || (currentPage === 'flight' && courseIndex === freeFlightIndex) ? 'free' : 'story';
+  setTechnoMusic(soundEnabled,mode);
+}
 function applyAudio() {
   soundEnabled = options.sound;
   get('#audio').textContent = soundEnabled ? 'Sound on' : 'Sound off';
   get('#audio').setAttribute('aria-pressed',soundEnabled);
   get('#soundSetting').checked = soundEnabled;
   if (soundEnabled) enableFlightAudio();
-  setTechnoMusic(soundEnabled);
+  syncGameMusic();
   if (!soundEnabled) Object.values(effects).forEach(effect => effect.pause());
 }
 function changeAudio(enabled) {
@@ -2398,6 +2468,7 @@ function openMenu() {
   flightAudio(0,false,false,false);
   if (currentPage !== 'menu') gamePage = currentPage;
   currentPage = 'menu';
+  syncGameMusic();
   main.hidden = true;
   mainMenu.hidden = false;
   get('#backToGame').hidden = !activeSlot;
@@ -2472,6 +2543,7 @@ function chooseSave(creating) {
       if (activeSlot === key) {
         progress.playerName = name;
         applyKingUpgrades();
+        awardAchievements();
         saveProgress();
         refreshLoadout();
       } else {

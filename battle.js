@@ -104,6 +104,7 @@ function startBattle() {
   const enemyCount = Number(get('#battleEnemies').value);
   const playerFrame = pilot === 'equipped' ? progress.selected : progress.pilotFrames[pilot];
   const spawn = (team,key,frameIndex,index,total) => ({
+    omega:fleet[frameIndex].omega ? {...progress.omega} : null,
     team,key,frame:fleet[frameIndex],modules:index === 0 && team === 0 ? progress.battleLevels[frameIndex] : [0,0,0],
     x:team ? 855-index%3*35 : 105+index%3*35,y:55+(index+1)*340/(total+1),
     angle:team ? -Math.PI/2 : Math.PI/2,health:battleHullCapacity,maxHull:battleHullCapacity,shotWait:.4+index*.12,scatterWait:0,
@@ -120,12 +121,22 @@ function startBattle() {
   }
   battle = {units,startingPilot:units[0],player:units[0],round:1,wins:0,losses:0,
     mode:get('#battleMode').value === 'capture' ? 'capture' : 'elimination',countdown:3};
+  for (const unit of units) {
+    if (unit.omega) unit.maxHull = unit.omega.hull;
+  }
+  syncGameMusic();
   const capture = battle.mode === 'capture';
   if (capture) {
+    units[0].ctfRole = 'Runner';
     for (const team of [0,1]) {
       const guards = units.filter(unit => unit.team === team && !unit.player);
       const defender = pick(guards);
       defender.defender = true;
+      const attackers = guards.filter(unit => unit !== defender);
+      for (let runner = team === 1 || attackers.length > 1; attackers.length; runner = !runner) {
+        const [attacker] = attackers.splice(Math.floor(Math.random()*attackers.length),1);
+        attacker.ctfRole = runner ? 'Runner' : 'Hunter';
+      }
       defender.maxHull = defenderHullCapacity;
       defender.x = capturePadPositions[team][0]+(team ? -41 : 41);
       defender.y = capturePadPositions[team][1]+(Math.random()-.5)*46;
@@ -219,11 +230,12 @@ function fireBattleShot(unit,kind) {
   const tier = unit.modules[scatter ? 1 : 0];
   const powered = kind === 'powered';
   const count = scatter ? 3+Math.floor(tier/2) : 1;
+  const omegaVolley = scatter && unit.omega ? new Set() : null;
   for (let pellet=0;pellet<count;pellet++) {
     const heading = angle+(pellet-(count-1)/2)*.14;
     const speed = powered ? 410 : 470;
     battle.shots.push({x:unit.x,y:unit.y,vx:Math.cos(heading)*speed,vy:Math.sin(heading)*speed,
-      team:unit.team,source:unit,kind,life:scatter ? .75 : 2.6,size:powered ? 5 : 2.5,
+      team:unit.team,source:unit,kind,omegaVolley,life:scatter ? .75 : 2.6,size:powered ? 5 : 2.5,
       damage:Math.round((scatter ? 7+tier*2 : powered ? 31+tier*5 : 13+tier*2)*(unit.defender ? 1.3 : 1))});
   }
   if (scatter) unit.scatterWait = 1.05;
@@ -231,9 +243,9 @@ function fireBattleShot(unit,kind) {
   battleSound(kind);
 }
 function shieldBattleUnit(unit) {
-  if (unit.health <= 0 || unit.shieldWait > 0) return;
+  if (unit.health <= 0 || unit.shieldWait > 0 || (unit.omega && unit.shield > 0)) return;
   unit.shield = 1.3+unit.modules[2]*.23;
-  unit.shieldWait = 4.9-unit.modules[2]*.32;
+  unit.shieldWait = unit.omega ? unit.shield+unit.omega.shield : 4.9-unit.modules[2]*.32;
   battleSound('shield');
 }
 function canControlBattle() {
@@ -254,7 +266,9 @@ function battlePulseEnd(source) {
 function moveBattleUnit(unit,dx,dy,dt) {
   const beforeX = unit.x,beforeY = unit.y;
   const scale = Math.max(1,Math.hypot(dx,dy));
-  const speed = (unit.player ? 144+(unit.frame.thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
+  const thrust = unit.omega?.thrust ?? unit.frame.thrust;
+  const modeSpeed = battle.mode === 'capture' ? .78 : 1;
+  const speed = modeSpeed*(unit.player ? 144+(thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
   const [minX,maxX] = unit.defender ? captureCells[unit.team] : [14,946];
   const x = clamp(unit.x+dx/scale*speed*dt,minX,maxX);
   const y = clamp(unit.y+dy/scale*speed*dt,14,436);
@@ -329,18 +343,19 @@ function planBattleWaypoint(unit,targetX,targetY) {
   }
   return waypoint;
 }
-function captureTarget(unit) {
+function captureTarget(unit,enemy) {
   if (unit.defender) {
     const pad = battle.pads[unit.team];
     const {phase,turn,pace,orbitWidth,orbitHeight} = unit.ai;
     const angle = phase+battle.elapsed*turn*pace*1.55;
     return {x:pad.x+Math.cos(angle)*orbitWidth,y:pad.y+Math.sin(angle)*orbitHeight};
   }
+  if (unit.ctfRole === 'Hunter' && enemy && battle.elapsed < 100) return null;
   return battle.pads[1-unit.team];
 }
 function steerBattleAI(unit,dt) {
   const enemy = nearestBattleEnemy(unit);
-  const objective = captureTarget(unit);
+  const objective = captureTarget(unit,enemy);
   if (!enemy && !objective) return;
   const ai = unit.ai;
   const enemyRange = enemy ? Math.hypot(enemy.x-unit.x,enemy.y-unit.y) : Infinity;
@@ -385,10 +400,10 @@ function steerBattleAI(unit,dt) {
     moveBattleUnit(unit,moveX*ai.pace,moveY*ai.pace,dt);
   }
   if (enemy && enemyRange < 365 && battleLineClear(unit.x,unit.y,enemy.x-unit.x,enemy.y-unit.y)) {
-    if ((unit.defender || !ai.defensive) && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
+    if ((unit.defender || unit.ctfRole === 'Hunter' || !ai.defensive) && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
     if (unit.shotWait <= 0) {
       fireBattleShot(unit,Math.random()<(ai.defensive ? .29 : .14) ? 'powered' : 'pulse');
-      unit.shotWait = (ai.defensive ? .93 : .53)+Math.random()*.58;
+      unit.shotWait = (unit.ctfRole === 'Hunter' ? .47 : ai.defensive ? .93 : .53)+Math.random()*.58;
     }
   }
 }
@@ -477,7 +492,8 @@ function fireBattleTurrets() {
 function updateCaptureLandings(dt) {
   for (const unit of battle.units) {
     const pad = battle.pads[1-unit.team];
-    const onPad = unit.health > 0 && unit.speed < 16 &&
+    const pursuingPad = unit.player || unit.ctfRole === 'Runner' || (unit.ctfRole === 'Hunter' && battle.elapsed >= 100);
+    const onPad = pursuingPad && unit.health > 0 && unit.speed < 16 &&
       Math.hypot(unit.x-pad.x,unit.y-pad.y) < 24;
     unit.landing = onPad ? unit.landing+dt : 0;
     if (unit.landing >= .55) {
@@ -530,7 +546,11 @@ function stepBattle(dt) {
       target.slowUntil = battle.elapsed+3;
       battleSound('slowed');
     } else {
-      applyBattleDamage(target,shot.damage,shot.source);
+      const tuning = shot.source?.omega;
+      if (shot.omegaVolley?.has(target)) return false;
+      shot.omegaVolley?.add(target);
+      const percent = tuning ? (shot.omegaVolley ? tuning.scatter : tuning.pulse) : 0;
+      applyBattleDamage(target,tuning ? target.maxHull*percent/100 : shot.damage,shot.source);
       battleSound('hit');
     }
     return false;
@@ -569,14 +589,15 @@ function renderBattleRoster() {
       bar.setAttribute('aria-label',battlePilotName(unit)+' hull');
       const health = document.createElement('small');
       health.textContent = '100%';
-      if (unit.defender) {
-        name.title = 'Defender';
-        card.classList.add('battle-defender');
+      if (unit.defender) card.classList.add('battle-defender');
+      info.append(name);
+      const assignment = unit.defender ? 'Defender' : unit.ctfRole;
+      if (assignment && unit !== battle.startingPilot) {
         const role = document.createElement('small');
-        role.textContent = 'Defender';
+        role.textContent = assignment;
         info.append(role);
       } else if (!unit.player) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
-      info.append(name,bar,health);
+      info.append(bar,health);
       card.append(image,info);
       unit.roster = {card,bar,health};
       return card;
@@ -648,7 +669,7 @@ function updateBattleHud() {
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     (battle.mode === 'capture' ? 'Capture the Flag · ' : count(0)+' allies · '+count(1)+' rivals · ')+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
   updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battle.player.maxHull+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
-  updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player)+(battle.player.defender ? ' · Defender' : ''));
+  updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player)+(battle.player.defender ? ' · Defender' : battle.player.ctfRole ? ' · '+battle.player.ctfRole : ''));
   get('#battleFlagStatus').hidden = battle.mode !== 'capture';
   if (battle.pads.length) {
     const landing = Math.min(100,Math.floor(battle.player.landing/.55*100));
@@ -991,7 +1012,14 @@ function initBattleControls() {
   }
   get('#battlePilot').addEventListener('change',renderBattleSetup);
   get('#battleAllies').addEventListener('change',renderBattleSetup);
-  get('#battleMode').addEventListener('change',renderBattleSetup);
+  get('#battleMode').addEventListener('change',event => {
+    if (event.target.value === 'capture') {
+      if (Number(get('#battleAllies').value) === 1) get('#battleAllies').value = 4;
+      if (Number(get('#battleEnemies').value) === 1) get('#battleEnemies').value = 3;
+    }
+    renderBattleSetup();
+    syncGameMusic();
+  });
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
   get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
   get('#battleNextRound').addEventListener('click',() => {

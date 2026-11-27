@@ -27,22 +27,28 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Four-on-the-floor industrial techno with a sequenced bass and offbeat hats.
+// Each mode has its own tempo, bass line, drum pattern and lead phrase.
 let technoTrack;
-const technoStep = 60 / 144 / 4;
-function setTechnoMusic(enabled) {
+const technoModes = {
+  story:{bpm:144,roots:[43,43,46,41],bass:[1,2,3,5,6,7,9,10,11,13,14,15],lead:[12,19,15,22,12,19,24,15],leadSteps:[2,5,10,13],snare:[4,12],hat:[2,6,10,14],wave:'triangle'},
+  elimination:{bpm:152,roots:[40,40,43,38],bass:[1,3,6,7,9,11,13,15],lead:[12,24,15,22,19,15,10,7],leadSteps:[0,3,7,10,14],snare:[4,12,15],hat:[2,5,6,10,13,14],wave:'sawtooth'},
+  capture:{bpm:140,roots:[45,48,43,40],bass:[0,2,5,7,8,10,13,15],lead:[7,12,16,19,17,12,14,19],leadSteps:[2,6,9,12,15],snare:[4,12],hat:[2,3,6,10,11,14],wave:'square'},
+  free:{bpm:128,roots:[42,45,49,47],bass:[0,6,8,10,14],lead:[12,16,21,24,23,19,16,14],leadSteps:[1,5,8,11,14],snare:[4,12],hat:[2,6,10,14,15],wave:'sine'},
+  race:{bpm:160,roots:[47,50,45,43],bass:[1,2,5,6,9,10,11,13,14,15],lead:[12,14,19,21,22,19,17,14],leadSteps:[0,3,6,8,11,14],snare:[4,7,12],hat:[2,6,9,10,14,15],wave:'triangle'}
+};
+function setTechnoMusic(enabled,mode = 'story') {
   if (!rotorAudio) return;
   const {context} = rotorAudio;
-  if (!enabled) {
-    if (!technoTrack) return;
+  if (technoTrack && (!enabled || technoTrack.mode !== mode)) {
     const {timer,bus} = technoTrack;
     clearInterval(timer);
     bus.gain.setTargetAtTime(0,context.currentTime,.025);
     setTimeout(() => bus.disconnect(),250);
     technoTrack = null;
-    return;
   }
-  if (technoTrack) return;
+  if (!enabled || technoTrack) return;
+  const track = technoModes[mode];
+  const stepDuration = 60/track.bpm/4;
   const bus = context.createGain();
   bus.gain.value = .26;
   bus.connect(context.destination);
@@ -83,8 +89,7 @@ function setTechnoMusic(enabled) {
     sample.start(at);
     sample.stop(at+decay);
   }
-  const roots = [48.999,48.999,58.270,43.654];
-  const melody = [12,19,15,22,12,19,24,15];
+  const roots = track.roots.map(midi => 440*2**((midi-69)/12));
   function schedule() {
     const now = context.currentTime;
     if (time < now) time = now+.025;
@@ -93,24 +98,24 @@ function setTechnoMusic(enabled) {
       const step = tick%16;
       const root = roots[bar%roots.length];
       if (step%4 === 0) note(time,'sine',149,45,.23,.88);
-      if (step%8 === 4) percussion(time,'bandpass',1500,.13,.47);
-      if (step%4 === 2) percussion(time,'highpass',7100,.10,.27);
-      if (step%4 === 3) percussion(time,'highpass',8900,.028,.17);
-      if (step%4 !== 0) {
-        const bass = root * (step%8 === 7 ? 2 : 1);
-        note(time,'sawtooth',bass,bass,.079,.30,step%4 === 2 ? 910 : 475);
+      if (track.snare.includes(step)) percussion(time,'bandpass',1500,.13,.38);
+      if (track.hat.includes(step)) percussion(time,'highpass',7100,.08,.27);
+      if (track.bass.includes(step)) {
+        const bass = root*(step%8 === 7 ? 2 : 1);
+        note(time,'sawtooth',bass,bass,stepDuration*.84,.27,step%4 === 2 ? 910 : 475);
       }
-      if (bar%8 >= 2 && (step%4 === 2 || step%8 === 5)) {
-        const pitch = root*4*2**(melody[(bar*3+step)%melody.length]/12);
-        note(time,'triangle',pitch,pitch,.19,.13);
-        note(time+.156,'triangle',pitch,pitch,.15,.048);
+      const phrase = track.leadSteps.indexOf(step);
+      if (phrase >= 0 && bar%8 !== 7) {
+        const pitch = root*2*2**(track.lead[(bar*2+phrase)%track.lead.length]/12);
+        note(time,track.wave,pitch,pitch,.18,.105,1800);
+        note(time+stepDuration*1.5,'sine',pitch,pitch,.14,.046);
       }
       tick++;
-      time += technoStep;
+      time += stepDuration;
     }
   }
   schedule();
-  technoTrack = {bus,timer:setInterval(schedule,50)};
+  technoTrack = {mode,bus,timer:setInterval(schedule,50)};
 }
 
 // Short synthesized effects share the game's sound toggle and audio context.

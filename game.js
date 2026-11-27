@@ -2731,11 +2731,31 @@ function chooseSave(creating) {
   }));
   showMenuSection(saveMenu);
 }
+const openingCredits = get('#openingCredits');
+const openingVideo = get('#openingVideo');
+let openingTimeout;
+function finishOpeningCredits() {
+  if (openingCredits.hidden) return;
+  clearTimeout(openingTimeout);
+  openingCredits.hidden = true;
+  openingVideo.pause();
+  openMenu();
+}
 get('#touchStart').addEventListener('click',() => {
   get('#startScreen').hidden = true;
   applyAudio();
-  openMenu();
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    openMenu();
+    return;
+  }
+  openingCredits.hidden = false;
+  get('#skipCredits').focus();
+  openingTimeout = setTimeout(finishOpeningCredits,15000);
+  openingVideo.play().catch(finishOpeningCredits);
 });
+get('#skipCredits').addEventListener('click',finishOpeningCredits);
+openingVideo.addEventListener('ended',finishOpeningCredits);
+openingVideo.addEventListener('error',finishOpeningCredits);
 get('#openMenu').addEventListener('click',openMenu);
 get('#backToGame').addEventListener('click',() => enterGame(gamePage));
 get('#loadGame').addEventListener('click',() => chooseSave(false));
@@ -2921,5 +2941,37 @@ const exitFlightFullscreen = createFullscreenControl(
   get('#page-flight'),get('#flightFullscreen'),'flight-expanded',refreshFlightViewport
 );
 initBattleControls();
+for (const list of document.querySelectorAll('[data-page-size]')) {
+  const pager = document.createElement('div');
+  pager.className = 'list-pagination';
+  const previous = document.createElement('button');
+  const next = document.createElement('button');
+  const status = document.createElement('output');
+  previous.type = next.type = 'button';
+  previous.textContent = 'Previous';
+  next.textContent = 'Next';
+  status.setAttribute('aria-live','polite');
+  pager.append(previous,status,next);
+  list.after(pager);
+  let page = 0;
+  const refresh = () => {
+    const compact = Number(list.dataset.phonePageSize || list.dataset.pageSize);
+    const size = window.innerHeight < 480 ? Math.min(2,compact) :
+      phoneLayout.matches ? compact : Number(list.dataset.pageSize);
+    const cards = [...list.children];
+    const pages = Math.max(1,Math.ceil(cards.length/size));
+    page = Math.min(page,pages-1);
+    cards.forEach((card,index) => {card.hidden = Math.floor(index/size) !== page;});
+    previous.disabled = page === 0;
+    next.disabled = page === pages-1;
+    status.textContent = (page+1)+' / '+pages;
+    pager.hidden = pages === 1 || (list.id === 'standardUpgrades' && list.hidden);
+  };
+  previous.addEventListener('click',() => {if (page > 0) page--; refresh();});
+  next.addEventListener('click',() => {if (!next.disabled) page++; refresh();});
+  new MutationObserver(refresh).observe(list,{childList:true,attributes:true,attributeFilter:['hidden']});
+  window.addEventListener('resize',refresh);
+  refresh();
+}
 preloadMedia();
 get('#touchStart').disabled = false;

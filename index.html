@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=30">
+<link rel="stylesheet" href="styles.css?v=31">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -24,6 +24,13 @@
     <button id="touchStart" class="primary" disabled>Touch to start</button>
     <p id="loadingMedia"><progress id="mediaProgress" aria-label="Media preload"></progress> <span id="mediaStatus">Loading game…</span></p>
     <noscript>Enable JavaScript to play Hangar Hover.</noscript>
+  </div>
+</section>
+<section id="openingCredits" class="launch-screen" aria-label="Opening credits" hidden>
+  <div class="opening-frame">
+    <video id="openingVideo" src="assets/opening-credits.mp4" preload="none" muted playsinline
+      aria-label="Hangar Hover Night Watch, a Feather Rock Production in association with Team Inspire"></video>
+    <button id="skipCredits" type="button">Skip credits</button>
   </div>
 </section>
 <section id="mainMenu" class="launch-screen" aria-labelledby="menuTitle" hidden>
@@ -115,15 +122,16 @@
 <div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><p class="practice-note">Practice cleared missions and your current Story mission.</p><nav id="mission-list" aria-label="Mission list"></nav>
 <div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
 </section>
-<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet"></div>
+<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet" data-page-size="6" data-phone-page-size="4"></div>
 <p class="hangar-note">Win a Race to earn 160 CR, or finish all three sections to earn 50 CR.</p>
-<details class="achievements">
-  <summary>Achievements <span id="achievementCount"></span></summary>
+<button id="openAchievements" type="button" data-game-dialog="achievementsDialog" aria-haspopup="dialog">Achievements <span id="achievementCount"></span></button>
+<dialog id="achievementsDialog" class="game-picker" aria-labelledby="achievementsTitle">
+  <div class="game-picker-header"><h2 id="achievementsTitle">Achievements</h2><form method="dialog"><button>Done</button></form></div>
   <p>Complete every achievement to earn an extra 2,500 CR and unlock Omega XLR.</p>
-  <ul id="achievementList"></ul>
-</details>
+  <ul id="achievementList" data-page-size="6" data-phone-page-size="3"></ul>
+</dialog>
 </section>
-<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><section id="omegaSettings" hidden><h3>Omega XLR tuning</h3><fieldset id="omegaFields" aria-label="Omega XLR flight and combat settings"></fieldset></section><div id="standardUpgrades"><div id="mods"></div><h3>Battle modules</h3><div id="battleMods"></div></div><p id="purchaseStatus" role="status"></p></section>
+<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><section id="omegaSettings" hidden><h3>Omega XLR tuning</h3><fieldset id="omegaFields" aria-label="Omega XLR flight and combat settings"></fieldset></section><div id="standardUpgrades" data-page-size="1"><section><h3>Flight modules</h3><div id="mods"></div></section><section><h3>Battle modules</h3><div id="battleMods"></div></section></div><p id="purchaseStatus" role="status"></p></section>
 <section id="page-story" class="panel game-menu">
 <div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
@@ -202,7 +210,7 @@
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
 <h2>Character Files</h2>
-<div id="characterFiles"></div>
+<div id="characterFiles" data-page-size="6" data-phone-page-size="2"></div>
 <dialog id="characterProfile" aria-labelledby="profileName">
   <form method="dialog"><button aria-label="Close character profile" autofocus>Close</button></form>
   <div class="profile-gallery">
@@ -218,7 +226,7 @@
 <div id="achievementToast" role="status" aria-live="polite" hidden></div>
 <dialog id="racePilotDialog" class="game-picker" aria-labelledby="racePickerTitle">
   <div class="game-picker-header"><h2 id="racePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
-  <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label><div id="racePilotFaces" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
+  <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label><div id="racePilotFaces" data-page-size="6" data-phone-page-size="4" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
 </dialog>
 <dialog id="freePilotDialog" class="game-picker" aria-labelledby="freePickerTitle">
   <div class="game-picker-header"><h2 id="freePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
@@ -226,11 +234,11 @@
 </dialog>
 <dialog id="battlePilotDialog" class="game-picker" aria-labelledby="battlePickerTitle">
   <div class="game-picker-header"><h2 id="battlePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
-  <label class="arcade-pilot">Pilot or drone <select id="battlePilot"></select></label><div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
+  <label class="arcade-pilot">Pilot or drone <select id="battlePilot"></select></label><div id="battlePilotFaces" data-page-size="6" data-phone-page-size="4" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
 </dialog>
 <dialog id="battleAlliesDialog" class="game-picker" aria-labelledby="battleAlliesTitle">
   <div class="game-picker-header"><h2 id="battleAlliesTitle">Choose teammates</h2><form method="dialog"><button>Done</button></form></div>
-  <div id="battleAllyList"></div>
+  <div id="battleAllyList" data-page-size="6" data-phone-page-size="4"></div>
 </dialog>
 <dialog id="purchaseDialog" aria-labelledby="purchaseTitle">
   <form method="dialog">
@@ -250,7 +258,7 @@
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
 <script src="battle.js?v=21"></script>
-<script src="game.js?v=31"></script>
+<script src="game.js?v=32"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

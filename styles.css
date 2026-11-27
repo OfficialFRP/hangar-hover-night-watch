@@ -1387,3 +1387,20 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
     width:100%;min-width:44px;padding:3px;white-space:normal;
   }
 }
+
+#openingCredits{align-items:center;justify-items:center;background:#070d18}
+.opening-frame{position:relative;width:min(100%,960px);padding:8px}
+.opening-frame video{display:block;width:100%;max-height:calc(100dvh - 24px);aspect-ratio:16/9;object-fit:contain}
+#skipCredits{position:absolute;right:14px;bottom:14px;min-height:44px;background:#162439ec}
+.list-pagination{
+  display:grid;grid-template-columns:auto minmax(3rem,1fr) auto;align-items:center;
+  gap:8px;margin-block:7px;text-align:center;
+}
+.list-pagination button,#openAchievements{min-height:44px;touch-action:manipulation}
+#openAchievements{max-width:100%;display:inline-flex;gap:12px;align-items:center}
+#standardUpgrades[hidden] + .list-pagination{display:none!important}
+@media(max-height:480px){
+  #page-hangar #loadout{max-height:64px}
+  .hangar-note{display:none}
+  #characterFiles img{max-height:56px}
+}

@@ -103,3 +103,8 @@ SAVES
 Name a slot when starting a new save, or choose Rename from Continue.
 The Story checkpoint remains visible alongside the name. A save named
 KING JAK grants all Story missions, pilots, drones and upgrade tiers.
+
+Drone Battle plays all three rounds with the same roster and a fresh hull,
+ammo cooldowns, and repair packs each round. The arena has three red cameras.
+Win more rounds than your opponent to win the match. Results show damage
+for the current round and cumulative totals after the last round.

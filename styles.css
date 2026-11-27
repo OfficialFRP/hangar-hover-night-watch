@@ -973,3 +973,48 @@ body::before{
   .battle-pilot strong{font-size:8px}
   #battleRecap{grid-column:1/-1}
 }
+
+main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px}
+#page-battle:has(#battleArena:not([hidden])){padding:clamp(4px,1vw,12px)}
+#page-battle:has(#battleArena:not([hidden])) > h2{display:none}
+.battle-view{position:relative;grid-area:1/2;min-width:0}
+.battle-view #battleCanvas{width:100%;height:auto}
+#battleRoundOverlay{
+  position:absolute;inset:0;z-index:1;display:grid;place-items:center;
+  padding:6px;background:#09111cbf;text-align:center;overflow:auto;
+}
+.battle-result-card{
+  --result-color:#b2d2f7;color:var(--result-color);
+  width:min(100%,390px);padding:clamp(8px,2vw,20px);
+  background:#132235;border:1px solid var(--result-color);border-radius:10px;
+}
+#battleRoundOverlay[data-outcome=victory] .battle-result-card{--result-color:#9affd8}
+#battleRoundOverlay[data-outcome=defeat] .battle-result-card{--result-color:#ffb4bd}
+.battle-result-card h3{margin:0;font-size:clamp(19px,4vw,34px);line-height:1.05}
+.battle-result-card p{margin:6px 0;color:#eaf2fa;font-size:clamp(11px,2vw,15px)}
+#battleNextRound{background:var(--result-color);color:#0b1b28;font-weight:800}
+#battleArena:has(#battleRoundOverlay:not([hidden])) .battle-view canvas{opacity:.56}
+
+@media(max-width:850px) and (orientation:portrait){
+  .battle-stage{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .battle-view{grid-area:2/1/3/3}
+  #battleFriendly{grid-area:1/1}
+  #battleOpposing{grid-area:1/2}
+  .battle-roster{display:flex;max-height:none;overflow-x:auto}
+  .battle-pilot{flex:0 0 112px}
+  #battleOpposing .battle-pilot:first-child{margin-left:auto}
+  #page-battle #battleCanvas{max-height:none}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #battleArena{grid-template-columns:72px minmax(0,1fr) 72px}
+  .battle-stage{display:contents}
+  .battle-view{grid-column:2;grid-row:2/4;align-self:center}
+  .battle-view #battleCanvas{max-height:calc(100dvh - 144px);object-fit:contain;background:#101a28}
+  #battleFriendly,#battleOpposing{grid-row:2;max-height:74px;align-self:start}
+  #battleFriendly{grid-column:1}
+  #battleOpposing{grid-column:3}
+  #battleStick,#battleArena .battle-weapons{grid-row:3;margin-top:4px}
+  #battleStick{--stick-size:68px}
+  #battleRecap{grid-row:4}
+  .battle-result-card h3{font-size:20px}
+}

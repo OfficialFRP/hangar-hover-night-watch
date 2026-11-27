@@ -10,7 +10,8 @@ const battleStick = {x:0,y:0,id:null};
 const battleWalls = [[317,0,10,147],[317,263,10,187],[636,0,10,194],[636,306,10,144]];
 const battleCargo = [[207,62,64,51],[188,334,66,54],[426,57,66,57],[477,336,66,59],[696,65,64,57],[744,338,65,58]];
 const battleBlockers = [...battleWalls,...battleCargo];
-const battleCameras = [[260,130,.55],[405,300,-.8],[566,139,2.55],[712,303,-2.35]];
+const battleCameras = [[260,130,.55],[566,139,2.55],[712,303,-2.35]];
+const battleRoundLimit = 3;
 const battlePackSpots = [[160,260],[381,178],[481,233],[579,284],[807,200]];
 const battleArtwork = new Image();
 battleArtwork.src = 'assets/battle-atlas.webp';
@@ -87,7 +88,7 @@ function startBattle() {
     team,key,frame:fleet[frameIndex],modules:index === 0 && team === 0 ? progress.battleLevels[frameIndex] : [0,0,0],
     x:team ? 855-index%3*35 : 105+index%3*35,y:55+(index+1)*340/(total+1),
     angle:team ? -Math.PI/2 : Math.PI/2,health:100,shotWait:.4+index*.12,scatterWait:0,
-    shieldWait:0,shield:0,trail:[],dealt:0,taken:0,player:team === 0 && index === 0
+    shieldWait:0,shield:0,trail:[],dealt:0,taken:0,totalDealt:0,totalTaken:0,player:team === 0 && index === 0
   });
   const units = [spawn(0,pilot,playerFrame,0,allyCount)];
   for (let i=1;i<allyCount;i++) {
@@ -98,15 +99,25 @@ function startBattle() {
     const key = takePilot();
     units.push(spawn(1,key,progress.pilotFrames[key],i,enemyCount));
   }
-  battle = {units,player:units[0],shots:[],packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
-    elapsed:0,charge:null,paused:false,result:''};
+  battle = {units,player:units[0],round:1,wins:0,losses:0};
+  for (const unit of units) unit.spawn = {x:unit.x,y:unit.y,angle:unit.angle,shotWait:unit.shotWait};
   renderBattleRoster();
+  resetBattleRound();
+  renderBattleSetup();
+  updateBattleHud();
+}
+function resetBattleRound() {
+  Object.assign(battle,{shots:[],packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
+    elapsed:0,charge:null,paused:false,result:'',matchResult:''});
+  for (const unit of battle.units) {
+    Object.assign(unit,unit.spawn,{health:100,scatterWait:0,shieldWait:0,shield:0,dealt:0,taken:0});
+    unit.trail.length = 0;
+  }
+  get('#battleRoundOverlay').hidden = true;
   get('#battleRecap').hidden = true;
   clearBattleInput();
   battleLastDraw = -Infinity;
   get('#battlePause').textContent = 'Pause';
-  renderBattleSetup();
-  updateBattleHud();
 }
 function clearBattleInput() {
   battleHeld.clear();
@@ -308,17 +319,40 @@ function renderBattleRoster() {
     }));
   }
 }
+const battleResultLabels = {Victory:'Victory / Battle Won',Defeat:'Defeat / Battle Lost',
+  Draw:'Draw / Battle Tied', 'Battle ended':'Battle ended'};
 function concludeBattle(result) {
+  if (battle.result) return;
   battle.result = result;
+  const abandoned = result === 'Battle ended';
+  if (result === 'Victory') battle.wins++;
+  if (result === 'Defeat') battle.losses++;
+  for (const unit of battle.units) {
+    unit.totalDealt += unit.dealt;
+    unit.totalTaken += unit.taken;
+  }
+  const finished = abandoned || battle.round === battleRoundLimit;
+  if (finished) battle.matchResult = abandoned ? result :
+    battle.wins > battle.losses ? 'Victory' : battle.losses > battle.wins ? 'Defeat' : 'Draw';
+  const overlay = get('#battleRoundOverlay');
+  overlay.dataset.outcome = (battle.matchResult || result).toLowerCase();
+  updateHudText('#battleRoundHeading',battleResultLabels[battle.matchResult || result]);
+  const summary = abandoned ? 'Match ended early' :
+    (finished ? 'Round '+battle.round+': '+result+' · Final score' : 'Round '+battle.round+' of '+battleRoundLimit+' complete');
+  updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses);
+  get('#battleNextRound').textContent = finished ? 'Back to setup' : 'Next round';
+  overlay.hidden = false;
   clearBattleInput();
-  renderBattleRecap();
+  renderBattleRecap(finished);
   updateBattleHud();
+  get('#battleNextRound').focus({preventScroll:true});
 }
-function renderBattleRecap() {
+function renderBattleRecap(matchTotals) {
+  updateHudText('#battleRecapTitle',matchTotals ? 'Match damage totals' : 'Round damage totals');
   get('#battleStatRows').replaceChildren(...battle.units.map(unit => {
     const row = document.createElement('tr');
     for (const value of [battlePilotName(unit)+' · '+unit.frame.name,unit.team ? 'Rivals' : 'Allies',
-      Math.round(unit.dealt),Math.round(unit.taken)]) {
+      Math.round(matchTotals ? unit.totalDealt : unit.dealt),Math.round(matchTotals ? unit.totalTaken : unit.taken)]) {
       const cell = document.createElement('td');
       cell.textContent = value;
       row.append(cell);
@@ -329,9 +363,11 @@ function renderBattleRecap() {
 }
 function updateBattleHud() {
   const count = team => battle.units.filter(unit => unit.team === team && unit.health > 0).length;
-  updateHudText('#battleStatus',battle.result || (battle.paused ? 'Paused' : count(0)+' allies · '+count(1)+' rivals · '+Math.max(0,Math.ceil(150-battle.elapsed))+'s'));
+  const score = 'Round '+battle.round+'/'+battleRoundLimit+' · '+battle.wins+'–'+battle.losses;
+  updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
+    count(0)+' allies · '+count(1)+' rivals · '+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
   updateHudText('#battleHealth',Math.ceil(battle.player.health)+'% hull');
-  updateHudText('#battleResult',battle.result);
+  updateHudText('#battleResult',battleResultLabels[battle.matchResult || battle.result] || '');
   get('#battleHull').value = battle.player.health;
   for (const unit of battle.units) {
     const charge = Math.ceil(unit.health);
@@ -343,7 +379,7 @@ function updateBattleHud() {
     }
   }
   get('#battlePause').hidden = Boolean(battle.result);
-  get('#battleExit').textContent = battle.result ? 'Back to setup' : 'End battle';
+  get('#battleExit').hidden = Boolean(battle.result);
   for (const [selector,wait] of [['#battlePulse',battle.player.shotWait],['#battleScatter',battle.player.scatterWait],['#battleShield',battle.player.shieldWait]]) {
     get(selector).disabled = !canControlBattle() || wait > 0;
   }
@@ -507,14 +543,21 @@ function initBattleControls() {
   get('#battlePilot').addEventListener('change',renderBattleSetup);
   get('#battleAllies').addEventListener('change',renderBattleSetup);
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
-  get('#battleExit').addEventListener('click',() => {
-    if (!battle.result) {
-      concludeBattle('Battle ended');
+  get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
+  get('#battleNextRound').addEventListener('click',() => {
+    if (!battle?.result) return;
+    if (battle.matchResult) {
+      clearBattleInput();
+      battle = undefined;
+      renderBattleSetup();
+      get('#battleStart').focus({preventScroll:true});
       return;
     }
-    clearBattleInput();
-    battle = undefined;
-    renderBattleSetup();
+    battle.round++;
+    resetBattleRound();
+    drawBattle();
+    updateBattleHud();
+    get('#battleCanvas').focus({preventScroll:true});
   });
   get('#battlePause').addEventListener('click',() => {
     if (battle.paused) {

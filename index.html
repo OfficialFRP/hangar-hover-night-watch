@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -155,7 +155,7 @@
       <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
     </div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
-    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle.</p>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Play all three rounds with a fresh hull each round.</p>
     <button id="battleStart">Start battle</button>
   </div>
   <div id="battleArena" hidden>
@@ -166,7 +166,16 @@
     </div>
     <div class="battle-stage">
       <aside id="battleFriendly" class="battle-roster" aria-label="Your team"></aside>
-      <canvas id="battleCanvas" width="960" height="450" aria-label="Three-panel drone battle arena"></canvas>
+      <div class="battle-view">
+        <canvas id="battleCanvas" width="960" height="450" tabindex="-1" aria-label="Three-panel drone battle arena"></canvas>
+        <div id="battleRoundOverlay" hidden>
+          <div class="battle-result-card">
+            <h3 id="battleRoundHeading"></h3>
+            <p id="battleRoundSummary"></p>
+            <button id="battleNextRound">Next round</button>
+          </div>
+        </div>
+      </div>
       <aside id="battleOpposing" class="battle-roster" aria-label="Opposing team"></aside>
     </div>
     <section id="battleRecap" hidden aria-labelledby="battleRecapTitle">
@@ -212,7 +221,7 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="battle.js?v=2"></script>
+<script src="battle.js?v=3"></script>
 <script src="game.js?v=16"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

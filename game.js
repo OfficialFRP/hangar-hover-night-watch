@@ -61,7 +61,8 @@ function normalizeOmega(saved) {
 }
 function frameAvailable(index,save = progress) {
   const frame = fleet[index];
-  return Boolean(frame && (frame.omega ? save.completionReward === true : !frame.cost || save.ownedFrames.includes(index)));
+  return Boolean(frame && (frame.omega ? save.completionReward === true || save.playerName.includes('AEON') :
+    !frame.cost || save.ownedFrames.includes(index)));
 }
 const upgrades = [
   {name:'Extended battery', description:'+4 seconds per tier', cost:100, max:5},
@@ -152,15 +153,16 @@ function loadProgress(key) {
   const priorRaceWin = saved.raceMatch?.defeated === true ? 1 : 0;
   const ownedFrames = Array.isArray(saved.ownedFrames) ? [...new Set(saved.ownedFrames.filter(index =>
     Number.isInteger(index) && fleet[index]?.cost))] : [];
+  const playerName = cleanSaveName(saved.playerName);
   const selected = Number.isInteger(saved.selected) && fleet[saved.selected] &&
-    frameAvailable(saved.selected,{ownedFrames,completionReward:saved.completionReward}) ? saved.selected : 0;
+    frameAvailable(saved.selected,{ownedFrames,playerName,completionReward:saved.completionReward}) ? saved.selected : 0;
   const bests = {};
   for (const mode of ['normal','easy']) {
     bests[mode] = Object.fromEntries(Object.entries(saved.bests?.[mode] || {})
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
-    playerName:cleanSaveName(saved.playerName),omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
+    playerName,omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
     battleLevels:fleet.map((_,frame) => battleModules.map((_,index) =>
       Math.min(battleTierLimit,validCount(saved.battleLevels?.[frame]?.[index])))),
     credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
@@ -2668,8 +2670,10 @@ function chooseSave(creating) {
         progress.playerName = name;
         applyKingUpgrades();
         awardAchievements();
+        if (!frameAvailable(progress.selected)) progress.selected = 0;
         saveProgress();
-        refreshLoadout();
+        if (airframe.omega && !frameAvailable(omegaFrameIndex)) reset(courseIndex,false,storyFlight);
+        else refreshLoadout();
       } else {
         saved.playerName = name;
         writeData(key,saved);

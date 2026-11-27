@@ -531,6 +531,14 @@ function concludeRace(cleared,message) {
 }
 
 const storyCases = [['#caseOne',0],['#caseTwo',12],['#caseThree',24]];
+const caseIntros = {
+  0: {title:'Case 01 · Sable Freight',location:'Sable Freight calibration workshop',
+    src:'assets/case-01-sable-freight.webp',alt:'The drone workshop opens onto rows of freight trailers under amber loading lights.'},
+  12: {title:'Case 02 · North Quay',location:'Decommissioned ferry terminal',
+    src:'assets/case-02-north-quay.webp',alt:'A shuttered ferry warehouse and empty loading ramp overlook the harbor at night.'},
+  24: {title:'Case 03 · The Orison',location:'Aboard the rescue launch alongside the Orison',
+    src:'assets/case-03-the-orison.webp',alt:'The freighter Orison towers over the rescue launch in rough water before dawn.'}
+};
 let storyLines = [];
 let lineIndex = 0;
 let sceneTitle;
@@ -571,6 +579,7 @@ function renderStory() {
   const scene = get('.story-scene');
   scene.classList.toggle('credits-scene',!speaker && !illustration);
   scene.classList.toggle('team-scene',Boolean(illustration));
+  scene.classList.toggle('case-intro',Boolean(illustration?.caseIntro));
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
     const variant = speaker === 'rook' && sceneTitle.includes('Sable’s Signature') ? 7 : portrait;
@@ -610,7 +619,13 @@ function presentScene(title,lines,label,callback) {
   afterDialogue = callback;
   showPage('story');
 }
-function startBriefing(index) {
+function startBriefing(index,showCaseIntro = true) {
+  const intro = caseIntros[index];
+  if (intro && showCaseIntro) {
+    presentScene(intro.title,[[null,intro.location,null,{...intro,caseIntro:true}]],'Continue to briefing',
+      () => startBriefing(index,false));
+    return;
+  }
   const [chapter,speaker,line] = campaignBriefs[index];
   presentScene('Case 0' + (Math.floor(index/12)+1) + ' · ' + chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
     reset(index,false,true);
@@ -2755,7 +2770,7 @@ function preloadMedia() {
     index < 8 ? ['crew-'+index,'crew-expression-'+index] : ['crew-'+index]))];
   const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
     lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
-  const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt];
+  const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt,...Object.values(caseIntros).map(({src}) => src)];
   const atlases = [atlas,quayAtlas,omegaArt,onyxArt,clubAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
   const media = [
     ...atlases.map(image => () => image.decode()),

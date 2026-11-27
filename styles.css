@@ -1205,3 +1205,24 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   .battle-final-result .battle-result-card{padding:12px}
   .battle-final-result .battle-result-card h3{font-size:clamp(25px,8dvh,42px)}
 }
+
+#page-story .case-intro{
+  grid-template-columns:minmax(0,1fr);gap:0;overflow:hidden;
+  border:1px solid #537c8f;border-radius:10px;background:#0c1926;
+}
+#page-story .case-intro img{
+  display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:min(48dvh,520px);
+  object-fit:cover;object-position:center;
+}
+#page-story .case-intro #dialogue{
+  margin:0;font-size:clamp(.85rem,2.5vw,1.15rem);line-height:1.4;
+  letter-spacing:.03em;
+}
+#page-story:has(.case-intro) #storyTitle{
+  margin-block:12px 8px;font:400 clamp(22px,5.8vw,48px)/1.08 "Hangar Airframe",Impact,sans-serif;
+  color:#d1f8ff;text-wrap:balance;
+}
+#page-story:has(.case-intro) #storyNext{min-height:44px;touch-action:manipulation}
+@media(orientation:landscape) and (max-height:500px){
+  #page-story .case-intro img{max-height:43dvh}
+}

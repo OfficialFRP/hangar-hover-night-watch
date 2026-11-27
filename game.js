@@ -1070,11 +1070,12 @@ function drawPatrol(patrol) {
   ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(x,y);
-  const rays = phoneLayout.matches ? 12 : 20;
+  const rays = phoneLayout.matches ? 10 : 20;
+  const rayStep = phoneLayout.matches ? 7 : 4;
   for (let ray=0;ray<=rays;ray++) {
     const angle = phase-1.07+ray*2.14/rays;
     let reach = patrol.pursuing ? 104 : patrolRadius;
-    for (let distance=4;distance<reach;distance+=4) {
+    for (let distance=rayStep;distance<reach;distance+=rayStep) {
       if (!blockedAt(x+Math.cos(angle)*distance,y+Math.sin(angle)*distance)) continue;
       reach = distance;
       break;
@@ -1655,11 +1656,12 @@ function drawCamera(camera,index) {
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(x,y);
-  const rays = phoneLayout.matches ? 16 : 34;
+  const rays = phoneLayout.matches ? 14 : 34;
+  const rayStep = phoneLayout.matches ? 7 : 4;
   for (let i=0;i<=rays;i++) {
     const angle = heading-beamWidth+i*2*beamWidth/rays;
     let distance = beamReach;
-    for (let length=4;length<beamReach;length+=4) {
+    for (let length=rayStep;length<beamReach;length+=rayStep) {
       const sx = x+Math.cos(angle)*length;
       const sy = y+Math.sin(angle)*length;
       if (blockedAt(sx,sy)) {distance = length; break;}
@@ -2018,6 +2020,10 @@ function updateHudText(selector,text) {
   const element = get(selector);
   if (element.textContent !== text) element.textContent = text;
 }
+function updateFlightButton(selector,property,value) {
+  const button = get(selector);
+  if (button[property] !== value) button[property] = value;
+}
 function remainingBattery() {
   return clamp(1-(elapsed+drained)/stats.seconds,0,1);
 }
@@ -2061,9 +2067,9 @@ function hud() {
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
   power.classList.toggle('hostile',hostile);
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : courseIndex === freeFlightIndex ? 'Jams ∞' : 'Jams ' + jamsLeft + '/' + maxJams);
-  get('#retryFlight').hidden = state !== 'paused';
-  get('#endFree').hidden = state !== 'paused' || courseIndex !== freeFlightIndex;
-  get('#jam').disabled = state !== 'flying' || jam > 0 || jamsLeft === 0;
+  updateFlightButton('#retryFlight','hidden',state !== 'paused');
+  updateFlightButton('#endFree','hidden',state !== 'paused' || courseIndex !== freeFlightIndex);
+  updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
   updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
@@ -2147,10 +2153,12 @@ window.matchMedia('(orientation: portrait)').addEventListener('change',() => {
   clearInputs();
   if (state === 'flying') togglePause();
 });
-window.addEventListener('resize',() => {
+function refreshFlightViewport() {
   if (stick.pointer !== null) stickBounds = joystick.getBoundingClientRect();
   flightNeedsRender = true;
-});
+}
+window.addEventListener('resize',refreshFlightViewport);
+window.visualViewport?.addEventListener('resize',refreshFlightViewport);
 document.addEventListener('visibilitychange',() => {
   if (!document.hidden) return;
   clearInputs();

@@ -810,3 +810,66 @@ body::before{
 @media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
   #rivalRacer{grid-template-columns:minmax(0,1fr) 36px}
 }
+
+
+/* Keep touch targets and the course usable when phone browser chrome takes space. */
+@media(max-width:650px),(pointer:coarse) and (max-height:600px){
+  .pages,.layout{min-width:0}
+  .pages button{touch-action:manipulation}
+  .layout > .game-menu{
+    min-width:0;scroll-padding-block-end:64px;
+  }
+  .game-menu :is(button,summary),#page-flight .brief-actions button{
+    min-height:44px;touch-action:manipulation;
+  }
+  #page-free .pager{
+    position:sticky;bottom:0;z-index:1;background:#181c2c;padding:3px 0;
+  }
+  #page-flight .overlay{overflow:hidden}
+  #page-flight #brief{overscroll-behavior:contain;touch-action:pan-y}
+  #page-flight .brief-actions{min-width:0}
+  #page-flight .brief-actions button{max-width:100%;white-space:normal;line-height:1.15}
+  #page-flight .help{overscroll-behavior:contain}
+  #page-flight .racer-info{gap:2px}
+  #page-flight .racer-info strong{overflow:hidden;text-overflow:ellipsis}
+  #page-flight #raceLive{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+  #characterProfile{max-height:calc(100dvh - max(24px,env(safe-area-inset-top) + env(safe-area-inset-bottom) + 12px))}
+}
+@media(orientation:portrait) and (max-width:365px){
+  main:not(:has(#page-flight:not([hidden]))) .pages{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  main:not(:has(#page-flight:not([hidden]))) .pages button{
+    justify-self:stretch;min-height:44px;font-size:10px;
+  }
+  main:has(#page-flight:not([hidden])) .pages button{font-size:8px;letter-spacing:-.025em}
+  main:has(#page-flight:not([hidden])) .pages .tab-number{right:2px;font-size:7px}
+  #page-flight #field .card{padding:7px}
+  #page-flight #action{padding-inline:9px}
+  #page-flight .brief-actions button{padding-inline:8px;font-size:12px}
+  #page-flight .flight-actions{grid-template-columns:repeat(3,minmax(44px,1fr))}
+  #page-flight .flight-actions button{min-width:44px}
+  #raceDuel{gap:3px}
+  .racer-card{grid-template-columns:35px minmax(0,1fr);gap:4px;padding:4px}
+  #rivalRacer{grid-template-columns:minmax(0,1fr) 35px}
+}
+@media(orientation:landscape) and (min-width:680px) and (min-height:360px) and (max-height:540px) and (pointer:coarse){
+  #page-flight:has(#raceDuel:not([hidden])):has(.overlay[hidden]){
+    grid-template-columns:clamp(84px,13vw,105px) minmax(0,1fr) clamp(82px,12vw,103px);
+    grid-template-rows:auto auto minmax(0,1fr) auto;
+    align-items:stretch;
+  }
+  #page-flight:has(.overlay[hidden]) #raceDuel{display:contents}
+  #page-flight:has(.overlay[hidden]) #raceDuel .racer-card{
+    grid-row:2;grid-template-columns:minmax(0,1fr);gap:3px;
+  }
+  #page-flight:has(.overlay[hidden]) #playerRacer{grid-column:1}
+  #page-flight:has(.overlay[hidden]) #rivalRacer{grid-column:3}
+  #page-flight:has(.overlay[hidden]) #raceDuel :is(img,canvas){
+    grid-column:1;grid-row:1;justify-self:center;width:44px;
+  }
+  #page-flight:has(.overlay[hidden]) #raceDuel .racer-info{grid-column:1;grid-row:2}
+  #page-flight:has(#raceDuel:not([hidden])):has(.overlay[hidden]) #field{grid-row:2/4}
+  #page-flight:has(#raceDuel:not([hidden])):has(.overlay[hidden]) .hud,
+  #page-flight:has(#raceDuel:not([hidden])):has(.overlay[hidden]) #raceLive{grid-column:1/-1}
+}

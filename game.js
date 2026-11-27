@@ -564,6 +564,7 @@ function resumeCampaign() {
 
 function showPage(page) {
   if (currentPage === 'battle' && page !== 'battle') {pauseBattle(); exitBattleFullscreen();}
+  if (currentPage === 'flight' && page !== 'flight') exitFlightFullscreen();
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
@@ -2359,6 +2360,7 @@ function showMenuSection(section) {
 function openMenu() {
   pauseBattle();
   if (currentPage === 'battle') exitBattleFullscreen();
+  if (currentPage === 'flight') exitFlightFullscreen();
   if (state === 'flying') togglePause();
   flightAudio(0,false,false,false);
   if (currentPage !== 'menu') gamePage = currentPage;
@@ -2612,6 +2614,9 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+const exitFlightFullscreen = createFullscreenControl(
+  get('#page-flight'),get('#flightFullscreen'),'flight-expanded',refreshFlightViewport
+);
 initBattleControls();
 preloadMedia();
 get('#touchStart').disabled = false;

@@ -565,40 +565,47 @@ function tickBattle(now,dt) {
     battleLastDraw = now;
   }
 }
-function syncBattleFullscreen() {
-  const arena = get('#battleArena');
-  const active = document.fullscreenElement === arena || arena.classList.contains('battle-expanded');
-  const button = get('#battleFullscreen');
-  button.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
-  button.setAttribute('aria-pressed',String(active));
-}
-function exitBattleFullscreen() {
-  const arena = get('#battleArena');
-  arena.classList.remove('battle-expanded');
-  if (document.fullscreenElement === arena) document.exitFullscreen().catch(() => {});
-  syncBattleFullscreen();
-}
-async function toggleBattleFullscreen() {
-  const arena = get('#battleArena');
-  if (document.fullscreenElement === arena || arena.classList.contains('battle-expanded')) {
-    exitBattleFullscreen();
-    return;
-  }
-  if (arena.requestFullscreen) {
-    try {
-      await arena.requestFullscreen();
-      syncBattleFullscreen();
-      return;
-    } catch {
-      // Embedded browsers and some phones restrict native fullscreen.
+function createFullscreenControl(element,button,expandedClass,onResize) {
+  let request = 0;
+  const active = () => document.fullscreenElement === element || element.classList.contains(expandedClass);
+  const sync = () => {
+    const expanded = active();
+    button.textContent = expanded ? 'Exit fullscreen' : 'Fullscreen';
+    button.setAttribute('aria-pressed',String(expanded));
+    onResize?.();
+  };
+  const exit = () => {
+    request++;
+    element.classList.remove(expandedClass);
+    if (document.fullscreenElement === element) document.exitFullscreen().catch(() => {});
+    sync();
+  };
+  button.addEventListener('click',async () => {
+    if (active()) {exit(); return;}
+    const attempt = ++request;
+    if (element.requestFullscreen) {
+      try {
+        await element.requestFullscreen();
+        if (attempt !== request && document.fullscreenElement === element) exit();
+        else sync();
+        return;
+      } catch {
+        // Some mobile and embedded browsers restrict native fullscreen.
+      }
     }
-  }
-  arena.classList.add('battle-expanded');
-  syncBattleFullscreen();
+    if (attempt !== request) return;
+    element.classList.add(expandedClass);
+    sync();
+  });
+  document.addEventListener('fullscreenchange',sync);
+  window.addEventListener('keydown',event => {
+    if (event.key === 'Escape' && element.classList.contains(expandedClass)) exit();
+  });
+  return exit;
 }
+let exitBattleFullscreen;
 function initBattleControls() {
-  get('#battleFullscreen').addEventListener('click',toggleBattleFullscreen);
-  document.addEventListener('fullscreenchange',syncBattleFullscreen);
+  exitBattleFullscreen = createFullscreenControl(get('#battleArena'),get('#battleFullscreen'),'battle-expanded');
   for (const art of [onyxArt,clubAtlas,quayAtlas,storyAtlas,fleetArt]) {
     art.addEventListener('load',() => battleOutlines.clear());
   }
@@ -675,10 +682,6 @@ function initBattleControls() {
     button.addEventListener('click',event => {if (event.detail === 0 && canControlBattle()) activate();});
   }
   window.addEventListener('keydown',event => {
-    if (event.key === 'Escape' && get('#battleArena').classList.contains('battle-expanded')) {
-      exitBattleFullscreen();
-      return;
-    }
     if (!canControlBattle() || /^(INPUT|SELECT)$/.test(event.target?.tagName)) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (key === ' ' && event.target?.tagName === 'BUTTON') return;

@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=13">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -151,11 +151,11 @@
   <div id="battleSetup" hidden>
     <div class="battle-settings">
       <label>Pilot <select id="battlePilot"></select></label>
-      <label>Lead opponent <select id="battleOpponent"></select></label>
       <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
       <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
     </div>
-    <p>Your team includes your drone. The remaining pilots fly under AI control. Up to 12 drones can join a battle.</p>
+    <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle.</p>
     <button id="battleStart">Start battle</button>
   </div>
   <div id="battleArena" hidden>
@@ -164,14 +164,23 @@
       <span id="battleHealth"></span><meter id="battleHull" min="0" max="100" value="100" aria-label="Your hull"></meter>
       <button id="battlePause">Pause</button><button id="battleExit">End battle</button>
     </div>
-    <canvas id="battleCanvas" width="960" height="450" aria-label="Three-panel drone battle arena"></canvas>
+    <div class="battle-stage">
+      <aside id="battleFriendly" class="battle-roster" aria-label="Your team"></aside>
+      <canvas id="battleCanvas" width="960" height="450" aria-label="Three-panel drone battle arena"></canvas>
+      <aside id="battleOpposing" class="battle-roster" aria-label="Opposing team"></aside>
+    </div>
+    <section id="battleRecap" hidden aria-labelledby="battleRecapTitle">
+      <h3 id="battleRecapTitle">Battle results</h3>
+      <div class="battle-table"><table><thead><tr><th scope="col">Pilot / drone</th><th scope="col">Team</th><th scope="col">Dealt</th><th scope="col">Taken</th></tr></thead>
+      <tbody id="battleStatRows"></tbody></table></div>
+    </section>
     <div class="battle-controls">
       <div id="battleStick" class="joystick" role="group" aria-label="Battle steering"><span class="stick-knob"></span></div>
       <div class="battle-weapons">
         <button id="battlePulse">Pulse</button><button id="battleScatter">Scatter</button><button id="battleShield">Shield</button>
       </div>
     </div>
-    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. Keyboard actions use Space, X, and C.</p>
+    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. Keyboard actions use Space, X, and C. Red beams chip hull. Green packs repair hull and return after 8 seconds.</p>
   </div>
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
@@ -203,8 +212,8 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="battle.js?v=1"></script>
-<script src="game.js?v=15"></script>
+<script src="battle.js?v=2"></script>
+<script src="game.js?v=16"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

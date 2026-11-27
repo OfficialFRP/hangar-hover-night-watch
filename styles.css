@@ -928,3 +928,48 @@ body::before{
 
 .battle-sr-only{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
 #page-battle .battle-weapons button{touch-action:none}
+
+#battleAllyPicker{margin:10px 0;padding:8px;border:1px solid #557087;border-radius:7px}
+#battleAllyList{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:4px}
+#battleAllyList label{display:flex;align-items:center;min-height:44px;gap:7px;font-size:13px}
+#battleAllyList input{width:18px;height:18px;accent-color:#94f3d9}
+.battle-stage{display:grid;grid-template-columns:clamp(86px,13vw,145px) minmax(0,1fr) clamp(86px,13vw,145px);gap:5px;align-items:start}
+.battle-stage #battleCanvas{grid-area:1/2}
+.battle-roster{
+  display:grid;gap:4px;min-width:0;max-height:clamp(120px,39dvh,395px);
+  overflow:auto;scrollbar-width:thin;overscroll-behavior:contain;
+}
+#battleFriendly{grid-area:1/1}
+#battleOpposing{grid-area:1/3}
+.battle-pilot{
+  display:grid;grid-template-columns:clamp(21px,3vw,34px) minmax(0,1fr);gap:4px;align-items:center;
+  padding:4px;border:1px solid #569b91;border-radius:5px;background:#172738;
+}
+#battleOpposing .battle-pilot{border-color:#af6689}
+.battle-pilot img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:3px}
+.battle-pilot strong,.battle-pilot small{display:block;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.battle-pilot meter{display:block;width:100%;height:9px;accent-color:#79e9c2}
+#battleOpposing meter{accent-color:#f38eaf}
+.battle-pilot.battle-ko{opacity:.5}
+#battleRecap{margin:8px 0}
+#battleRecap h3{margin:0 0 5px}
+.battle-table{max-height:42dvh;overflow:auto;overscroll-behavior:contain}
+.battle-table table{width:100%;border-collapse:collapse;font-size:clamp(11px,2.8vw,14px)}
+.battle-table :is(td,th){text-align:left;padding:7px 5px;border-bottom:1px solid #425675}
+.battle-table th{position:sticky;top:0;background:#19243a}
+.battle-table :is(td,th):nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}
+#battleArena:has(#battleRecap:not([hidden])) .battle-controls{display:none}
+@media(max-width:650px) and (orientation:portrait){
+  .battle-stage{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .battle-stage #battleCanvas{grid-area:2/1/3/3}
+  #battleOpposing{grid-area:1/2}
+  .battle-roster{display:flex;max-height:none;overflow-x:auto}
+  .battle-pilot{flex:0 0 112px}
+  #battleOpposing .battle-pilot:first-child{margin-left:auto}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  .battle-stage{grid-column:2;grid-row:2;grid-template-columns:62px minmax(0,1fr) 62px}
+  .battle-pilot{grid-template-columns:20px minmax(0,1fr);padding:3px}
+  .battle-pilot strong{font-size:8px}
+  #battleRecap{grid-column:1/-1}
+}

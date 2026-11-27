@@ -1925,29 +1925,29 @@ function paintDrone(ctx,frame,spin) {
   ctx.fillStyle = '#b7f4f7';
   ctx.fill();
 }
-function drawDroneTrail(points,frame,end) {
+function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed) {
   if (points.length < 2) return;
   const ink = frame.onyx ? '#84fff1' : frame.color;
-  ctx.save();
-  ctx.lineCap = 'round';
+  surface.save();
+  surface.lineCap = 'round';
   for (let i=0;i<points.length;i++) {
     const a = points[i];
     const b = points[i+1] ?? end;
     if (!b) break;
-    const strength = Math.max(0,1-(elapsed-a.time)/trailLifetime);
+    const strength = Math.max(0,1-(clock-a.time)/trailLifetime);
     const hue = frame.onyx && strength < .55 ? '#bf76ff' : ink;
-    ctx.beginPath();
-    ctx.moveTo(a.x,a.y);
-    ctx.lineTo(b.x,b.y);
-    ctx.strokeStyle = hue;
-    ctx.globalAlpha = .2*strength;
-    ctx.lineWidth = 2+12*strength;
-    ctx.stroke();
-    ctx.globalAlpha = .76*strength;
-    ctx.lineWidth = .5+3.6*strength;
-    ctx.stroke();
+    surface.beginPath();
+    surface.moveTo(a.x,a.y);
+    surface.lineTo(b.x,b.y);
+    surface.strokeStyle = hue;
+    surface.globalAlpha = .2*strength;
+    surface.lineWidth = 2+12*strength;
+    surface.stroke();
+    surface.globalAlpha = .76*strength;
+    surface.lineWidth = .5+3.6*strength;
+    surface.stroke();
   }
-  ctx.restore();
+  surface.restore();
 }
 function renderLoadout() {
   if (!airframe) return;
@@ -2383,6 +2383,7 @@ function openSave(key,saved) {
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;
   battle = undefined;
+  allyChoices.clear();
   applyKingUpgrades();
   arcadeChoice.race = arcadeChoice.free = 'equipped';
   const pilotsAssigned = assignPilotFrames();

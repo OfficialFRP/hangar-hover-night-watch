@@ -91,11 +91,13 @@ are shuffled once per save, and clearing Story missions unlocks the Cast.
 
 DRONE BATTLE
 Complete Story to unlock tab 08. Choose your own drone or starting pilot,
-a lead opponent, and team sizes with up to 12 drones total. AI pilots fill
-both teams. Steer with WASD, arrows, or the joystick. Tap Pulse or Space
+your teammates, and team sizes with up to 12 drones total. Opponents and
+unfilled teammate spots are randomized. Steer with WASD, arrows, or the joystick. Tap Pulse or Space
 for a straight shot and hold it for a charged shot. X fires Scatter and
 C raises the shield. Upgrade battle weapons on the equipped drone from
 the Hangar upgrades screen. Purchases require Yes in the Purchase dialog.
+Red camera beams damage hull. Green packs repair 32 hull and return eight
+seconds after pickup. Results show damage dealt and taken for every drone.
 
 SAVES
 Name a slot when starting a new save, or choose Rename from Continue.

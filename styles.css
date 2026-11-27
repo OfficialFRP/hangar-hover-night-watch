@@ -1144,6 +1144,11 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   color:#e8ffed;background:#0b17258c;text-shadow:0 0 15px #54ffb9;
   font:900 clamp(42px,12vw,114px)/1 system-ui,sans-serif;
 }
+#battleCountdown.battle-respawn{
+  inset:8px 0 auto;width:max-content;max-width:calc(100% - 16px);margin-inline:auto;
+  padding:7px 14px;border:1px solid #71a997;border-radius:8px;background:#0b1725ed;
+  font-size:clamp(14px,3.5vw,24px);line-height:1.2;text-shadow:none;
+}
 #battleFlagStatus{font-size:11px;color:#d3e8fe}
 
 #battleFriendly .battle-pilot.battle-defender{border-color:#68beff}

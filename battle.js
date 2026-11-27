@@ -185,8 +185,6 @@ function resetBattleRound() {
     unit.trail.length = 0;
     if (unit.ai) unit.ai.planAt = 0;
   }
-  get('#battleCountdown').hidden = !battle.countdown;
-  if (battle.countdown) updateHudText('#battleCountdown',String(Math.ceil(battle.countdown)));
   get('#battleRoundOverlay').hidden = true;
   get('#battleRecap').hidden = true;
   clearBattleInput();
@@ -203,8 +201,12 @@ function clearBattleInput() {
   stick.style.setProperty('--stick-x','0px');
   stick.style.setProperty('--stick-y','0px');
   if (battle) {
+    const source = battle.chargeSource;
     battle.charge = null;
-    get('#battlePulse').classList.remove('charging');
+    battle.chargeSource = undefined;
+    const pulse = get('#battlePulse');
+    if (typeof source === 'number' && pulse.hasPointerCapture(source)) pulse.releasePointerCapture(source);
+    pulse.classList.remove('charging');
   }
 }
 function pauseBattle() {
@@ -262,11 +264,13 @@ function battlePulseStart(source) {
   battle.charge = battle.elapsed;
   battle.chargeSource = source;
   get('#battlePulse').classList.add('charging');
+  return true;
 }
 function battlePulseEnd(source) {
   if (!canControlBattle() || battle.charge === null || battle.chargeSource !== source) return;
   fireBattleShot(battle.player,battle.elapsed-battle.charge >= .55 ? 'powered' : 'pulse');
   battle.charge = null;
+  battle.chargeSource = undefined;
   get('#battlePulse').classList.remove('charging');
 }
 function moveBattleUnit(unit,dx,dy,dt) {
@@ -457,7 +461,7 @@ function recordBattleTrail(unit,priorX,priorY) {
   }
 }
 function transferBattleControl() {
-  if (battle.player.health > 0) return;
+  if (battle.player.lives > 0) return;
   let replacement;
   for (const unit of battle.units) {
     if (unit.team === 0 && unit.health > 0 && (!replacement || unit.health > replacement.health)) replacement = unit;
@@ -467,9 +471,7 @@ function transferBattleControl() {
   battle.player = replacement;
   replacement.player = true;
   battle.transferAt = battle.elapsed;
-  battle.charge = null;
-  battle.chargeSource = undefined;
-  get('#battlePulse').classList.remove('charging');
+  clearBattleInput();
 }
 function battleTransferFlash(elapsedSinceTransfer) {
   return elapsedSinceTransfer >= 0 && elapsedSinceTransfer < 1 &&
@@ -512,6 +514,7 @@ function scheduleBattleRespawn(unit) {
   if (unit.health > 0 || unit.respawnAt !== undefined) return;
   unit.lives = Math.max(0,unit.lives-1);
   unit.respawnAt = unit.lives > 0 ? battle.elapsed+3 : Infinity;
+  if (unit === battle.player) clearBattleInput();
 }
 function respawnBattleDrone(unit) {
   scheduleBattleRespawn(unit);
@@ -677,15 +680,22 @@ function updateBattleHud() {
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     (battle.mode === 'capture' ? 'Capture the Flag · ' : count(0)+' allies · '+count(1)+' rivals · ')+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
   updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battle.player.maxHull+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
-  updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player)+(battle.player.defender ? ' · Defender' : battle.player.ctfRole ? ' · '+battle.player.ctfRole : ''));
+  const pilot = battle.player;
+  const respawning = pilot.health <= 0 && pilot.lives > 0 && !battle.result;
+  const pilotState = respawning ? 'Respawning: ' : pilot.health > 0 ? 'Flying: ' : 'Eliminated: ';
+  updateHudText('#battlePilotStatus',pilotState+battlePilotName(pilot)+(pilot.defender ? ' · Defender' : pilot.ctfRole ? ' · '+pilot.ctfRole : ''));
+  const countdown = get('#battleCountdown');
+  const seconds = respawning ? Math.max(1,Math.ceil(pilot.respawnAt-battle.elapsed-1e-9)) :
+    Math.max(0,Math.ceil(battle.countdown-1e-9));
+  countdown.hidden = !seconds || Boolean(battle.result);
+  countdown.classList.toggle('battle-respawn',respawning);
+  if (!countdown.hidden) updateHudText('#battleCountdown',respawning ? 'Respawn in '+seconds+'s' : String(seconds));
   get('#battleFlagStatus').hidden = battle.mode !== 'capture';
   if (battle.pads.length) {
     const landing = Math.min(100,Math.floor(battle.player.landing/.55*100));
     updateHudText('#battleFlagStatus',landing ? 'Landing '+landing+'%' : 'Land on the opposing pad');
   }
-  const respawning = battle.player.health<=0 && Number.isFinite(battle.player.respawnAt);
-  updateHudText('#battleLives','Lives: '+battle.player.lives+
-    (respawning ? ' · Respawn in '+Math.max(0,Math.ceil(battle.player.respawnAt-battle.elapsed))+'s' : ''));
+  updateHudText('#battleLives','Lives: '+pilot.lives);
   if (!battle.result) updateHudText('#battleResult','');
   get('#battleHull').max = battle.player.maxHull;
   get('#battleHull').value = battle.player.health;
@@ -992,10 +1002,7 @@ function tickBattle(now,dt) {
   if (!battle || battle.paused || battle.result) return;
   if (battle.countdown>0) {
     battle.countdown = Math.max(0,battle.countdown-dt);
-    const remaining = Math.ceil(battle.countdown-1e-9);
-    if (remaining <= 0) battle.countdown = 0;
-    get('#battleCountdown').hidden = remaining <= 0;
-    if (remaining > 0) updateHudText('#battleCountdown',String(remaining));
+    if (battle.countdown <= 1e-9) battle.countdown = 0;
     updateBattleHud();
     return;
   }
@@ -1124,14 +1131,13 @@ function initBattleControls() {
   });
   const pulse = get('#battlePulse');
   pulse.addEventListener('pointerdown',event => {
-    if (event.button !== 0) return;
-    pulse.setPointerCapture(event.pointerId);
-    battlePulseStart(event.pointerId);
+    if (event.button === 0 && battlePulseStart(event.pointerId)) pulse.setPointerCapture(event.pointerId);
   });
   pulse.addEventListener('pointerup',event => battlePulseEnd(event.pointerId));
   for (const type of ['pointercancel','lostpointercapture']) pulse.addEventListener(type,event => {
     if (!battle || battle.chargeSource !== event.pointerId) return;
     battle.charge = null;
+    battle.chargeSource = undefined;
     pulse.classList.remove('charging');
   });
   pulse.addEventListener('click',event => {

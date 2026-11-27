@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=25">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -159,9 +159,9 @@
     </div>
     <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
-    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Each drone starts the round with three lives.</p>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Your selected drone has three lives per round and respawns after three seconds. Once it runs out of lives, you take over a surviving ally.</p>
     <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad. Hunters engage enemy drones and runners make for the opposing pad.</p>
-    <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round. Drones with lives left respawn after three seconds.</p>
+    <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round.</p>
   </div>
   <div id="battleArena" hidden>
     <div class="battle-status">
@@ -227,7 +227,7 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
-<script src="battle.js?v=17"></script>
+<script src="battle.js?v=18"></script>
 <script src="game.js?v=26"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

@@ -427,7 +427,7 @@ function applyBattleDamage(unit,amount,source) {
   if (source) source.dealt += damage;
 }
 function applyBattleHazards(unit,dt) {
-  const inBeam = battle.hazards.some(camera => {
+  const inBeam = !unit.omega && battle.hazards.some(camera => {
     if (camera.turret) return false;
     const {x,y} = camera;
     const dx = unit.x-x, dy = unit.y-y;
@@ -545,6 +545,7 @@ function stepBattle(dt) {
     shot.life -= dt;
     if (shot.life <= 0 || shot.x < 0 || shot.x > 960 || shot.y < 0 || shot.y > 450 || battleWallAt(shot.x,shot.y,shot.size)) return false;
     const target = battle.units.find(unit => unit.team !== shot.team && unit.health > 0 &&
+      !(shot.kind === 'stasis' && unit.omega) &&
       (unit.x-shot.x)**2+(unit.y-shot.y)**2 < (13+shot.size)**2);
     if (!target) return true;
     if (battleUnitProtected(target)) battleSound('blocked');

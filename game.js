@@ -41,7 +41,7 @@ const fleet = [
   {name:'Harbor H8',color:'#7bead6',thrust:430,battery:8,brake:17,size:16,exposure:.86,arms:12,rotor:7,windResponse:.4,stability:2.9,cost:375,desc:'Steady handling and extra battery'},
   {name:'Nova N8',color:'#d49eff',thrust:492,battery:4,brake:15,size:16,exposure:.94,arms:12,rotor:7,windResponse:.55,stability:2.6,cost:425,desc:'Midweight sprint frame'},
   {name:'Cirrus C9',color:'#a4c7ff',thrust:450,battery:7,brake:18,size:16,exposure:.81,arms:12,rotor:7,windResponse:.32,stability:3.2,cost:475,desc:'Crosswind control and strong braking'},
-  {name:'Omega XLR',color:'#ffffff',thrust:1000,battery:0,brake:100,size:19,exposure:.55,arms:15,rotor:8,windResponse:.08,stability:3,omega:true,desc:'Achievement reward · adjustable flight and battle systems'}
+  {name:'Omega XLR',color:'#ffffff',thrust:1000,battery:0,brake:100,size:19,exposure:.55,arms:15,rotor:8,windResponse:.08,stability:3,omega:true,desc:'Achievement reward · protected from obstacles and security hazards'}
 ];
 const omegaFrameIndex = fleet.findIndex(frame => frame.omega);
 const omegaSettings = [
@@ -1040,7 +1040,7 @@ function update(dt) {
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .55 : 1) : 0;
   const wind = gust * Math.sin(elapsed * 2.3);
   const crosswind = course.exit || course.quay ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
-  const restricted = radarLocked && jam === 0;
+  const restricted = !airframe.omega && radarLocked && jam === 0;
   const damping = braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9);
   const drag = Math.exp(-(damping+(restricted ? 2.1 : 0))*dt);
   const steering = stats.thrust * (restricted ? .32 : 1);
@@ -1052,8 +1052,24 @@ function update(dt) {
   drone.y += drone.vy * dt;
   const radius = airframe.size;
   const strikes = course.walls.filter(wall => touchesStructure(wall,drone.x,drone.y,radius));
-  if (strikes.length && (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY))) {
-    return finish(false,'The drone hit an obstacle. Brake before tight turns.');
+  if (strikes.length) {
+    if (airframe.omega) {
+      bounceOff(strikes[0],previousX,previousY,true);
+    } else if (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY)) {
+      return finish(false,'The drone hit an obstacle. Brake before tight turns.');
+    }
+  }
+  const doorOpen = course.exit && gate === course.gates.length &&
+    Math.abs(drone.y-course.exit[0]) < course.exit[1]/2-radius;
+  const rightEdge = doorOpen ? Infinity : 960-radius;
+  const edgeX = clamp(drone.x,radius,rightEdge);
+  const edgeY = clamp(drone.y,radius,500-radius);
+  if (drone.x !== edgeX || drone.y !== edgeY) {
+    if (!airframe.omega) return finish(false,'The drone hit the perimeter.');
+    if (drone.x !== edgeX) drone.vx *= -.36;
+    if (drone.y !== edgeY) drone.vy *= -.36;
+    drone.x = edgeX;
+    drone.y = edgeY;
   }
   const {x,y,vx,vy} = drone;
   const drifting = Math.hypot(vx,vy) > 12;
@@ -1064,21 +1080,17 @@ function update(dt) {
   if (Math.hypot(vx,vy) > 10 && (!lastTrailPoint || elapsed-lastTrailPoint.time >= trailSampleInterval)) {
     droneTrail.push({x,y,time:elapsed});
   }
-  const doorOpen = course.exit && gate === course.gates.length &&
-    Math.abs(y-course.exit[0]) < course.exit[1]/2-radius;
-  if (x<radius || (x>960-radius && !doorOpen) || y<radius || y>500-radius)
-    return finish(false,'The drone hit the perimeter.');
   // Use the strongest visible signal so overlapping red beams do not stack.
   const previousSignal = cameraSignal;
   cameraSignal = '';
   for (const [index,camera] of (course.cameras || []).entries()) {
-    if ((camera[3] === 'red' && jam > 0) || !inBeam(camera,index,x,y)) continue;
+    if ((camera[3] === 'red' && (airframe.omega || jam > 0)) || !inBeam(camera,index,x,y)) continue;
     cameraSignal = camera[3];
     if (cameraSignal === 'red') break;
   }
   const underThreat = previousSignal === 'red' || radarLocked;
   for (const patrol of patrols) updatePatrol(patrol,x,y,dt);
-  radarLocked = jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
+  radarLocked = !airframe.omega && jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
   if (radarLocked || cameraSignal === 'red') {
     tookSignalDamage = true;
     if (!underThreat) sound('drain');
@@ -1550,16 +1562,23 @@ function paintEquipment(ctx,w,h,type,seed) {
   ctx.restore();
 }
 const isPadded = type => type === 'foam' || type === 'fender';
-function bounceOff(wall,previousX,previousY) {
+function bounceOff(wall,previousX,previousY,reinforced = false) {
   const [x,y,w,h,type] = wall;
   const corner = cornerRadius(w,h,type);
   const dx = drone.x-clamp(drone.x,x+corner,x+w-corner);
   const dy = drone.y-clamp(drone.y,y+corner,y+h-corner);
   const distance = Math.hypot(dx,dy);
-  if (!distance) return false;
+  if (!distance) {
+    if (!reinforced) return false;
+    drone.x = previousX;
+    drone.y = previousY;
+    drone.vx *= -.36;
+    drone.vy *= -.36;
+    return true;
+  }
   const nx = dx/distance, ny = dy/distance;
   const inbound = drone.vx*nx + drone.vy*ny;
-  if (inbound < -132) return false;
+  if (!reinforced && inbound < -132) return false;
   drone.x = previousX;
   drone.y = previousY;
   if (inbound < 0) {

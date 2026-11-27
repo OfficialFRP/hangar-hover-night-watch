@@ -617,6 +617,7 @@ function showBattleResultWindow(final) {
   const outcome = final ? battle.matchResult : battle.result;
   const overlay = get('#battleRoundOverlay');
   overlay.dataset.outcome = outcome.toLowerCase();
+  overlay.classList.toggle('battle-final-result',final);
   const heading = (final ? battleMatchLabels : battleRoundLabels)[outcome];
   updateHudText('#battleRoundHeading',heading);
   updateHudText('#battleResult',heading);
@@ -628,7 +629,7 @@ function showBattleResultWindow(final) {
     battle.matchResult ? 'View battle result' : 'Next round';
   overlay.hidden = false;
   renderBattleRecap(final);
-  get('#battleNextRound').focus();
+  get('#battleNextRound').focus({preventScroll:true});
 }
 function concludeBattle(result) {
   if (battle.result) return;
@@ -867,20 +868,52 @@ function drawBattleOutline(surface,frame,color) {
 }
 function drawCapturePads(surface) {
   for (const pad of battle.pads) {
-    const color = pad.team ? '#ff667e' : '#69ff9a';
-    surface.fillStyle = '#0d1a25';
-    surface.fillRect(pad.x-30,pad.y-30,60,60);
+    const color = pad.team ? '#ff758d' : '#71ffb1';
+    surface.save();
+    surface.translate(pad.x,pad.y);
+    // Beveled deck plate and inset approach markings, baked into the arena.
+    surface.beginPath();
+    surface.moveTo(-22,-33);
+    for (const [x,y] of [[22,-33],[33,-22],[33,22],[22,33],[-22,33],[-33,22],[-33,-22]]) {
+      surface.lineTo(x,y);
+    }
+    surface.closePath();
+    const metal = surface.createLinearGradient(0,-33,0,33);
+    metal.addColorStop(0,'#31475b');
+    metal.addColorStop(.52,'#142433');
+    metal.addColorStop(1,'#0a1420');
+    surface.fillStyle = metal;
+    surface.fill();
+    surface.lineWidth = 2;
+    surface.strokeStyle = '#8397aa';
+    surface.stroke();
     surface.strokeStyle = color;
-    surface.lineWidth = 3;
-    surface.strokeRect(pad.x-29,pad.y-29,58,58);
-    circle(pad.x,pad.y,22,surface);
+    circle(0,0,23,surface);
     surface.stroke();
     surface.fillStyle = color;
-    surface.font = 'bold 23px monospace';
-    surface.fillText('H',pad.x-7,pad.y+8);
-    surface.font = 'bold 11px monospace';
-    surface.fillText(pad.team ? 'RIVAL PAD' : 'ALLY PAD',pad.x-27,pad.y-36);
+    for (const x of [-29,26]) {
+      for (const y of [-17,9]) surface.fillRect(x,y,3,8);
+    }
+    surface.fillRect(-9,-10,4,20);
+    surface.fillRect(5,-10,4,20);
+    surface.fillRect(-5,-2,10,4);
+    surface.fillStyle = '#0b1521';
+    surface.fillRect(-35,-51,70,15);
+    surface.fillStyle = color;
+    surface.font = 'bold 11px system-ui, sans-serif';
+    surface.textAlign = 'center';
+    surface.fillText(pad.team ? 'RIVAL PAD' : 'ALLY PAD',0,-40);
+    surface.restore();
   }
+}
+function drawCaptureProgress(surface) {
+  if (!battle.player.landing || !battle.pads.length) return;
+  const pad = battle.pads[1-battle.player.team];
+  surface.beginPath();
+  surface.arc(pad.x,pad.y,28,-Math.PI/2,-Math.PI/2+2*Math.PI*Math.min(1,battle.player.landing/.55));
+  surface.strokeStyle = '#f5fff9';
+  surface.lineWidth = 3;
+  surface.stroke();
 }
 function drawBattle() {
   const field = get('#battleCanvas');
@@ -903,10 +936,11 @@ function drawBattle() {
     art.font = 'bold 18px monospace';
     art.fillStyle = '#b3c5e0';
     ['WEST DECK','RELAY BAY','EAST DECK'].forEach((name,i) => art.fillText(name,18+i*320,32));
+    drawCapturePads(art);
   }
   surface.drawImage(battleBackdrop,0,0);
   drawBattleHazards(surface);
-  drawCapturePads(surface);
+  drawCaptureProgress(surface);
   for (const shot of battle.shots) drawBattleShot(surface,shot);
   for (const unit of battle.units) {
     if (unit.health <= 0) continue;

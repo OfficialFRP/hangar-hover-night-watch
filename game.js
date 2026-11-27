@@ -859,6 +859,7 @@ function menu(title, message, label, callback) {
   get('#headline').textContent = title;
   get('#brief').textContent = message;
   action.textContent = label;
+  overlay.classList.toggle('arcade-launch',state === 'ready' && courseIndex < 0);
   nextAction = callback;
   get('#backToRacePilots').hidden = true;
   overlay.hidden = false;
@@ -2347,10 +2348,35 @@ function hud() {
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
   updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
+// Advance the current message without stealing Space from form controls or flight braking.
+let advancingWithSpace = false;
+window.addEventListener('keydown',event => {
+  if (event.key === ' ' && advancingWithSpace) {
+    event.preventDefault();
+    return;
+  }
+  if (event.key !== ' ' || event.defaultPrevented || event.altKey || event.ctrlKey ||
+      event.metaKey || event.shiftKey || get('dialog[open]') ||
+      event.target?.closest?.('input, select, textarea, a, summary, [contenteditable]')) return;
+  const next = currentPage === 'story' ? get('#storyNext') :
+    currentPage === 'race' ? get('#raceFly') : currentPage === 'free' ? get('#freeFly') :
+    currentPage === 'flight' && state !== 'flying' && !overlay.hidden ? action :
+    currentPage === 'battle' && !get('#battleRoundOverlay').hidden ? get('#battleNextRound') : null;
+  if (!next) return;
+  const focusedButton = event.target?.closest?.('button');
+  if (focusedButton && focusedButton !== next &&
+      focusedButton.closest('.pager, .brief-actions, .battle-result-card')) return;
+  event.preventDefault();
+  if (!event.repeat && !next.disabled) {
+    advancingWithSpace = true;
+    next.click();
+  }
+});
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
 window.addEventListener('keydown',event => {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  if (currentPage !== 'flight' || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (currentPage !== 'flight' || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
+      get('dialog[open]') || event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
   if (flightKeys.includes(key) && state === 'flying') {
     event.preventDefault();
     keyboard.add(key);
@@ -2363,8 +2389,15 @@ window.addEventListener('keydown',event => {
   }
   if (key === 'c') activateJam();
 });
-window.addEventListener('keyup',event => keyboard.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key));
+window.addEventListener('keyup',event => {
+  if (event.key === ' ' && advancingWithSpace) {
+    advancingWithSpace = false;
+    event.preventDefault();
+  }
+  keyboard.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key);
+});
 window.addEventListener('blur',() => {
+  advancingWithSpace = false;
   clearInputs();
   if (state === 'flying') togglePause();
 });

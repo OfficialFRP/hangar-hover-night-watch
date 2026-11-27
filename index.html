@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=22">
+<link rel="stylesheet" href="styles.css?v=23">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -91,7 +91,7 @@
 </aside>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
-<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFree" hidden>End run</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action" aria-keyshortcuts="Space"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFree" hidden>End run</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
@@ -129,22 +129,22 @@
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
 <h2 id="storyTitle">Story</h2>
 <div class="story-scene"><img id="portrait" alt=""><div><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div>
-<div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext">Continue</button></div>
+<div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext" aria-keyshortcuts="Space">Continue</button></div>
 <button id="restartStory">Replay from mission 01</button>
 </section>
 <section id="page-race" class="panel game-menu" hidden>
-<h2 id="raceTitle">Race</h2>
+<div class="arcade-heading"><h2 id="raceTitle">Race</h2><button id="raceFly">Open race deck</button></div>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
 <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label>
 <div id="racePilotFaces" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
-<div class="pager"><span id="raceMatch"></span><button id="raceFly">Open race deck</button></div>
+<p id="raceMatch"></p>
 </section>
 <section id="page-free" class="panel game-menu" hidden>
-<h2>Free Flight</h2>
+<div class="arcade-heading"><h2>Free Flight</h2><button id="freeFly">Open flight deck</button></div>
 <p>Fly through endless randomized sectors. Clear each checkpoint and exit east for a fresh battery. Jam is unlimited.</p>
 <p id="freeRecord"></p>
 <label class="arcade-pilot">Pilot or drone <select id="freePilot"></select></label>
-<div class="pager"><button id="freeFly">Open flight deck</button></div>
+
 </section>
 <section id="page-battle" class="panel game-menu" hidden>
   <h2>Drone Battle</h2>
@@ -178,7 +178,7 @@
           <div class="battle-result-card">
             <h3 id="battleRoundHeading"></h3>
             <p id="battleRoundSummary"></p>
-            <button id="battleNextRound">Next round</button>
+            <button id="battleNextRound" aria-keyshortcuts="Space">Next round</button>
           </div>
         </div>
       </div>
@@ -227,8 +227,8 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
-<script src="battle.js?v=16"></script>
-<script src="game.js?v=23"></script>
+<script src="battle.js?v=17"></script>
+<script src="game.js?v=24"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

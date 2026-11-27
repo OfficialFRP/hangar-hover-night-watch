@@ -1345,8 +1345,45 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
   }
 }
 
-@media(orientation:landscape) and (max-height:540px){
+/* Keep the playfield clear of touch controls and display cutouts on phones. */
+@media(pointer:coarse),(max-width:650px){
+  main{
+    padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right));
+  }
+  #page-flight .flight-actions button,#battleArena .battle-weapons button{min-height:44px}
+  #page-flight .hud,#battleArena .battle-status{font-variant-numeric:tabular-nums}
+  #battleArena .battle-roster{touch-action:pan-x pan-y}
+  .game-picker{max-height:calc(100dvh - max(20px,env(safe-area-inset-top) + env(safe-area-inset-bottom) + 12px))}
+}
+@media(orientation:portrait) and (max-width:650px){
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-controls{
+    gap:8px;padding:5px;align-items:center;
+  }
   #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-weapons{
-    display:flex;flex-wrap:nowrap;min-width:0;
+    grid-template-columns:repeat(3,minmax(44px,1fr));
+  }
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-weapons button{
+    padding-inline:3px;font-size:clamp(11px,3.4vw,15px);
+  }
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #battleArena:not(:has(#battleRecap:not([hidden]))){
+    grid-template-columns:clamp(86px,15vw,138px) minmax(0,1fr) clamp(86px,15vw,138px);
+    align-items:stretch;
+  }
+  #battleArena:not(:has(#battleRecap:not([hidden]))) :is(.battle-stage,.battle-controls){display:contents}
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-status{grid-area:1/1/2/-1}
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-view{grid-area:2/2/4/3}
+  #battleArena:not(:has(#battleRecap:not([hidden]))) #battleFriendly{grid-area:2/1}
+  #battleArena:not(:has(#battleRecap:not([hidden]))) #battleOpposing{grid-area:2/3}
+  #battleArena:not(:has(#battleRecap:not([hidden]))) #battleStick{
+    grid-area:3/1;align-self:end;justify-self:center;margin:0;
+  }
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-weapons{
+    grid-area:3/3;display:grid;grid-template-columns:minmax(0,1fr);
+    align-self:end;margin:0;gap:3px;
+  }
+  #battleArena:not(:has(#battleRecap:not([hidden]))) .battle-weapons button{
+    width:100%;min-width:44px;padding:3px;white-space:normal;
   }
 }

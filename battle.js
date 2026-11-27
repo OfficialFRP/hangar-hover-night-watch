@@ -19,6 +19,7 @@ const battleHullCapacity = 140;
 const defenderHullCapacity = 158;
 const captureCells = [[14,289],[669,946]];
 const capturePadPositions = [[69,202],[891,248]];
+const capturePatrol = [[71,137],[148,74],[249,62],[261,210],[254,414],[144,350],[78,275]];
 const battleRoundCredits = {Victory:65,Defeat:20,Draw:20};
 const battleMatchCredits = {Victory:175,Defeat:45};
 const battlePackSpots = [[160,260],[381,178],[481,233],[579,284],[807,200]];
@@ -160,7 +161,7 @@ function startBattle() {
       defensive:firstStyle[unit.team] !== Boolean(index%2),turn:Math.random()<.5 ? -1 : 1,
       phase:Math.random()*Math.PI*2,pace:.8+Math.random()*.35,
       rangeOffset:(Math.random()-.5)*65,passage:Math.random()<.5 ? 52 : 397,
-      orbitWidth:36+Math.random()*13,orbitHeight:41+Math.random()*17
+      patrolIndex:0
     };
   }
   renderBattleRoster();
@@ -244,9 +245,9 @@ function fireBattleShot(unit,kind) {
     const speed = powered ? 410 : 470;
     battle.shots.push({x:unit.x,y:unit.y,vx:Math.cos(heading)*speed,vy:Math.sin(heading)*speed,
       team:unit.team,source:unit,kind,omegaVolley,life:scatter ? .75 : 2.6,size:powered ? 5 : 2.5,
-      damage:Math.round((scatter ? 7+tier*2 : powered ? 31+tier*5 : 13+tier*2)*(unit.defender ? 1.3 : 1))});
+      damage:Math.round((scatter ? 7+tier*2 : powered ? 31+tier*5 : 13+tier*2)*(unit.defender ? 1.45 : 1))});
   }
-  if (scatter) unit.scatterWait = 1.05;
+  if (scatter) unit.scatterWait = unit.defender ? .8 : 1.05;
   else unit.shotWait = powered ? .57 : .22;
   battleSound(kind);
 }
@@ -355,10 +356,26 @@ function planBattleWaypoint(unit,targetX,targetY) {
 }
 function captureTarget(unit,enemy) {
   if (unit.defender) {
+    const ai = unit.ai;
+    const [minX,maxX] = captureCells[unit.team];
     const pad = battle.pads[unit.team];
-    const {phase,turn,pace,orbitWidth,orbitHeight} = unit.ai;
-    const angle = phase+battle.elapsed*turn*pace*1.55;
-    return {x:pad.x+Math.cos(angle)*orbitWidth,y:pad.y+Math.sin(angle)*orbitHeight};
+    if (enemy && enemy.x >= minX && enemy.x <= maxX) {
+      const dx = pad.x-enemy.x,dy = pad.y-enemy.y;
+      const scale = Math.min(1,55/Math.max(1,Math.hypot(dx,dy)));
+      const x = clamp(enemy.x+dx*scale,minX+12,maxX-12);
+      const y = clamp(enemy.y+dy*scale,26,424);
+      if (!battleWallAt(x,y,12)) return {x,y};
+    }
+    const patrolPoint = () => {
+      const [x,y] = capturePatrol[ai.patrolIndex];
+      return {x:unit.team ? 960-x : x,y};
+    };
+    let target = patrolPoint();
+    if (Math.hypot(unit.x-target.x,unit.y-target.y) < 19) {
+      ai.patrolIndex = (ai.patrolIndex+ai.turn+capturePatrol.length)%capturePatrol.length;
+      target = patrolPoint();
+    }
+    return target;
   }
   if (unit.ctfRole === 'Hunter' && enemy && battle.elapsed < 100) return null;
   return battle.pads[1-unit.team];
@@ -410,10 +427,11 @@ function steerBattleAI(unit,dt) {
     moveBattleUnit(unit,moveX*ai.pace,moveY*ai.pace,dt);
   }
   if (enemy && enemyRange < 365 && battleLineClear(unit.x,unit.y,enemy.x-unit.x,enemy.y-unit.y)) {
-    if ((unit.defender || unit.ctfRole === 'Hunter' || !ai.defensive) && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
+    if ((unit.defender || unit.ctfRole === 'Hunter' || !ai.defensive) && enemyRange < (unit.defender ? 170 : 155) && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
     if (unit.shotWait <= 0) {
       fireBattleShot(unit,Math.random()<(ai.defensive ? .29 : .14) ? 'powered' : 'pulse');
-      unit.shotWait = (unit.ctfRole === 'Hunter' ? .47 : ai.defensive ? .93 : .53)+Math.random()*.58;
+      unit.shotWait = unit.defender ? Math.max(unit.shotWait,.42+Math.random()*.26) :
+        (unit.ctfRole === 'Hunter' ? .47 : ai.defensive ? .93 : .53)+Math.random()*.58;
     }
   }
 }

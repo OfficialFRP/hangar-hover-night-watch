@@ -1133,7 +1133,7 @@ function update(dt) {
   const target = course.gates[gate];
   const onTarget = target && Math.hypot(x-target[0],y-target[1]) < (easyFlight ? 36 : 29);
   scan = onTarget ? scan + dt*(cameraSignal === 'green' ? 1.6 : 1) : 0;
-  if (scan >= .24 || (courseIndex < 0 && onTarget)) {
+  if (onTarget && (storyFlight || courseIndex < 0 || scan >= .24)) {
     gate++;
     scan = 0;
     sound('scan');

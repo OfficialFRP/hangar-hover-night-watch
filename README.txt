@@ -105,10 +105,12 @@ The Story checkpoint remains visible alongside the name. A save named
 KING JAK grants all Story missions, pilots, drones and upgrade tiers on
 phone and computer. Saves are local to the browser and device.
 
-Drone Battle plays all three rounds with the same roster and a fresh hull,
-ammo cooldowns, and repair packs each round. The arena has three red cameras.
-Win more rounds than your opponent to win the match. Results show damage
-for the current round and cumulative totals after the last round.
+Drone Battle keeps the same roster until one team wins three rounds.
+Each round resets hull to 140, cooldowns, and repair packs. Some red cameras
+are replaced by neutral turrets whose purple charges slow either team for
+three seconds. A round win pays 65 CR, a loss or draw pays 20 CR, and a
+match win or loss adds 175 CR or 45 CR respectively. Results show round
+damage and cumulative totals after the match.
 
 The three arena lanes connect at the top, center, and bottom of each divider.
-After round three, view the final match result for cumulative damage totals.
+After either team wins three rounds, view the final match result for cumulative damage totals.

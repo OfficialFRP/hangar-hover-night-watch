@@ -157,13 +157,13 @@
     </div>
     <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
-    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Play all three rounds with a fresh hull each round.</p>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. First team to win three rounds takes the battle. Each round starts with a fresh hull.</p>
     <button id="battleStart">Start battle</button>
   </div>
   <div id="battleArena" hidden>
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
-      <span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><meter id="battleHull" min="0" max="100" value="100" aria-label="Your hull"></meter>
+      <span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><meter id="battleHull" min="0" max="140" value="140" aria-label="Your hull"></meter>
       <button id="battleFullscreen" aria-pressed="false">Fullscreen</button><button id="battlePause">Pause</button><button id="battleExit">End battle</button>
     </div>
     <div class="battle-stage">
@@ -191,7 +191,7 @@
         <button id="battlePulse" aria-keyshortcuts="V">Pulse <kbd>V</kbd></button><button id="battleScatter" aria-keyshortcuts="X">Scatter <kbd>X</kbd></button><button id="battleShield" aria-keyshortcuts="C">Shield <kbd>C</kbd></button>
       </div>
     </div>
-    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. On a keyboard, V fires Pulse, X fires Scatter, and C raises the shield. Red beams chip hull. Green packs repair hull and return after 8 seconds.</p>
+    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. On a keyboard, V fires Pulse, X fires Scatter, and C raises the shield. Red beams damage hull. Purple turret shots slow drones for 3 seconds. Green packs repair hull and return after 8 seconds.</p>
   </div>
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
@@ -222,8 +222,8 @@
 <script src="north-quay.js"></script>
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
-<script src="audio.js"></script>
-<script src="battle.js?v=9"></script>
+<script src="audio.js?v=2"></script>
+<script src="battle.js?v=10"></script>
 <script src="game.js?v=20"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

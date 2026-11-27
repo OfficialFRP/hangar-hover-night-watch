@@ -112,3 +112,38 @@ function setTechnoMusic(enabled) {
   schedule();
   technoTrack = {bus,timer:setInterval(schedule,50)};
 }
+
+// Short synthesized effects share the game's sound toggle and audio context.
+const battleSoundProfiles = {
+  pulse:['triangle',940,300,.095,.07],
+  powered:['sawtooth',230,78,.27,.055],
+  scatter:['triangle',380,95,.12,.065],
+  shield:['sine',210,1050,.28,.075],
+  turret:['triangle',135,390,.2,.06],
+  slowed:['sine',510,130,.25,.065],
+  hit:['triangle',145,63,.085,.065],
+  blocked:['sine',1120,760,.09,.045],
+  repair:['sine',400,1220,.28,.06],
+  win:['triangle',440,1046,.36,.07],
+  loss:['sine',390,147,.34,.055]
+};
+const battleSoundTimes = new Map();
+function battleSound(effect) {
+  if (!soundEnabled || !rotorAudio) return;
+  const {context} = rotorAudio;
+  const now = context.currentTime;
+  if (context.state !== 'running' || now-(battleSoundTimes.get(effect) ?? -Infinity)<.065) return;
+  battleSoundTimes.set(effect,now);
+  const [wave,start,end,seconds,volume] = battleSoundProfiles[effect];
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = wave;
+  oscillator.frequency.setValueAtTime(start,now);
+  oscillator.frequency.exponentialRampToValueAtTime(end,now+seconds);
+  gain.gain.setValueAtTime(.001,now);
+  gain.gain.exponentialRampToValueAtTime(volume,now+.012);
+  gain.gain.exponentialRampToValueAtTime(.001,now+seconds);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now+seconds+.01);
+}

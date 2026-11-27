@@ -11,7 +11,10 @@ const battleWalls = [[317,68,10,79],[317,263,10,119],[636,68,10,126],[636,306,10
 const battleCargo = [[207,62,64,51],[188,334,66,54],[426,57,66,57],[477,336,66,59],[696,65,64,57],[744,338,65,58]];
 const battleBlockers = [...battleWalls,...battleCargo];
 const battleCameras = [[260,130,.55],[566,139,2.55],[712,303,-2.35]];
-const battleRoundLimit = 3;
+const battleWinsRequired = 3;
+const battleHullCapacity = 140;
+const battleRoundCredits = {Victory:65,Defeat:20,Draw:20};
+const battleMatchCredits = {Victory:175,Defeat:45};
 const battlePackSpots = [[160,260],[381,178],[481,233],[579,284],[807,200]];
 const battleArtwork = new Image();
 battleArtwork.src = 'assets/battle-atlas.webp';
@@ -92,7 +95,7 @@ function startBattle() {
   const spawn = (team,key,frameIndex,index,total) => ({
     team,key,frame:fleet[frameIndex],modules:index === 0 && team === 0 ? progress.battleLevels[frameIndex] : [0,0,0],
     x:team ? 855-index%3*35 : 105+index%3*35,y:55+(index+1)*340/(total+1),
-    angle:team ? -Math.PI/2 : Math.PI/2,health:100,shotWait:.4+index*.12,scatterWait:0,
+    angle:team ? -Math.PI/2 : Math.PI/2,health:battleHullCapacity,shotWait:.4+index*.12,scatterWait:0,
     shieldWait:0,shield:0,trail:[],dealt:0,taken:0,totalDealt:0,totalTaken:0,player:team === 0 && index === 0
   });
   const units = [spawn(0,pilot,playerFrame,0,allyCount)];
@@ -120,10 +123,16 @@ function startBattle() {
   updateBattleHud();
 }
 function resetBattleRound() {
-  Object.assign(battle,{shots:[],packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
-    elapsed:0,charge:null,paused:false,result:'',matchResult:'',player:battle.startingPilot,transferAt:-Infinity});
+  const hazards = battleCameras.map(([x,y,angle],index) => ({x,y,angle,index,turret:false,readyAt:1.3+index*.4}));
+  if (Math.random()<.58) {
+    const sites = [...hazards];
+    const count = Math.random()<.32 ? 2 : 1;
+    for (let i=0;i<count;i++) sites.splice(Math.floor(Math.random()*sites.length),1)[0].turret = true;
+  }
+  Object.assign(battle,{shots:[],hazards,packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
+    elapsed:0,charge:null,paused:false,result:'',matchResult:'',roundCredits:0,matchCredits:0,player:battle.startingPilot,transferAt:-Infinity});
   for (const unit of battle.units) {
-    Object.assign(unit,unit.spawn,{health:100,scatterWait:0,shieldWait:0,shield:0,dealt:0,taken:0,player:unit===battle.player});
+    Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shieldWait:0,shield:0,slowUntil:0,dealt:0,taken:0,player:unit===battle.player});
     unit.trail.length = 0;
     if (unit.ai) unit.ai.planAt = 0;
   }
@@ -185,11 +194,13 @@ function fireBattleShot(unit,kind) {
   }
   if (scatter) unit.scatterWait = 1.05;
   else unit.shotWait = powered ? .57 : .22;
+  battleSound(kind);
 }
 function shieldBattleUnit(unit) {
   if (unit.health <= 0 || unit.shieldWait > 0) return;
   unit.shield = 1.3+unit.modules[2]*.23;
   unit.shieldWait = 4.9-unit.modules[2]*.32;
+  battleSound('shield');
 }
 function canControlBattle() {
   return currentPage === 'battle' && battle && !battle.paused && !battle.result && battle.player.health > 0;
@@ -208,7 +219,7 @@ function battlePulseEnd(source) {
 }
 function moveBattleUnit(unit,dx,dy,dt) {
   const scale = Math.max(1,Math.hypot(dx,dy));
-  const speed = unit.player ? 144+(unit.frame.thrust-395)*.16 : 94;
+  const speed = (unit.player ? 144+(unit.frame.thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
   const x = clamp(unit.x+dx/scale*speed*dt,14,946);
   const y = clamp(unit.y+dy/scale*speed*dt,14,436);
   if (!battleWallAt(x,unit.y,11)) unit.x = x;
@@ -288,7 +299,7 @@ function steerBattleAI(unit,dt) {
   const enemyRange = Math.hypot(enemyDX,enemyDY);
   const threat = incomingBattleShot(unit);
   if (threat && (ai.defensive || unit.health<66 || enemyRange<110)) shieldBattleUnit(unit);
-  const repair = ai.defensive && unit.health<69 && battle.packs
+  const repair = ai.defensive && unit.health<battleHullCapacity*.69 && battle.packs
     .filter(pack => pack.readyAt<=battle.elapsed && Math.floor(pack.x/320)===Math.floor(unit.x/320) &&
       battleLineClear(unit.x,unit.y,pack.x-unit.x,pack.y-unit.y))
     .sort((a,b) => (a.x-unit.x)**2+(a.y-unit.y)**2-(b.x-unit.x)**2-(b.y-unit.y)**2)[0];
@@ -332,8 +343,8 @@ function steerBattleAI(unit,dt) {
     }
   }
 }
-function battleCameraHeading(camera,index) {
-  return camera[2]+Math.sin(battle.elapsed*1.12+index*1.6)*.85;
+function battleCameraHeading(camera) {
+  return camera.angle+Math.sin(battle.elapsed*1.12+camera.index*1.6)*.85;
 }
 function applyBattleDamage(unit,amount,source) {
   if (unit.shield > 0 || unit.health <= 0) return;
@@ -343,21 +354,23 @@ function applyBattleDamage(unit,amount,source) {
   if (source) source.dealt += damage;
 }
 function applyBattleHazards(unit,dt) {
-  const inBeam = battleCameras.some(([x,y],index) => {
+  const inBeam = battle.hazards.some(camera => {
+    if (camera.turret) return false;
+    const {x,y} = camera;
     const dx = unit.x-x, dy = unit.y-y;
-    if (dx*dx+dy*dy > 118**2 || Math.cos(Math.atan2(dy,dx)-battleCameraHeading(battleCameras[index],index)) < .92) return false;
+    if (dx*dx+dy*dy > 118**2 || Math.cos(Math.atan2(dy,dx)-battleCameraHeading(camera)) < .92) return false;
     for (let sample=.1;sample<1;sample+=.1) {
       if (battleWallAt(x+dx*sample,y+dy*sample)) return false;
     }
     return true;
   });
-  if (inBeam) applyBattleDamage(unit,4.5*dt);
-  if (unit.health <= 0 || unit.health > 99) return;
+  if (inBeam) applyBattleDamage(unit,5.7*dt);
+  if (unit.health <= 0 || unit.health > battleHullCapacity-1) return;
   for (const pack of battle.packs) {
     if (pack.readyAt <= battle.elapsed && (unit.x-pack.x)**2+(unit.y-pack.y)**2 < 25**2) {
-      unit.health = Math.min(100,unit.health+32);
+      unit.health = Math.min(battleHullCapacity,unit.health+32);
       pack.readyAt = battle.elapsed+8;
-      sound('charge');
+      battleSound('repair');
       break;
     }
   }
@@ -389,6 +402,26 @@ function battleTransferFlash(elapsedSinceTransfer) {
   return elapsedSinceTransfer >= 0 && elapsedSinceTransfer < 1 &&
     elapsedSinceTransfer % (1/3) < .15;
 }
+function fireBattleTurrets() {
+  for (const turret of battle.hazards) {
+    if (!turret.turret || turret.readyAt > battle.elapsed) continue;
+    let closest,range = 265;
+    for (const unit of battle.units) {
+      if (unit.health <= 0) continue;
+      const dx = unit.x-turret.x,dy = unit.y-turret.y;
+      const distance = Math.hypot(dx,dy);
+      if (distance >= range || !battleLineClear(turret.x,turret.y,dx,dy)) continue;
+      closest = unit;
+      range = distance;
+    }
+    if (!closest) continue;
+    turret.angle = Math.atan2(closest.y-turret.y,closest.x-turret.x);
+    battle.shots.push({x:turret.x,y:turret.y,vx:Math.cos(turret.angle)*235,vy:Math.sin(turret.angle)*235,
+      team:-1,kind:'stasis',life:1.6,size:6,damage:0});
+    turret.readyAt = battle.elapsed+3.25;
+    battleSound('turret');
+  }
+}
 function stepBattle(dt) {
   battle.elapsed += dt;
   for (const unit of battle.units) {
@@ -403,6 +436,7 @@ function stepBattle(dt) {
     recordBattleTrail(unit,x,y);
     applyBattleHazards(unit,dt);
   }
+  fireBattleTurrets();
   battle.shots = battle.shots.filter(shot => {
     shot.x += shot.vx*dt;
     shot.y += shot.vy*dt;
@@ -411,7 +445,14 @@ function stepBattle(dt) {
     const target = battle.units.find(unit => unit.team !== shot.team && unit.health > 0 &&
       (unit.x-shot.x)**2+(unit.y-shot.y)**2 < (13+shot.size)**2);
     if (!target) return true;
-    applyBattleDamage(target,shot.damage,shot.source);
+    if (target.shield > 0) battleSound('blocked');
+    else if (shot.kind === 'stasis') {
+      target.slowUntil = battle.elapsed+3;
+      battleSound('slowed');
+    } else {
+      applyBattleDamage(target,shot.damage,shot.source);
+      battleSound('hit');
+    }
     return false;
   });
   transferBattleControl();
@@ -459,8 +500,9 @@ function showBattleResultWindow(final) {
   updateHudText('#battleRoundHeading',heading);
   updateHudText('#battleResult',heading);
   const summary = outcome === 'Battle ended' ? 'Match ended early' :
-    final ? 'Final score' : 'Round '+battle.round+' of '+battleRoundLimit+' complete';
-  updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses);
+    final ? 'Final score' : 'Round '+battle.round+' complete';
+  const earned = final ? battle.matchCredits : battle.roundCredits;
+  updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses+(earned ? ' · +'+earned+' CR' : ''));
   get('#battleNextRound').textContent = final ? 'Back to setup' :
     battle.matchResult ? 'View battle result' : 'Next round';
   overlay.hidden = false;
@@ -477,9 +519,18 @@ function concludeBattle(result) {
     unit.totalDealt += unit.dealt;
     unit.totalTaken += unit.taken;
   }
-  const finished = abandoned || battle.round === battleRoundLimit;
+  battle.roundCredits = battleRoundCredits[result] || 0;
+  const finished = abandoned || battle.wins >= battleWinsRequired || battle.losses >= battleWinsRequired;
   if (finished) battle.matchResult = abandoned ? result :
-    battle.wins > battle.losses ? 'Victory' : battle.losses > battle.wins ? 'Defeat' : 'Draw';
+    battle.wins >= battleWinsRequired ? 'Victory' : 'Defeat';
+  battle.matchCredits = battleMatchCredits[battle.matchResult] || 0;
+  const reward = battle.roundCredits+battle.matchCredits;
+  if (reward) {
+    progress.credits += reward;
+    saveProgress();
+    updateHudText('#wallet',progress.credits.toLocaleString()+' CR');
+  }
+  if (!abandoned) battleSound((battle.matchResult || result) === 'Victory' ? 'win' : 'loss');
   clearBattleInput();
   updateBattleHud();
   showBattleResultWindow(abandoned);
@@ -500,15 +551,16 @@ function renderBattleRecap(matchTotals) {
 }
 function updateBattleHud() {
   const count = team => battle.units.filter(unit => unit.team === team && unit.health > 0).length;
-  const score = 'Round '+battle.round+'/'+battleRoundLimit+' · '+battle.wins+'–'+battle.losses;
+  const score = 'Round '+battle.round+' · '+battle.wins+'–'+battle.losses+' · First to '+battleWinsRequired;
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     count(0)+' allies · '+count(1)+' rivals · '+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
-  updateHudText('#battleHealth',Math.ceil(battle.player.health)+'% hull');
+  updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battleHullCapacity+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
   updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player));
   if (!battle.result) updateHudText('#battleResult','');
+  get('#battleHull').max = battleHullCapacity;
   get('#battleHull').value = battle.player.health;
   for (const unit of battle.units) {
-    const charge = Math.ceil(unit.health);
+    const charge = Math.ceil(100*unit.health/battleHullCapacity);
     const {bar,health,card} = unit.roster;
     card.classList.toggle('battle-controlled',unit.player && charge > 0);
     if (bar.value !== charge) {
@@ -555,8 +607,22 @@ function drawBattleHazards(surface) {
     surface.fillRect(x,y,width,height);
     drawBattleSprite(surface,'cargo',x+width/2,y+height/2,width+8,height+10);
   }
-  for (const [index,[x,y]] of battleCameras.entries()) {
-    const angle = battleCameraHeading(battleCameras[index],index);
+  for (const camera of battle.hazards) {
+    const {x,y} = camera;
+    if (camera.turret) {
+      circle(x,y,13,surface);
+      surface.fillStyle = '#352768';
+      surface.fill();
+      surface.strokeStyle = '#ce98ff';
+      surface.lineWidth = 2;
+      surface.stroke();
+      surface.beginPath();
+      surface.moveTo(x,y);
+      surface.lineTo(x+Math.cos(camera.angle)*16,y+Math.sin(camera.angle)*16);
+      surface.stroke();
+      continue;
+    }
+    const angle = battleCameraHeading(camera);
     surface.beginPath();
     surface.moveTo(x,y);
     const rays = phoneLayout.matches ? 7 : 11;
@@ -591,6 +657,16 @@ function drawBattleHazards(surface) {
   }
 }
 function drawBattleShot(surface,shot) {
+  if (shot.kind === 'stasis') {
+    const glow = surface.createRadialGradient(shot.x,shot.y,1,shot.x,shot.y,12);
+    glow.addColorStop(0,'#f9d9ff');
+    glow.addColorStop(.42,'#b45aff');
+    glow.addColorStop(1,'#8300ff00');
+    circle(shot.x,shot.y,12,surface);
+    surface.fillStyle = glow;
+    surface.fill();
+    return;
+  }
   const width = shot.kind === 'powered' ? 44 : shot.kind === 'pulse' ? 32 : 24;
   const angle = Math.atan2(shot.vy,shot.vx);
   const laserColor = shot.team ? '#ff2947' : '#28ff75';
@@ -688,6 +764,12 @@ function drawBattle() {
     if (unit.health <= 0) continue;
     const color = unit.team ? '#ff5269' : '#69ff9a';
     drawDroneTrail(unit.trail,unit.frame,unit,surface,battle.elapsed,color);
+    if (unit.slowUntil>battle.elapsed) {
+      circle(unit.x,unit.y,24,surface);
+      surface.strokeStyle = '#bd76ff';
+      surface.lineWidth = 2;
+      surface.stroke();
+    }
     if (unit.shield) {
       circle(unit.x,unit.y,21,surface);
       surface.strokeStyle = '#9ed9ff';
@@ -703,7 +785,7 @@ function drawBattle() {
     surface.fillStyle = '#0b1324';
     surface.fillRect(unit.x-17,unit.y-27,34,4);
     surface.fillStyle = color;
-    surface.fillRect(unit.x-17,unit.y-27,34*unit.health/100,4);
+    surface.fillRect(unit.x-17,unit.y-27,34*unit.health/battleHullCapacity,4);
     if (unit.player) {
       if (battleTransferFlash(battle.elapsed-battle.transferAt)) {
         circle(unit.x,unit.y,28,surface);

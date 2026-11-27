@@ -7,7 +7,7 @@ const battleModules = [
 const battleTierLimit = 5;
 const battleHeld = new Set();
 const battleStick = {x:0,y:0,id:null};
-const battleWalls = [[317,0,10,147],[317,263,10,187],[636,0,10,194],[636,306,10,144]];
+const battleWalls = [[317,68,10,79],[317,263,10,119],[636,68,10,126],[636,306,10,76]];
 const battleCargo = [[207,62,64,51],[188,334,66,54],[426,57,66,57],[477,336,66,59],[696,65,64,57],[744,338,65,58]];
 const battleBlockers = [...battleWalls,...battleCargo];
 const battleCameras = [[260,130,.55],[566,139,2.55],[712,303,-2.35]];
@@ -125,6 +125,7 @@ function resetBattleRound() {
   for (const unit of battle.units) {
     Object.assign(unit,unit.spawn,{health:100,scatterWait:0,shieldWait:0,shield:0,dealt:0,taken:0});
     unit.trail.length = 0;
+    if (unit.ai) unit.ai.planAt = 0;
   }
   get('#battleRoundOverlay').hidden = true;
   get('#battleRecap').hidden = true;
@@ -231,31 +232,82 @@ function incomingBattleShot(unit) {
       Math.abs(dx*shot.vy-dy*shot.vx)/speed < 22;
   });
 }
+let battleNavigation;
+function battleRouteClear(x,y,targetX,targetY) {
+  const dx = targetX-x,dy = targetY-y;
+  return battleBlockers.every(([left,top,width,height]) => {
+    let near = 0,far = 1;
+    for (const [start,delta,min,max] of [[x,dx,left-11,left+width+11],[y,dy,top-11,top+height+11]]) {
+      if (!delta) {
+        if (start <= min || start >= max) return true;
+        continue;
+      }
+      const a = (min-start)/delta,b = (max-start)/delta;
+      near = Math.max(near,Math.min(a,b));
+      far = Math.min(far,Math.max(a,b));
+      if (near >= far) return true;
+    }
+    return false;
+  });
+}
+function planBattleWaypoint(unit,targetX,targetY) {
+  if (battleRouteClear(unit.x,unit.y,targetX,targetY)) return [targetX,targetY];
+  if (!battleNavigation) {
+    const points = battleBlockers.flatMap(([x,y,w,h]) =>
+      [[x-17,y-17],[x+w+17,y-17],[x-17,y+h+17],[x+w+17,y+h+17]])
+      .filter(([x,y]) => x>=14 && x<=946 && y>=14 && y<=436 && !battleWallAt(x,y,14));
+    const costs = points.map(([x,y],i) => points.map(([tx,ty],j) =>
+      i === j ? 0 : battleRouteClear(x,y,tx,ty) ? Math.hypot(tx-x,ty-y) : Infinity));
+    for (let via=0;via<points.length;via++) {
+      for (let from=0;from<points.length;from++) {
+        for (let to=0;to<points.length;to++) {
+          costs[from][to] = Math.min(costs[from][to],costs[from][via]+costs[via][to]);
+        }
+      }
+    }
+    battleNavigation = {points,costs};
+  }
+  const {points,costs} = battleNavigation;
+  const toTarget = points.map(([x,y]) => battleRouteClear(x,y,targetX,targetY) ?
+    Math.hypot(targetX-x,targetY-y) : Infinity);
+  let bestCost = Infinity, waypoint = [targetX,targetY];
+  for (const [index,[x,y]] of points.entries()) {
+    if (!battleRouteClear(unit.x,unit.y,x,y) || Math.hypot(unit.x-x,unit.y-y)<1.5) continue;
+    const remaining = Math.min(...costs[index].map((cost,to) => cost+toTarget[to]));
+    const preference = (1+Math.sin(unit.ai.phase+y/72))*9;
+    const score = Math.hypot(unit.x-x,unit.y-y)+remaining+preference;
+    if (score < bestCost) {bestCost = score; waypoint = [x,y];}
+  }
+  return waypoint;
+}
 function steerBattleAI(unit,dt) {
   const enemy = nearestBattleEnemy(unit);
   if (!enemy) return;
   const ai = unit.ai;
   const enemyDX = enemy.x-unit.x,enemyDY = enemy.y-unit.y;
   const enemyRange = Math.hypot(enemyDX,enemyDY);
-  const boundary = [322,641].find(x => (x-unit.x)*(x-enemy.x)<0 && Math.abs(x-enemy.x)>12);
-  const gap = (boundary === 322 ? 205 : 250)+Math.sin(ai.phase)*28;
   const threat = incomingBattleShot(unit);
   if (threat && (ai.defensive || unit.health<66 || enemyRange<110)) shieldBattleUnit(unit);
   const repair = ai.defensive && unit.health<69 && battle.packs
     .filter(pack => pack.readyAt<=battle.elapsed && Math.floor(pack.x/320)===Math.floor(unit.x/320) &&
       battleLineClear(unit.x,unit.y,pack.x-unit.x,pack.y-unit.y))
     .sort((a,b) => (a.x-unit.x)**2+(a.y-unit.y)**2-(b.x-unit.x)**2-(b.y-unit.y)**2)[0];
-  const aimY = repair?.y ?? (boundary ? gap : enemy.y);
-  const aimX = repair?.x ?? (boundary && Math.abs(unit.y-gap)>32 && Math.abs(unit.x-boundary)<72 ?
-    boundary+(unit.x<boundary ? -41 : 41) : enemy.x);
+  const targetX = repair?.x ?? enemy.x,targetY = repair?.y ?? enemy.y;
+  const needsRoute = !battleRouteClear(unit.x,unit.y,targetX,targetY);
+  if (needsRoute && (battle.elapsed >= ai.planAt || !ai.waypoint ||
+      Math.hypot(unit.x-ai.waypoint[0],unit.y-ai.waypoint[1])<2)) {
+    ai.waypoint = planBattleWaypoint(unit,targetX,targetY);
+    ai.planAt = battle.elapsed+.32;
+  }
+  const [aimX,aimY] = needsRoute ? ai.waypoint : [targetX,targetY];
   const dx = aimX-unit.x;
   const dy = aimY-unit.y;
   const range = Math.hypot(dx,dy);
   const idealRange = (ai.defensive ? 237 : 143)+ai.rangeOffset;
   if (range > 1) {
-    const approach = repair || boundary || range>idealRange+35 ? 1 : range<idealRange-38 ? -.72 : 0;
+    const approach = repair || needsRoute || range>idealRange+35 ? 1 : range<idealRange-38 ? -.72 : 0;
     const orbit = ai.turn*(.43+.27*Math.sin(battle.elapsed*ai.pace+ai.phase));
-    const strafe = repair || boundary ? 0 : orbit;
+    const strafe = repair || needsRoute || range>idealRange+35 ? 0 : orbit;
     let moveX = (approach*dx-strafe*dy)/range;
     let moveY = (approach*dy+strafe*dx)/range;
     if (threat && unit.shield === 0) {
@@ -263,7 +315,8 @@ function steerBattleAI(unit,dt) {
       moveX -= ai.turn*threat.vy/speed;
       moveY += ai.turn*threat.vx/speed;
     }
-    if (battleWallAt(unit.x+moveX*25,unit.y+moveY*25,12)) {
+    const lookahead = needsRoute ? Math.min(25,range) : 25;
+    if (battleWallAt(unit.x+moveX*lookahead,unit.y+moveY*lookahead,11)) {
       const directions = [[-moveY,moveX],[moveY,-moveX]];
       if (ai.turn < 0) directions.reverse();
       const detour = directions.find(([x,y]) => !battleWallAt(unit.x+x*28,unit.y+y*28,12));
@@ -376,8 +429,24 @@ function renderBattleRoster() {
     }));
   }
 }
-const battleResultLabels = {Victory:'Victory: Allies',Defeat:'Allies Defeated',
-  Draw:'Draw / Battle Tied', 'Battle ended':'Battle ended'};
+const battleRoundLabels = {Victory:'Round Won',Defeat:'Round Lost',Draw:'Round Draw', 'Battle ended':'Battle ended'};
+const battleMatchLabels = {Victory:'Battle Won',Defeat:'Battle Lost',Draw:'Battle Tied','Battle ended':'Battle ended'};
+function showBattleResultWindow(final) {
+  const outcome = final ? battle.matchResult : battle.result;
+  const overlay = get('#battleRoundOverlay');
+  overlay.dataset.outcome = outcome.toLowerCase();
+  const heading = (final ? battleMatchLabels : battleRoundLabels)[outcome];
+  updateHudText('#battleRoundHeading',heading);
+  updateHudText('#battleResult',heading);
+  const summary = outcome === 'Battle ended' ? 'Match ended early' :
+    final ? 'Final score' : 'Round '+battle.round+' of '+battleRoundLimit+' complete';
+  updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses);
+  get('#battleNextRound').textContent = final ? 'Back to setup' :
+    battle.matchResult ? 'View battle result' : 'Next round';
+  overlay.hidden = false;
+  renderBattleRecap(final);
+  get('#battleNextRound').focus();
+}
 function concludeBattle(result) {
   if (battle.result) return;
   battle.result = result;
@@ -391,18 +460,9 @@ function concludeBattle(result) {
   const finished = abandoned || battle.round === battleRoundLimit;
   if (finished) battle.matchResult = abandoned ? result :
     battle.wins > battle.losses ? 'Victory' : battle.losses > battle.wins ? 'Defeat' : 'Draw';
-  const overlay = get('#battleRoundOverlay');
-  overlay.dataset.outcome = (battle.matchResult || result).toLowerCase();
-  updateHudText('#battleRoundHeading',battleResultLabels[battle.matchResult || result]);
-  const summary = abandoned ? 'Match ended early' :
-    (finished ? 'Round '+battle.round+': '+result+' · Final score' : 'Round '+battle.round+' of '+battleRoundLimit+' complete');
-  updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses);
-  get('#battleNextRound').textContent = finished ? 'Back to setup' : 'Next round';
-  overlay.hidden = false;
   clearBattleInput();
-  renderBattleRecap(finished);
   updateBattleHud();
-  get('#battleNextRound').focus();
+  showBattleResultWindow(abandoned);
 }
 function renderBattleRecap(matchTotals) {
   updateHudText('#battleRecapTitle',matchTotals ? 'Match damage totals' : 'Round damage totals');
@@ -424,7 +484,7 @@ function updateBattleHud() {
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     count(0)+' allies · '+count(1)+' rivals · '+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
   updateHudText('#battleHealth',Math.ceil(battle.player.health)+'% hull');
-  updateHudText('#battleResult',battleResultLabels[battle.matchResult || battle.result] || '');
+  if (!battle.result) updateHudText('#battleResult','');
   get('#battleHull').value = battle.player.health;
   for (const unit of battle.units) {
     const charge = Math.ceil(unit.health);
@@ -672,6 +732,11 @@ function initBattleControls() {
   get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
   get('#battleNextRound').addEventListener('click',() => {
     if (!battle?.result) return;
+    if (battle.matchResult && !battle.finalWindow && battle.result !== 'Battle ended') {
+      battle.finalWindow = true;
+      showBattleResultWindow(true);
+      return;
+    }
     if (battle.matchResult) {
       clearBattleInput();
       exitBattleFullscreen();

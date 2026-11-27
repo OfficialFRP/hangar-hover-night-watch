@@ -109,3 +109,6 @@ Drone Battle plays all three rounds with the same roster and a fresh hull,
 ammo cooldowns, and repair packs each round. The arena has three red cameras.
 Win more rounds than your opponent to win the match. Results show damage
 for the current round and cumulative totals after the last round.
+
+The three arena lanes connect at the top, center, and bottom of each divider.
+After round three, view the final match result for cumulative damage totals.

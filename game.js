@@ -563,7 +563,7 @@ function resumeCampaign() {
 }
 
 function showPage(page) {
-  if (currentPage === 'battle' && page !== 'battle') pauseBattle();
+  if (currentPage === 'battle' && page !== 'battle') {pauseBattle(); exitBattleFullscreen();}
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
@@ -1925,9 +1925,9 @@ function paintDrone(ctx,frame,spin) {
   ctx.fillStyle = '#b7f4f7';
   ctx.fill();
 }
-function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed) {
+function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed,teamColor) {
   if (points.length < 2) return;
-  const ink = frame.onyx ? '#84fff1' : frame.color;
+  const ink = teamColor || (frame.onyx ? '#84fff1' : frame.color);
   surface.save();
   surface.lineCap = 'round';
   for (let i=0;i<points.length;i++) {
@@ -1935,7 +1935,7 @@ function drawDroneTrail(points,frame,end,surface = ctx,clock = elapsed) {
     const b = points[i+1] ?? end;
     if (!b) break;
     const strength = Math.max(0,1-(clock-a.time)/trailLifetime);
-    const hue = frame.onyx && strength < .55 ? '#bf76ff' : ink;
+    const hue = !teamColor && frame.onyx && strength < .55 ? '#bf76ff' : ink;
     surface.beginPath();
     surface.moveTo(a.x,a.y);
     surface.lineTo(b.x,b.y);
@@ -2358,6 +2358,7 @@ function showMenuSection(section) {
 }
 function openMenu() {
   pauseBattle();
+  if (currentPage === 'battle') exitBattleFullscreen();
   if (state === 'flying') togglePause();
   flightAudio(0,false,false,false);
   if (currentPage !== 'menu') gamePage = currentPage;

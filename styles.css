@@ -1018,3 +1018,40 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   #battleRecap{grid-row:4}
   .battle-result-card h3{font-size:20px}
 }
+
+/* Size the result card independently of the canvas on short phone screens. */
+.battle-view{display:flex;flex-direction:column}
+#battleRoundOverlay{
+  position:static;order:-1;overflow:visible;flex:none;
+  padding:7px;background:#0c1625;border-radius:8px;margin-bottom:5px;
+}
+.battle-result-card{border-width:2px;width:min(100%,410px);padding:clamp(8px,1.7vw,16px)}
+#battleRoundOverlay[data-outcome=victory] .battle-result-card{--result-color:#69ff9a}
+#battleRoundOverlay[data-outcome=defeat] .battle-result-card{--result-color:#ff687a}
+#battleArena:has(#battleRoundOverlay:not([hidden])) #battleCanvas{
+  max-height:clamp(75px,25dvh,195px);object-fit:contain;background:#111a28;
+}
+#battleArena:is(:fullscreen,.battle-expanded){
+  width:100%;height:100%;max-height:none;overflow:auto;overscroll-behavior:contain;
+  padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right))
+    max(7px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  background:#0c1524;color:#eef5ff;
+}
+#battleArena.battle-expanded{position:fixed;inset:0;z-index:20}
+#battleArena:is(:fullscreen,.battle-expanded) .battle-view #battleCanvas{
+  max-height:calc(100dvh - 122px);object-fit:contain;background:#111a28;
+}
+#battleArena:is(:fullscreen,.battle-expanded):has(#battleRoundOverlay:not([hidden])) #battleCanvas{
+  max-height:clamp(75px,25dvh,195px);
+}
+@media(orientation:portrait) and (max-width:650px){
+  #battleArena #battleFullscreen{padding-inline:5px}
+  .battle-status{gap:4px}
+}
+@media(orientation:landscape) and (max-height:540px) and (pointer:coarse){
+  #battleArena:has(#battleRoundOverlay:not([hidden])) .battle-view{grid-column:2;grid-row:2/4}
+  #battleArena:is(:fullscreen,.battle-expanded) .battle-view #battleCanvas{max-height:calc(100dvh - 66px)}
+  #battleArena:is(:fullscreen,.battle-expanded):has(#battleRoundOverlay:not([hidden])) #battleCanvas{
+    max-height:clamp(75px,26dvh,150px);
+  }
+}

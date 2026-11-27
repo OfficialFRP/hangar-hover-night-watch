@@ -319,7 +319,7 @@ function renderBattleRoster() {
     }));
   }
 }
-const battleResultLabels = {Victory:'Victory / Battle Won',Defeat:'Defeat / Battle Lost',
+const battleResultLabels = {Victory:'Victory: Allies',Defeat:'Allies Defeated',
   Draw:'Draw / Battle Tied', 'Battle ended':'Battle ended'};
 function concludeBattle(result) {
   if (battle.result) return;
@@ -345,7 +345,7 @@ function concludeBattle(result) {
   clearBattleInput();
   renderBattleRecap(finished);
   updateBattleHud();
-  get('#battleNextRound').focus({preventScroll:true});
+  get('#battleNextRound').focus();
 }
 function renderBattleRecap(matchTotals) {
   updateHudText('#battleRecapTitle',matchTotals ? 'Match damage totals' : 'Round damage totals');
@@ -476,6 +476,31 @@ function drawBattleShot(surface,shot) {
   }
   surface.restore();
 }
+const battleOutlines = new Map();
+function drawBattleOutline(surface,frame,color) {
+  const key = frame.name+color;
+  let outline = battleOutlines.get(key);
+  if (!outline) {
+    outline = document.createElement('canvas');
+    outline.width = outline.height = 56;
+    const mask = outline.getContext('2d');
+    mask.save();
+    mask.translate(28,28);
+    paintDrone(mask,frame,0);
+    mask.restore();
+    mask.globalCompositeOperation = 'source-in';
+    mask.fillStyle = color;
+    mask.fillRect(0,0,56,56);
+    battleOutlines.set(key,outline);
+  }
+  surface.save();
+  surface.shadowColor = color;
+  surface.shadowBlur = phoneLayout.matches ? 0 : 7;
+  for (const [x,y] of [[-1.6,0],[1.6,0],[0,-1.6],[0,1.6]]) {
+    surface.drawImage(outline,x-28,y-28);
+  }
+  surface.restore();
+}
 function drawBattle() {
   const field = get('#battleCanvas');
   const surface = field.getContext('2d');
@@ -503,8 +528,8 @@ function drawBattle() {
   for (const shot of battle.shots) drawBattleShot(surface,shot);
   for (const unit of battle.units) {
     if (unit.health <= 0) continue;
-    const color = unit.team ? '#ff759a' : '#74ffd0';
-    drawDroneTrail(unit.trail,unit.frame,unit,surface,battle.elapsed);
+    const color = unit.team ? '#ff5269' : '#69ff9a';
+    drawDroneTrail(unit.trail,unit.frame,unit,surface,battle.elapsed,color);
     if (unit.shield) {
       circle(unit.x,unit.y,21,surface);
       surface.strokeStyle = '#9ed9ff';
@@ -514,6 +539,7 @@ function drawBattle() {
     surface.save();
     surface.translate(unit.x,unit.y);
     surface.rotate(unit.angle);
+    drawBattleOutline(surface,unit.frame,color);
     paintDrone(surface,unit.frame,battle.elapsed*29);
     surface.restore();
     surface.fillStyle = '#0b1324';
@@ -539,7 +565,43 @@ function tickBattle(now,dt) {
     battleLastDraw = now;
   }
 }
+function syncBattleFullscreen() {
+  const arena = get('#battleArena');
+  const active = document.fullscreenElement === arena || arena.classList.contains('battle-expanded');
+  const button = get('#battleFullscreen');
+  button.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+  button.setAttribute('aria-pressed',String(active));
+}
+function exitBattleFullscreen() {
+  const arena = get('#battleArena');
+  arena.classList.remove('battle-expanded');
+  if (document.fullscreenElement === arena) document.exitFullscreen().catch(() => {});
+  syncBattleFullscreen();
+}
+async function toggleBattleFullscreen() {
+  const arena = get('#battleArena');
+  if (document.fullscreenElement === arena || arena.classList.contains('battle-expanded')) {
+    exitBattleFullscreen();
+    return;
+  }
+  if (arena.requestFullscreen) {
+    try {
+      await arena.requestFullscreen();
+      syncBattleFullscreen();
+      return;
+    } catch {
+      // Embedded browsers and some phones restrict native fullscreen.
+    }
+  }
+  arena.classList.add('battle-expanded');
+  syncBattleFullscreen();
+}
 function initBattleControls() {
+  get('#battleFullscreen').addEventListener('click',toggleBattleFullscreen);
+  document.addEventListener('fullscreenchange',syncBattleFullscreen);
+  for (const art of [onyxArt,clubAtlas,quayAtlas,storyAtlas,fleetArt]) {
+    art.addEventListener('load',() => battleOutlines.clear());
+  }
   get('#battlePilot').addEventListener('change',renderBattleSetup);
   get('#battleAllies').addEventListener('change',renderBattleSetup);
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
@@ -548,6 +610,7 @@ function initBattleControls() {
     if (!battle?.result) return;
     if (battle.matchResult) {
       clearBattleInput();
+      exitBattleFullscreen();
       battle = undefined;
       renderBattleSetup();
       get('#battleStart').focus({preventScroll:true});
@@ -612,6 +675,10 @@ function initBattleControls() {
     button.addEventListener('click',event => {if (event.detail === 0 && canControlBattle()) activate();});
   }
   window.addEventListener('keydown',event => {
+    if (event.key === 'Escape' && get('#battleArena').classList.contains('battle-expanded')) {
+      exitBattleFullscreen();
+      return;
+    }
     if (!canControlBattle() || /^(INPUT|SELECT)$/.test(event.target?.tagName)) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (key === ' ' && event.target?.tagName === 'BUTTON') return;

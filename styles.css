@@ -1406,3 +1406,19 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
   .hangar-note{display:none}
   #characterFiles img{max-height:56px}
 }
+
+/* Give the credits their own control row on portrait phones. */
+@media(orientation:portrait) and (max-width:650px){
+  .opening-frame{width:100%;padding:0}
+  #skipCredits{position:static;display:block;margin:12px 0 0 auto}
+  #openingInspire{inset:calc((100% - 56px)*.555) 20% auto}
+  .list-pagination{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:5px}
+  .list-pagination button{min-width:0;padding-inline:5px}
+}
+@media(orientation:landscape) and (max-height:500px) and (pointer:coarse){
+  #openingCredits{padding-block:max(5px,env(safe-area-inset-top)) max(5px,env(safe-area-inset-bottom))}
+  .start-panel{padding:12px}
+  .start-panel h1{margin-block:4px 8px}
+  #startScreen .start-panel img{width:54px;height:54px}
+  .game-picker .arcade-pilot{margin:4px 0}
+}

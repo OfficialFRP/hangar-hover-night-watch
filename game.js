@@ -2957,10 +2957,13 @@ for (const list of document.querySelectorAll('[data-page-size]')) {
   pager.append(previous,status,next);
   list.after(pager);
   let page = 0;
+  let previousSize;
   const refresh = () => {
     const compact = Number(list.dataset.phonePageSize || list.dataset.pageSize);
     const size = window.innerHeight < 480 ? Math.min(2,compact) :
       phoneLayout.matches ? compact : Number(list.dataset.pageSize);
+    if (previousSize && size !== previousSize) page = Math.floor(page*previousSize/size);
+    previousSize = size;
     const cards = [...list.children];
     const pages = Math.max(1,Math.ceil(cards.length/size));
     page = Math.min(page,pages-1);

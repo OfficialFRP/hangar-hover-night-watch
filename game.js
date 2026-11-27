@@ -382,9 +382,11 @@ const frameButtons = fleet.map((frame,index) => {
     }
     equipFrame(index,false);
   });
-  get('#fleet').append(button);
   return button;
 });
+const hangarOrder = fleet.map((frame,index) => ({frame,index})).sort((a,b) =>
+  Number(Boolean(a.frame.omega))-Number(Boolean(b.frame.omega)) || (a.frame.cost || 0)-(b.frame.cost || 0));
+get('#fleet').append(...hangarOrder.map(({index}) => frameButtons[index]));
 function equipFrame(index,purchasing) {
   if (state === 'flying' || state === 'paused') return;
   const frame = fleet[index];
@@ -654,12 +656,15 @@ function showPage(page) {
   if (currentPage === 'flight' && page !== 'flight') exitFlightFullscreen();
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
+  const tabPage = page === 'missions' ? 'story' : page === 'flight' ?
+    courseIndex === freeFlightIndex ? 'free' : courseIndex === -1 ? 'race' : 'story' : page;
   pageButtons.forEach(button => {
-    const selected = button.dataset.page === (page === 'flight' ? (courseIndex === freeFlightIndex ? 'free' : courseIndex === -1 ? 'race' : storyFlight ? 'story' : 'missions') : page);
+    const selected = button.dataset.page === tabPage;
     button.setAttribute('aria-pressed',selected);
     get('#page-' + button.dataset.page).hidden = button.dataset.page !== page;
   });
   get('#page-flight').hidden = page !== 'flight';
+  get('#page-missions').hidden = page !== 'missions';
   if (page === 'flight') {hud(); flightNeedsRender = true;}
   if (page === 'story') renderStory();
   if (page === 'race' || page === 'free') arcadeOptions(page);
@@ -2752,8 +2757,17 @@ function renderCharacterFiles() {
     return card;
   }));
 }
+let profileCharacter;
+const profileDialog = get('#characterProfile');
+function profileCharacters() {
+  const unlocked = unlockedPilots();
+  return Object.keys(crew).filter(key => unlocked.includes(key));
+}
 function showCharacterProfile(key) {
-  if (!unlockedPilots().includes(key)) return;
+  const characters = profileCharacters();
+  if (!characters.includes(key)) return;
+  profileCharacter = key;
+  get('#profilePrevious').disabled = get('#profileNext').disabled = characters.length < 2;
   const [name,role,portrait] = crew[key];
   const art = get('#profileArt');
   art.src = 'assets/crew-full-' + portrait + '.webp';
@@ -2761,8 +2775,23 @@ function showCharacterProfile(key) {
   get('#profileName').textContent = name;
   get('#profileRole').textContent = role;
   get('#profileBio').textContent = crewBios[key];
-  get('#characterProfile').showModal();
+  if (!profileDialog.open) profileDialog.showModal();
 }
+function cycleCharacterProfile(direction) {
+  if (!profileDialog.open) return;
+  const characters = profileCharacters();
+  const current = characters.indexOf(profileCharacter);
+  if (current >= 0 && characters.length > 1) {
+    showCharacterProfile(characters[(current+direction+characters.length)%characters.length]);
+  }
+}
+get('#profilePrevious').addEventListener('click',() => cycleCharacterProfile(-1));
+get('#profileNext').addEventListener('click',() => cycleCharacterProfile(1));
+profileDialog.addEventListener('keydown',event => {
+  if (event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft','ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  cycleCharacterProfile(event.key === 'ArrowLeft' ? -1 : 1);
+});
 renderCharacterFiles();
 
 function preloadMedia() {

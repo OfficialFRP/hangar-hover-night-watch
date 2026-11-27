@@ -573,7 +573,6 @@ body::before{
   background:linear-gradient(164deg,#28344a,#171b31 70%);
   box-shadow:inset 0 1px #e0eaff24,0 3px 0 #090e1b;
 }
-.pages [data-page=missions]{--tab-accent:#89caff}
 .pages [data-page=hangar]{--tab-accent:#acb8ff}
 .pages [data-page=upgrades]{--tab-accent:#deacff}
 .pages [data-page=race]{--tab-accent:#ffcd91}
@@ -665,6 +664,8 @@ body::before{
 #characterProfile::backdrop{background:#070b15c9}
 #characterProfile form{display:flex;justify-content:flex-end;margin-bottom:8px}
 #characterProfile form button{min-height:44px}
+.profile-gallery{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:6px;align-items:center}
+.profile-gallery button{min-height:44px;padding:0;font:700 28px/1 system-ui,sans-serif;touch-action:manipulation}
 #profileArt{
   display:block;width:100%;height:min(59dvh,430px);object-fit:contain;
   background:#0c1322;border:1px solid #44546d;border-radius:8px;
@@ -1197,9 +1198,8 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   box-shadow:inset 0 0 0 4px #0c1628,0 4px 22px #090f1b;
 }
 .battle-final-result .battle-result-card h3{
-  font:400 clamp(25px,6vw,60px)/1.04 "Hangar Airframe",Impact,sans-serif;
-  letter-spacing:.015em;text-transform:uppercase;overflow-wrap:anywhere;
-  text-shadow:0 2px #101b2a,0 0 14px currentColor;
+  font:750 clamp(24px,5vw,52px)/1.1 system-ui,sans-serif;
+  letter-spacing:.045em;text-transform:uppercase;overflow-wrap:normal;text-wrap:balance;
 }
 .battle-final-result .battle-result-card p{margin-block:10px 14px}
 @media(max-width:650px),(pointer:coarse) and (max-height:600px){

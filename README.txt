@@ -92,7 +92,7 @@ are shuffled once per save, and clearing Story missions unlocks the Cast.
 DRONE BATTLE
 Complete Story to unlock tab 08. Choose your own drone or starting pilot,
 your teammates, and team sizes with up to 12 drones total. Opponents and
-unfilled teammate spots are randomized. Steer with WASD, arrows, or the joystick. Tap Pulse or Space
+unfilled teammate spots are randomized. Steer with WASD, arrows, or the joystick. Tap Pulse or press V
 for a straight shot and hold it for a charged shot. X fires Scatter and
 C raises the shield. Upgrade battle weapons on the equipped drone from
 the Hangar upgrades screen. Purchases require Yes in the Purchase dialog.
@@ -102,7 +102,8 @@ seconds after pickup. Results show damage dealt and taken for every drone.
 SAVES
 Name a slot when starting a new save, or choose Rename from Continue.
 The Story checkpoint remains visible alongside the name. A save named
-KING JAK grants all Story missions, pilots, drones and upgrade tiers.
+KING JAK grants all Story missions, pilots, drones and upgrade tiers on
+phone and computer. Saves are local to the browser and device.
 
 Drone Battle plays all three rounds with the same roster and a fresh hull,
 ammo cooldowns, and repair packs each round. The arena has three red cameras.

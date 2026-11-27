@@ -180,13 +180,14 @@ function shieldBattleUnit(unit) {
 function canControlBattle() {
   return currentPage === 'battle' && battle && !battle.paused && !battle.result && battle.player.health > 0;
 }
-function battlePulseStart() {
+function battlePulseStart(source) {
   if (!canControlBattle() || battle.charge !== null || battle.player.shotWait > 0) return;
   battle.charge = battle.elapsed;
+  battle.chargeSource = source;
   get('#battlePulse').classList.add('charging');
 }
-function battlePulseEnd() {
-  if (!canControlBattle() || battle.charge === null) return;
+function battlePulseEnd(source) {
+  if (!canControlBattle() || battle.charge === null || battle.chargeSource !== source) return;
   fireBattleShot(battle.player,battle.elapsed-battle.charge >= .55 ? 'powered' : 'pulse');
   battle.charge = null;
   get('#battlePulse').classList.remove('charging');
@@ -662,11 +663,11 @@ function initBattleControls() {
   pulse.addEventListener('pointerdown',event => {
     if (event.button !== 0) return;
     pulse.setPointerCapture(event.pointerId);
-    battlePulseStart();
+    battlePulseStart(event.pointerId);
   });
-  pulse.addEventListener('pointerup',battlePulseEnd);
-  for (const type of ['pointercancel','lostpointercapture']) pulse.addEventListener(type,() => {
-    if (!battle) return;
+  pulse.addEventListener('pointerup',event => battlePulseEnd(event.pointerId));
+  for (const type of ['pointercancel','lostpointercapture']) pulse.addEventListener(type,event => {
+    if (!battle || battle.chargeSource !== event.pointerId) return;
     battle.charge = null;
     pulse.classList.remove('charging');
   });
@@ -682,21 +683,24 @@ function initBattleControls() {
     button.addEventListener('click',event => {if (event.detail === 0 && canControlBattle()) activate();});
   }
   window.addEventListener('keydown',event => {
-    if (!canControlBattle() || /^(INPUT|SELECT)$/.test(event.target?.tagName)) return;
+    if (!canControlBattle() || event.ctrlKey || event.altKey || event.metaKey ||
+        /^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    if (key === ' ' && event.target?.tagName === 'BUTTON') return;
-    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d',' '].includes(key)) {
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(key)) {
       event.preventDefault();
       battleHeld.add(key);
     }
+    if (!['v','x','c'].includes(key)) return;
+    event.preventDefault();
     if (event.repeat) return;
-    if (key === ' ') battlePulseStart();
+    if (key === 'v') battlePulseStart('keyboard');
     if (key === 'x') fireBattleShot(battle.player,'scatter');
     if (key === 'c') shieldBattleUnit(battle.player);
   });
   window.addEventListener('keyup',event => {
-    battleHeld.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key);
-    if (event.key === ' ') battlePulseEnd();
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    battleHeld.delete(key);
+    if (key === 'v') battlePulseEnd('keyboard');
   });
   window.addEventListener('blur',pauseBattle);
   window.matchMedia('(orientation: portrait)').addEventListener('change',pauseBattle);

@@ -158,7 +158,7 @@ function cleanSaveName(name) {
   return typeof name === 'string' ? name.trim().slice(0,28) : '';
 }
 function hasKingAccess() {
-  return progress.playerName.toUpperCase() === 'KING JAK';
+  return progress.playerName.replace(/\s+/g,' ').toUpperCase() === 'KING JAK';
 }
 function applyKingUpgrades() {
   if (!hasKingAccess()) return;

@@ -16,7 +16,7 @@ const crew = {
 const crewBios = {
   rook: 'Mara Vale pilots the covert drones that give the Night Watch team eyes on the ground. From the Sable Freight workshop to the decks of the Orison, she threads tight routes, records evidence, and scouts safe passages for the people moving in behind her.',
   cipher: 'Jun Sato reads the signals and paperwork behind each mission. He spots the fingerprints of a larger operation in duplicate freight records, transfer accounts, and suspicious manifests, then relays what he finds to Rook and the field team.',
-  patch: 'Rafael Reyes keeps the Night Watch fleet in flying shape. He tunes the airframes, helps Rook match equipment to the route, and occasionally puts his own work to the test as a Race rival.',
+  patch: 'Rafael Reyes keeps the Night Watch fleet in flying shape. He tunes the airframes, helps Rook match equipment to the route, and occasionally puts his own work to the test as a Race rival. Trusted and valued team member of the Night Watch crew.',
   director: 'Elena Voss leads the investigation and turns incoming evidence into practical flight assignments. She coordinates the team’s work across the freight yards and harbor and keeps the people affected by the cases in view.',
   sable: 'Adrian Sable runs the freight company at the center of Case 01. His name turns up on a disputed intake order, drawing the team into a network of doubled records and cargo moving under false descriptions.',
   iman: 'Iman Cruz dispatches freight and knows what belongs in a normal shipment. A damaged consignment puts Iman in a position to describe what the paperwork leaves out, giving the investigators a firsthand account.',

@@ -712,6 +712,7 @@ function updateBattleHud() {
   }
   get('#battlePause').hidden = Boolean(battle.result);
   get('#battleExit').hidden = Boolean(battle.result);
+  get('#battleRestart').hidden = !battle.paused || Boolean(battle.result);
   for (const [selector,wait] of [['#battlePulse',battle.player.shotWait],['#battleScatter',battle.player.scatterWait],['#battleShield',battle.player.shieldWait]]) {
     get(selector).disabled = !canControlBattle() || wait > 0;
   }
@@ -1073,6 +1074,14 @@ function initBattleControls() {
   });
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
   get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
+  get('#battleRestart').addEventListener('click',() => {
+    if (!battle?.paused || battle.result) return;
+    battle.countdown = 3;
+    resetBattleRound();
+    drawBattle();
+    updateBattleHud();
+    get('#battleCanvas').focus({preventScroll:true});
+  });
   get('#battleNextRound').addEventListener('click',() => {
     if (!battle?.result) return;
     if (battle.matchResult && !battle.finalWindow && battle.result !== 'Battle ended') {

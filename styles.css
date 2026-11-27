@@ -722,7 +722,7 @@ body::before{
 .pages [data-page=free]{--tab-accent:#a8f5ab}
 .arcade-pilot{display:grid;gap:5px;margin:12px 0;color:var(--accent)}
 .arcade-pilot select{min-width:0;max-width:100%;min-height:44px;font-size:16px;padding:5px;background:#142438;color:#eef8ff}
-#endFree,#freeFly{min-height:44px}
+#endFlight,#freeFly{min-height:44px}
 @media(max-width:650px){
   .pages [data-page=free] strong{max-width:6ch}
 }
@@ -1244,4 +1244,13 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
 #page-story:has(.case-intro) #storyNext{min-height:44px;touch-action:manipulation}
 @media(orientation:landscape) and (max-height:500px){
   #page-story .case-intro img{max-height:43dvh}
+}
+
+@media(max-width:650px),(pointer:coarse) and (max-height:600px){
+  #page-flight .brief-actions:has(#endFlight:not([hidden])){
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;
+  }
+  #page-flight .brief-actions:has(#endFlight:not([hidden])) button{
+    min-width:0;width:100%;padding-inline:4px;
+  }
 }

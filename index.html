@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=27">
+<link rel="stylesheet" href="styles.css?v=28">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -91,7 +91,7 @@
 </aside>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
-<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action" aria-keyshortcuts="Space"></button><button id="retryFlight" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFree" hidden>End run</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action" aria-keyshortcuts="Space"></button><button id="retryFlight" aria-keyshortcuts="R" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFlight" aria-keyshortcuts="E" hidden>End run</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
@@ -167,7 +167,7 @@
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
       <span id="battleFlagStatus" hidden></span><span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><span id="battleLives"></span><meter id="battleHull" min="0" max="140" value="140" aria-label="Your hull"></meter>
-      <button id="battleFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="battlePause" aria-keyshortcuts="P">Pause</button><button id="battleExit">End battle</button>
+      <button id="battleFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="battlePause" aria-keyshortcuts="P">Pause</button><button id="battleRestart" aria-keyshortcuts="R" hidden>Restart round</button><button id="battleExit" aria-keyshortcuts="E">End battle</button>
     </div>
     <div class="battle-stage">
       <aside id="battleFriendly" class="battle-roster" aria-label="Your team"></aside>
@@ -231,8 +231,8 @@
 <script src="story.js?v=6"></script>
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
-<script src="battle.js?v=18"></script>
-<script src="game.js?v=28"></script>
+<script src="battle.js?v=19"></script>
+<script src="game.js?v=29"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

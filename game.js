@@ -2366,7 +2366,7 @@ function hud() {
   power.classList.toggle('hostile',hostile);
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : courseIndex === freeFlightIndex ? 'Jams ∞' : 'Jams ' + jamsLeft + '/' + maxJams);
   updateFlightButton('#retryFlight','hidden',state !== 'paused');
-  updateFlightButton('#endFree','hidden',state !== 'paused' || courseIndex !== freeFlightIndex);
+  updateFlightButton('#endFlight','hidden',state !== 'paused');
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
   updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
@@ -2406,6 +2406,16 @@ window.addEventListener('keydown',event => {
     if (key === 'f') get(inBattle ? '#battleFullscreen' : '#flightFullscreen').click();
     else if (!inBattle) togglePause();
     else if (!battle.result) get('#battlePause').click();
+    return;
+  }
+  const paused = inBattle ? battle.paused && !battle.result : currentPage === 'flight' && state === 'paused';
+  if (paused && (key === 'e' || key === 'r')) {
+    event.preventDefault();
+    if (!event.repeat) {
+      const control = inBattle ? (key === 'e' ? '#battleExit' : '#battleRestart') :
+        (key === 'e' ? '#endFlight' : '#retryFlight');
+      get(control).click();
+    }
     return;
   }
   if (currentPage !== 'flight') return;
@@ -2524,7 +2534,7 @@ for (const mode of ['race','free']) {
   });
 }
 get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});
-get('#endFree').addEventListener('click',() => {finish(false,'Run ended.'); showPage('free');});
+get('#endFlight').addEventListener('click',() => {if (state === 'paused') finish(false,'Run ended.');});
 get('#backToRacePilots').addEventListener('click',() => {
   selectRace();
   get('#racePilot').focus();

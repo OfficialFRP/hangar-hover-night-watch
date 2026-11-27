@@ -69,7 +69,7 @@
   <span class="battery-heading"><span class="battery-icon" aria-hidden="true"></span>Battery</span>
   <meter min="0" max="100" value="100"></meter><b aria-hidden="true">100%</b>
   <span class="battery-track" aria-hidden="true"><span class="battery-fill"></span></span><span id="batteryCondition" aria-hidden="true">Stable</span>
-</span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span><button id="flightFullscreen" aria-pressed="false">Fullscreen</button></div>
+</span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span><button id="flightFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button></div>
 <aside id="raceDuel" aria-label="Race pilots and battery" hidden>
   <div class="racer-card" id="playerRacer">
     <img id="playerRacerPortrait" alt="" width="64" height="64" hidden>
@@ -106,7 +106,7 @@
     <div class="flight-actions" role="group" aria-label="Flight actions">
       <button id="jam" aria-label="Jam cameras"><span aria-hidden="true">ϟ</span>Jam</button>
       <button id="brake" data-key=" " aria-label="Hold to brake"><span aria-hidden="true">⏹</span>Brake</button>
-      <button id="pause" aria-label="Pause or resume"><span aria-hidden="true">Ⅱ</span>Pause</button>
+      <button id="pause" aria-keyshortcuts="P" aria-label="Pause or resume"><span aria-hidden="true">Ⅱ</span>Pause</button>
     </div>
   </div>
 </div>
@@ -167,7 +167,7 @@
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
       <span id="battleFlagStatus" hidden></span><span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><span id="battleLives"></span><meter id="battleHull" min="0" max="140" value="140" aria-label="Your hull"></meter>
-      <button id="battleFullscreen" aria-pressed="false">Fullscreen</button><button id="battlePause">Pause</button><button id="battleExit">End battle</button>
+      <button id="battleFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="battlePause" aria-keyshortcuts="P">Pause</button><button id="battleExit">End battle</button>
     </div>
     <div class="battle-stage">
       <aside id="battleFriendly" class="battle-roster" aria-label="Your team"></aside>
@@ -232,7 +232,7 @@
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
 <script src="battle.js?v=18"></script>
-<script src="game.js?v=27"></script>
+<script src="game.js?v=28"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

@@ -2397,14 +2397,23 @@ window.addEventListener('keydown',event => {
 const flightKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d',' '];
 window.addEventListener('keydown',event => {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  if (currentPage !== 'flight' || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
       get('dialog[open]') || event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
+  const inBattle = currentPage === 'battle' && battle;
+  if ((key === 'f' || key === 'p') && (currentPage === 'flight' || inBattle)) {
+    event.preventDefault();
+    if (event.repeat) return;
+    if (key === 'f') get(inBattle ? '#battleFullscreen' : '#flightFullscreen').click();
+    else if (!inBattle) togglePause();
+    else if (!battle.result) get('#battlePause').click();
+    return;
+  }
+  if (currentPage !== 'flight') return;
   if (flightKeys.includes(key) && state === 'flying') {
     event.preventDefault();
     keyboard.add(key);
   }
   if (event.repeat) return;
-  if (key === 'p') togglePause();
   if (key === 'r') {
     if (courseIndex === -1 && race.defeated) selectRace();
     else reset(courseIndex,true,storyFlight);

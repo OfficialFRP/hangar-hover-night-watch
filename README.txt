@@ -114,3 +114,10 @@ damage and cumulative totals after the match.
 
 The three arena lanes connect at the top, center, and bottom of each divider.
 After either team wins three rounds, view the final match result for cumulative damage totals.
+
+Drone Battle starts with a three-second countdown. In the Capture the Flag
+variant, touch the rival flag and bring it to your own base to win the round.
+Your own flag may be away from base when you score. Downed drones respawn
+after four seconds; a dropped flag returns after twelve seconds or when
+a member of its own team touches it. The first team to three round wins
+takes the match in either Battle variant.

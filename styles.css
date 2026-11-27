@@ -1134,3 +1134,10 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
 .battle-pilot.battle-controlled{border-color:#75ffab;box-shadow:inset 0 0 0 1px #75ffab}
 #battlePilotStatus{color:#b1ffc9;font-size:12px}
 @media(max-width:650px){#battlePilotStatus{font-size:10px}}
+
+#battleCountdown{
+  position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
+  color:#e8ffed;background:#0b17258c;text-shadow:0 0 15px #54ffb9;
+  font:900 clamp(42px,12vw,114px)/1 system-ui,sans-serif;
+}
+#battleFlagStatus{font-size:11px;color:#d3e8fe}

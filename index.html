@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=28">
+<link rel="stylesheet" href="styles.css?v=29">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -135,15 +135,15 @@
 <section id="page-race" class="panel game-menu" hidden>
 <div class="arcade-heading"><h2 id="raceTitle">Race</h2><button id="raceFly">Open race deck</button></div>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
-<label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label>
-<div id="racePilotFaces" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
+<div class="pilot-picker-control"><button id="racePilotPicker" type="button" data-game-dialog="racePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
+
 <p id="raceMatch"></p>
 </section>
 <section id="page-free" class="panel game-menu" hidden>
 <div class="arcade-heading"><h2>Free Flight</h2><button id="freeFly">Open flight deck</button></div>
 <p>Fly through endless randomized sectors. Clear each checkpoint and exit east for a fresh battery. Jam is unlimited.</p>
 <p id="freeRecord"></p>
-<label class="arcade-pilot">Pilot or drone <select id="freePilot"></select></label>
+<div class="pilot-picker-control"><button id="freePilotPicker" type="button" data-game-dialog="freePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
 
 </section>
 <section id="page-battle" class="panel game-menu" hidden>
@@ -153,15 +153,17 @@
     <div class="battle-settings">
       <button id="battleStart" class="battle-setup-start">Start battle</button>
       <label>Game mode <select id="battleMode"><option value="elimination">Battle Royal</option><option value="capture">Capture the Flag</option></select></label>
-      <label>Pilot <select id="battlePilot"></select></label>
+      <div class="pilot-picker-control"><button id="battlePilotPicker" type="button" data-game-dialog="battlePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
       <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
       <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
     </div>
-    <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
-    <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
+
+    <button id="chooseBattleAllies" type="button" data-game-dialog="battleAlliesDialog" aria-haspopup="dialog" hidden>Choose teammates</button>
+    <details class="battle-setup-help"><summary>Battle rules</summary>
     <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Your selected drone has three lives per round and respawns after three seconds. Once it runs out of lives, you take over a surviving ally.</p>
     <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad. Hunters engage enemy drones and runners make for the opposing pad.</p>
     <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round.</p>
+    </details>
   </div>
   <div id="battleArena" hidden>
     <div class="battle-status">
@@ -214,6 +216,22 @@
 </div>
 </main>
 <div id="achievementToast" role="status" aria-live="polite" hidden></div>
+<dialog id="racePilotDialog" class="game-picker" aria-labelledby="racePickerTitle">
+  <div class="game-picker-header"><h2 id="racePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
+  <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label><div id="racePilotFaces" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
+</dialog>
+<dialog id="freePilotDialog" class="game-picker" aria-labelledby="freePickerTitle">
+  <div class="game-picker-header"><h2 id="freePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
+  <label class="arcade-pilot">Pilot or drone <select id="freePilot"></select></label>
+</dialog>
+<dialog id="battlePilotDialog" class="game-picker" aria-labelledby="battlePickerTitle">
+  <div class="game-picker-header"><h2 id="battlePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
+  <label class="arcade-pilot">Pilot or drone <select id="battlePilot"></select></label><div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
+</dialog>
+<dialog id="battleAlliesDialog" class="game-picker" aria-labelledby="battleAlliesTitle">
+  <div class="game-picker-header"><h2 id="battleAlliesTitle">Choose teammates</h2><form method="dialog"><button>Done</button></form></div>
+  <div id="battleAllyList"></div>
+</dialog>
 <dialog id="purchaseDialog" aria-labelledby="purchaseTitle">
   <form method="dialog">
     <h2 id="purchaseTitle">Purchase?</h2><p id="purchaseDetail"></p>
@@ -231,8 +249,8 @@
 <script src="story.js?v=6"></script>
 <script src="race.js?v=3"></script>
 <script src="audio.js?v=3"></script>
-<script src="battle.js?v=20"></script>
-<script src="game.js?v=30"></script>
+<script src="battle.js?v=21"></script>
+<script src="game.js?v=31"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

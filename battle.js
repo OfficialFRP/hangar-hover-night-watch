@@ -50,6 +50,7 @@ function renderBattleSetup() {
     pilot.append(new Option(crew[key][0]+' · '+fleet[progress.pilotFrames[key]].name,key));
   }
   pilot.value = [...pilot.options].some(option => option.value === previousPilot) ? previousPilot : 'equipped';
+  updatePilotPicker('battle',pilot);
   const omegaChoice = [...pilot.options].some(option => option.value === 'owned-'+omegaFrameIndex) ? ['owned-'+omegaFrameIndex] : [];
   renderPilotFaces(get('#battlePilotFaces'),pilot,['equipped',...omegaChoice,...unlockedPilots()],renderBattleSetup);
   const roster = unlockedPilots().length;
@@ -70,7 +71,8 @@ function renderBattleAllyPicker() {
   const max = Number(get('#battleAllies').value)-1;
   allyChoices.delete(pilot);
   [...allyChoices].slice(max).forEach(key => allyChoices.delete(key));
-  get('#battleAllyPicker').hidden = max <= 0;
+  get('#chooseBattleAllies').hidden = max <= 0;
+  updateHudText('#chooseBattleAllies','Choose teammates · '+allyChoices.size+'/'+max);
   const panel = get('#battleAllyList');
   const candidates = unlockedPilots().filter(key => key !== pilot);
   panel.replaceChildren(...candidates.map(key => {
@@ -82,6 +84,7 @@ function renderBattleAllyPicker() {
     box.addEventListener('change',() => {
       if (box.checked && allyChoices.size < max) allyChoices.add(key);
       else allyChoices.delete(key);
+      updateHudText('#chooseBattleAllies','Choose teammates · '+allyChoices.size+'/'+max);
       for (const [index,child] of [...panel.children].entries()) {
         const checkbox = child.firstElementChild;
         const option = candidates[index];
@@ -1179,7 +1182,7 @@ function initBattleControls() {
     button.addEventListener('click',event => {if (event.detail === 0 && canControlBattle()) activate();});
   }
   window.addEventListener('keydown',event => {
-    if (!canControlBattle() || event.ctrlKey || event.altKey || event.metaKey ||
+    if (!canControlBattle() || event.defaultPrevented || get('dialog[open]') || event.ctrlKey || event.altKey || event.metaKey ||
         /^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(key)) {

@@ -232,8 +232,7 @@ function renderPilotFaces(container,select,keys,onChoose) {
     button.addEventListener('click',() => {
       select.value = key;
       onChoose();
-      const selected = [...container.children].find(card => card.getAttribute('aria-pressed') === 'true');
-      selected?.focus({preventScroll:true});
+      container.closest('dialog')?.close();
     });
     return button;
   }));
@@ -243,6 +242,9 @@ function refreshRacePilotFaces() {
   const omegaChoice = frameAvailable(omegaFrameIndex) && progress.selected !== omegaFrameIndex ? ['owned-'+omegaFrameIndex] : [];
   renderPilotFaces(get('#racePilotFaces'),select,['equipped',...omegaChoice,...unlockedPilots()],
     () => select.dispatchEvent(new Event('change')));
+}
+function updatePilotPicker(mode,select) {
+  updateHudText('#'+mode+'PilotPicker',select.selectedOptions[0] ? 'Pilot · '+select.selectedOptions[0].textContent : 'Choose pilot');
 }
 function arcadeOptions(mode) {
   const select = get('#'+mode+'Pilot');
@@ -265,6 +267,7 @@ function arcadeOptions(mode) {
   select.value = arcadeChoice[mode];
   if (!select.value || select.selectedOptions[0]?.disabled) select.value = 'equipped';
   arcadeChoice[mode] = select.value;
+  updatePilotPicker(mode,select);
   if (mode === 'race') refreshRacePilotFaces();
 }
 function arcadeLoadout(index) {
@@ -2526,9 +2529,13 @@ pageButtons.forEach(button => button.addEventListener('click',() => {
   else if (page === 'story') resumeCampaign();
   else showPage(page);
 }));
+for (const button of document.querySelectorAll('[data-game-dialog]')) {
+  button.addEventListener('click',() => get('#'+button.dataset.gameDialog).showModal());
+}
 for (const mode of ['race','free']) {
   get('#'+mode+'Pilot').addEventListener('change',event => {
     arcadeChoice[mode] = event.target.value;
+    updatePilotPicker(mode,event.target);
     if (mode === 'race' && race?.rival === event.target.value) selectRace();
     else if (mode === 'race') refreshRacePilotFaces();
   });
@@ -2537,7 +2544,7 @@ get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage
 get('#endFlight').addEventListener('click',() => {if (state === 'paused') finish(false,'Run ended.');});
 get('#backToRacePilots').addEventListener('click',() => {
   selectRace();
-  get('#racePilot').focus();
+  get('#racePilotPicker').click();
 });
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));

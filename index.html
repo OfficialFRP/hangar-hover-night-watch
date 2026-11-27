@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -62,6 +62,7 @@
 <button data-page="race" aria-pressed="false"><span class="tab-number" aria-hidden="true">05</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 21V4m0 1c5-4 9 4 15 0v10c-6 4-10-4-15 0m5-11v10m5-9v10M5 10c5-4 9 4 15 0"/></svg></span><strong>Race</strong></button>
 <button data-page="characters" aria-pressed="false"><span class="tab-number" aria-hidden="true">06</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M7.5 17c.8-3.6 8.2-3.6 9 0"/></svg></span><strong>Cast</strong></button>
 <button data-page="free" aria-pressed="false"><span class="tab-number" aria-hidden="true">07</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 9 9l-6 2 1 3 6-1 1 5-3 2h8l-3-2 1-5 6 1 1-3-6-2-3-6Z"/></svg></span><strong>Free Flight</strong></button>
+<button data-page="battle" aria-pressed="false"><span class="tab-number" aria-hidden="true">08</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4 4 7 8 9 4-2 8-5 8-9V6l-8-3Zm-3 9h6m-3-3v6"/></svg></span><strong>Drone Battle</strong></button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
 <div class="hud"><span id="power">
@@ -122,7 +123,7 @@
   <ul id="achievementList"></ul>
 </details>
 </section>
-<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><p id="purchaseStatus" role="status"></p></section>
+<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="mods"></div><h3>Battle modules</h3><div id="battleMods"></div><p id="purchaseStatus" role="status"></p></section>
 <section id="page-story" class="panel game-menu">
 <div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
@@ -144,6 +145,35 @@
 <label class="arcade-pilot">Pilot or drone <select id="freePilot"></select></label>
 <div class="pager"><button id="freeFly">Open flight deck</button></div>
 </section>
+<section id="page-battle" class="panel game-menu" hidden>
+  <h2>Drone Battle</h2>
+  <p id="battleLocked">Locked · Complete all three Story cases to unlock Drone Battle.</p>
+  <div id="battleSetup" hidden>
+    <div class="battle-settings">
+      <label>Pilot <select id="battlePilot"></select></label>
+      <label>Lead opponent <select id="battleOpponent"></select></label>
+      <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
+      <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
+    </div>
+    <p>Your team includes your drone. The remaining pilots fly under AI control. Up to 12 drones can join a battle.</p>
+    <button id="battleStart">Start battle</button>
+  </div>
+  <div id="battleArena" hidden>
+    <div class="battle-status">
+      <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
+      <span id="battleHealth"></span><meter id="battleHull" min="0" max="100" value="100" aria-label="Your hull"></meter>
+      <button id="battlePause">Pause</button><button id="battleExit">End battle</button>
+    </div>
+    <canvas id="battleCanvas" width="960" height="450" aria-label="Three-panel drone battle arena"></canvas>
+    <div class="battle-controls">
+      <div id="battleStick" class="joystick" role="group" aria-label="Battle steering"><span class="stick-knob"></span></div>
+      <div class="battle-weapons">
+        <button id="battlePulse">Pulse</button><button id="battleScatter">Scatter</button><button id="battleShield">Shield</button>
+      </div>
+    </div>
+    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. Keyboard actions use Space, X, and C.</p>
+  </div>
+</section>
 <section id="page-characters" class="panel game-menu" hidden>
 <h2>Character Files</h2>
 <div id="characterFiles"></div>
@@ -155,11 +185,26 @@
 </section>
 </div>
 </main>
+<div id="achievementToast" role="status" aria-live="polite" hidden></div>
+<dialog id="purchaseDialog" aria-labelledby="purchaseTitle">
+  <form method="dialog">
+    <h2 id="purchaseTitle">Purchase?</h2><p id="purchaseDetail"></p>
+    <div class="dialog-actions"><button value="no" autofocus>No</button><button value="yes">Yes</button></div>
+  </form>
+</dialog>
+<dialog id="saveNameDialog" aria-labelledby="saveNameTitle">
+  <form method="dialog">
+    <h2 id="saveNameTitle">Name your save</h2>
+    <label for="saveNameInput">Player name</label><input id="saveNameInput" maxlength="28" autocomplete="off" autofocus>
+    <div class="dialog-actions"><button value="cancel" formnovalidate>Cancel</button><button value="save">Save</button></div>
+  </form>
+</dialog>
 <script src="north-quay.js"></script>
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js"></script>
-<script src="game.js?v=14"></script>
+<script src="battle.js?v=1"></script>
+<script src="game.js?v=15"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

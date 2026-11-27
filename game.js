@@ -109,7 +109,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules()};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -139,6 +139,9 @@ function loadProgress(key) {
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
+    playerName:cleanSaveName(saved.playerName),
+    battleLevels:fleet.map((_,frame) => battleModules.map((_,index) =>
+      Math.min(battleTierLimit,validCount(saved.battleLevels?.[frame]?.[index])))),
     credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
     cleared:missionIds(saved.cleared),noJamClears:missionIds(saved.noJamClears),
     achievements:Array.isArray(saved.achievements) ? [...new Set(saved.achievements.filter(key =>
@@ -151,8 +154,22 @@ let progress = freshProgress();
 function saveProgress() {
   writeData(activeSlot,progress);
 }
+function cleanSaveName(name) {
+  return typeof name === 'string' ? name.trim().slice(0,28) : '';
+}
+function hasKingAccess() {
+  return progress.playerName.toUpperCase() === 'KING JAK';
+}
+function applyKingUpgrades() {
+  if (!hasKingAccess()) return;
+  progress.ownedFrames = fleet.flatMap((frame,index) => frame.cost ? [index] : []);
+  progress.activeLevels = progress.activeLevels.map((tiers,frame) => tiers.map((tier,index) =>
+    progress.levels[frame][index] < upgrades[index].max ? upgrades[index].max : tier));
+  progress.levels = fleet.map(() => upgrades.map(upgrade => upgrade.max));
+  progress.battleLevels = fleet.map(() => battleModules.map(() => battleTierLimit));
+}
 function unlockedPilots() {
-  return Object.keys(pilotUnlocks).filter(key => progress.campaignNext >= pilotUnlocks[key]);
+  return Object.keys(pilotUnlocks).filter(key => hasKingAccess() || progress.campaignNext >= pilotUnlocks[key]);
 }
 function assignPilotFrames() {
   const keys = Object.keys(pilotUnlocks);
@@ -179,7 +196,7 @@ function arcadeOptions(mode) {
     if (!frame.cost || progress.ownedFrames.includes(index)) add('owned-'+index,frame.name);
   });
   for (const [key,mission] of Object.entries(pilotUnlocks)) {
-    const unlocked = progress.campaignNext >= mission;
+    const unlocked = hasKingAccess() || progress.campaignNext >= mission;
     add(key,crew[key][0]+' · '+(unlocked ? fleet[progress.pilotFrames[key]].name : 'Unlock after Story '+mission),!unlocked);
   }
   select.value = arcadeChoice[mode];
@@ -195,13 +212,25 @@ function arcadeLoadout(index) {
 }
 function awardAchievements(flight) {
   let total = 0;
-  for (const [key,,,credits,qualifies] of achievements) {
+  const unlocked = [];
+  for (const [key,title,,credits,qualifies] of achievements) {
     if (progress.achievements.includes(key) || !qualifies(flight)) continue;
     progress.achievements.push(key);
     total += credits;
+    unlocked.push(title);
   }
   progress.credits += total;
+  if (unlocked.length) notifyAchievements(unlocked,total);
   return total;
+}
+let achievementTimer;
+function notifyAchievements(titles,credits) {
+  const toast = get('#achievementToast');
+  clearTimeout(achievementTimer);
+  toast.hidden = false;
+  toast.textContent = (titles.length === 1 ? 'Achievement unlocked: ' : 'Achievements unlocked: ') +
+    titles.join(' · ')+' · +'+credits+' CR';
+  achievementTimer = setTimeout(() => {toast.hidden = true;},Math.min(10000,5200+titles.length*550));
 }
 function achievementMessage(bonus) {
   return bonus ? ' Achievement bonus: +' + bonus + ' CR.' : '';
@@ -277,20 +306,33 @@ const frameButtons = fleet.map((frame,index) => {
     if (state === 'flying' || state === 'paused') return;
     if (frame.cost && !progress.ownedFrames.includes(index)) {
       if (progress.credits < frame.cost) return;
-      progress.credits -= frame.cost;
-      progress.ownedFrames.push(index);
-      awardAchievements();
+      confirmPurchase(frame.name,frame.cost,() => equipFrame(index,true));
+      return;
     }
-    progress.selected = index;
-    saveProgress();
-    reset(courseIndex,false,storyFlight);
+    equipFrame(index,false);
   });
   get('#fleet').append(button);
   return button;
 });
+function equipFrame(index,purchasing) {
+  if (state === 'flying' || state === 'paused') return;
+  const frame = fleet[index];
+  if (purchasing && frame.cost && !progress.ownedFrames.includes(index)) {
+    if (progress.credits < frame.cost) return;
+    progress.credits -= frame.cost;
+    progress.ownedFrames.push(index);
+    awardAchievements();
+  }
+  progress.selected = index;
+  saveProgress();
+  reset(courseIndex,false,storyFlight);
+}
 const modButtons = upgrades.map((upgrade,index) => {
   const button = document.createElement('button');
-  button.addEventListener('click',() => buyUpgrade(index));
+  button.addEventListener('click',() => {
+    const tier = progress.levels[progress.selected][index]+1;
+    confirmPurchase(upgrade.name+' · Tier '+tier,upgrade.cost*tier,() => buyUpgrade(index));
+  });
   const card = document.createElement('article');
   card.className = 'upgrade-option';
   const info = document.createElement('div');
@@ -441,7 +483,7 @@ function renderStory() {
   storyCases.forEach(([selector,first],index) => {
     const button = get(selector);
     button.setAttribute('aria-pressed',String(index === shownCase));
-    button.disabled = (progress.campaignNext || 0) < first;
+    button.disabled = !hasKingAccess() && (progress.campaignNext || 0) < first;
   });
   const picker = get('#storyMission');
   picker.replaceChildren(...courses.flatMap((mission,index) => {
@@ -521,6 +563,7 @@ function resumeCampaign() {
 }
 
 function showPage(page) {
+  if (currentPage === 'battle' && page !== 'battle') pauseBattle();
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   pageButtons.forEach(button => {
@@ -534,13 +577,15 @@ function showPage(page) {
   if (page === 'race' || page === 'free') arcadeOptions(page);
   if (page === 'free') get('#freeRecord').textContent = 'Best: '+progress.freeBest+' sectors';
   if (page === 'characters') renderCharacterFiles();
+  if (page === 'battle') renderBattleSetup();
+  if (page === 'upgrades') renderBattleModules();
   if (page === 'missions') {
     missionPage = Math.max(0,Math.floor(courseIndex/missionsPerPage));
     renderMissionPage();
   }
 }
 function canPractice(index) {
-  return progress.cleared.includes(index) || index === (progress.campaignNext || 0) || index === campaignPosition();
+  return hasKingAccess() || progress.cleared.includes(index) || index === (progress.campaignNext || 0) || index === campaignPosition();
 }
 function renderMissionPage() {
   const last = Math.ceil(courses.length/missionsPerPage)-1;
@@ -570,6 +615,50 @@ function setUpgradeTier(index,tier) {
   saveProgress();
   refreshLoadout();
 }
+const purchaseDialog = get('#purchaseDialog');
+let purchaseAction;
+function confirmPurchase(label,cost,onYes) {
+  if (purchaseDialog.open || progress.credits < cost) return;
+  get('#purchaseDetail').textContent = label+' · '+cost+' CR';
+  purchaseAction = onYes;
+  purchaseDialog.returnValue = '';
+  purchaseDialog.showModal();
+}
+purchaseDialog.addEventListener('close',() => {
+  const commit = purchaseAction;
+  purchaseAction = undefined;
+  if (purchaseDialog.returnValue === 'yes') commit?.();
+});
+function renderBattleModules() {
+  get('#battleMods').replaceChildren(...battleModules.map((module,index) => {
+    const frame = progress.selected;
+    const owned = progress.battleLevels[frame][index];
+    const cost = module.cost*(owned+1);
+    const card = document.createElement('article');
+    card.className = 'upgrade-option';
+    const info = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = module.name+' · Tier '+owned;
+    const description = document.createElement('small');
+    description.textContent = module.description;
+    info.append(title,description);
+    const button = document.createElement('button');
+    button.textContent = owned === battleTierLimit ? 'Maxed' : 'Upgrade · '+cost+' CR';
+    button.disabled = !battleUnlocked() || owned >= battleTierLimit || progress.credits < cost ||
+      state === 'flying' || state === 'paused' || Boolean(battle && !battle.result);
+    button.addEventListener('click',() => confirmPurchase(module.name+' · Tier '+(owned+1),cost,() => {
+      if (state === 'flying' || state === 'paused' || progress.credits < cost ||
+          progress.battleLevels[frame][index] !== owned || (battle && !battle.result)) return;
+      progress.credits -= cost;
+      progress.battleLevels[frame][index]++;
+      saveProgress();
+      renderHangar();
+      get('#purchaseStatus').textContent = module.name+' upgraded on '+fleet[frame].name+'.';
+    }));
+    card.append(info,button);
+    return card;
+  }));
+}
 function buyUpgrade(index) {
   const modules = progress.levels[progress.selected];
   const upgrade = upgrades[index];
@@ -592,6 +681,7 @@ function refreshLoadout() {
 function renderHangar() {
   const active = state === 'flying' || state === 'paused';
   renderAchievements();
+  renderBattleModules();
   get('#campaign').textContent = progress.cleared.length + ' / ' + courses.length + ' missions cleared';
   renderLoadout();
   get('#upgradeTitle').textContent = fleet[progress.selected].name + ' upgrades';
@@ -2209,7 +2299,7 @@ get('#storyNext').addEventListener('click',() => {
 get('#storyMission').addEventListener('change',event => selectStoryMission(Number(event.target.value)));
 storyCases.forEach(([selector,first],index) => {
   get(selector).addEventListener('click',() => {
-    if ((progress.campaignNext || 0) < first) return;
+    if (!hasKingAccess() && (progress.campaignNext || 0) < first) return;
     const position = campaignPosition();
     const last = storyCases[index+1]?.[1] ?? courses.length+1;
     if (position < first || position >= last) selectStoryMission(first);
@@ -2267,6 +2357,7 @@ function showMenuSection(section) {
   section.querySelector('button:not(:disabled):not([hidden]), select')?.focus();
 }
 function openMenu() {
+  pauseBattle();
   if (state === 'flying') togglePause();
   flightAudio(0,false,false,false);
   if (currentPage !== 'menu') gamePage = currentPage;
@@ -2291,13 +2382,28 @@ function openSave(key,saved) {
   activeSlot = key;
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;
+  battle = undefined;
+  applyKingUpgrades();
   arcadeChoice.race = arcadeChoice.free = 'equipped';
   const pilotsAssigned = assignPilotFrames();
-  if (awardAchievements() || pilotsAssigned || !saved) saveProgress();
+  if (awardAchievements() || pilotsAssigned || !saved || hasKingAccess()) saveProgress();
   reset(0);
   renderMissionPage();
   enterGame();
 }
+const saveNameDialog = get('#saveNameDialog');
+let saveNameAction;
+function askSaveName(suggested,onSave) {
+  get('#saveNameInput').value = suggested;
+  saveNameAction = onSave;
+  saveNameDialog.returnValue = '';
+  saveNameDialog.showModal();
+}
+saveNameDialog.addEventListener('close',() => {
+  const commit = saveNameAction;
+  saveNameAction = undefined;
+  if (saveNameDialog.returnValue === 'save') commit?.(cleanSaveName(get('#saveNameInput').value));
+});
 function chooseSave(creating) {
   replacePrompt.hidden = replaceSave.hidden = true;
   get('#saveTitle').textContent = creating ? 'New game' : 'Load game';
@@ -2306,19 +2412,39 @@ function chooseSave(creating) {
     const button = document.createElement('button');
     const checkpoint = saved?.campaignCursor ?? saved?.campaignNext ?? 0;
     const label = !saved ? 'Empty' : checkpoint >= courses.length ? 'Campaign complete' : courses[checkpoint]?.name || 'Saved campaign';
-    button.textContent = 'Slot ' + (index+1) + ' · ' + label;
+    const name = saved?.playerName ? saved.playerName+' · ' : '';
+    button.textContent = 'Slot ' + (index+1) + ' · ' + name + label;
+    const create = () => askSaveName('',playerName =>
+      openSave(key,{...freshProgress(),playerName,ignoreLegacyBests:true}));
     button.disabled = !creating && !saved;
     button.addEventListener('click',() => {
-      if (!creating || !saved) {
-        openSave(key,saved);
-        return;
-      }
+      if (!creating) {openSave(key,saved); return;}
+      if (!saved) {create(); return;}
       replacePrompt.textContent = 'Replace all progress in slot ' + (index+1) + '?';
       replacePrompt.hidden = replaceSave.hidden = false;
-      replaceSave.onclick = () => openSave(key,null);
+      replaceSave.onclick = create;
       replaceSave.focus();
     });
-    return button;
+    if (creating || !saved) return button;
+    const row = document.createElement('div');
+    row.className = 'save-row';
+    const rename = document.createElement('button');
+    rename.textContent = 'Rename';
+    rename.setAttribute('aria-label','Rename slot '+(index+1));
+    rename.addEventListener('click',() => askSaveName(saved.playerName,name => {
+      if (activeSlot === key) {
+        progress.playerName = name;
+        applyKingUpgrades();
+        saveProgress();
+        refreshLoadout();
+      } else {
+        saved.playerName = name;
+        writeData(key,saved);
+      }
+      chooseSave(false);
+    }));
+    row.append(button,rename);
+    return row;
   }));
   showMenuSection(saveMenu);
 }
@@ -2460,6 +2586,7 @@ let wasFlying = false;
 function frame(now) {
   const startedFlying = state === 'flying';
   let remaining = Math.min(Math.max(0,(now-last)/1000),.1);
+  if (currentPage === 'battle') tickBattle(now,remaining);
   while (remaining > 0 && state === 'flying') {
     const step = Math.min(remaining,1/60);
     update(step);
@@ -2483,5 +2610,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+initBattleControls();
 preloadMedia();
 get('#touchStart').disabled = false;

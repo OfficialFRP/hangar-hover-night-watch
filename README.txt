@@ -88,3 +88,16 @@ next sector. Jam uses are unlimited, with the existing cooldown.
 Race and Free Flight let you fly an owned drone with its installed modules,
 or select an unlocked pilot and their assigned stock drone. Pilot assignments
 are shuffled once per save, and clearing Story missions unlocks the Cast.
+
+DRONE BATTLE
+Complete Story to unlock tab 08. Choose your own drone or starting pilot,
+a lead opponent, and team sizes with up to 12 drones total. AI pilots fill
+both teams. Steer with WASD, arrows, or the joystick. Tap Pulse or Space
+for a straight shot and hold it for a charged shot. X fires Scatter and
+C raises the shield. Upgrade battle weapons on the equipped drone from
+the Hangar upgrades screen. Purchases require Yes in the Purchase dialog.
+
+SAVES
+Name a slot when starting a new save, or choose Rename from Continue.
+The Story checkpoint remains visible alongside the name. A save named
+KING JAK grants all Story missions, pilots, drones and upgrade tiers.

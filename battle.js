@@ -9,13 +9,16 @@ const battleHeld = new Set();
 const battleStick = {x:0,y:0,id:null};
 const battleWalls = [[317,68,10,79],[317,263,10,119],[636,68,10,126],[636,306,10,76]];
 const battleCargo = [[207,62,64,51],[188,334,66,54],[426,57,66,57],[477,336,66,59],[696,65,64,57],[744,338,65,58]];
-const captureWalls = [[302,72,10,100],[302,264,10,111],[648,70,10,111],[648,280,10,100]];
+const captureWalls = [[474,114,12,224],[302,72,10,100],[302,264,10,111],[648,70,10,111],[648,280,10,100]];
 const captureCargo = [[196,94,60,50],[211,325,61,50],[418,77,64,48],[479,312,66,53],[717,95,62,49],[733,321,65,52]];
 let battleBlockers = [...battleWalls,...battleCargo];
 const battleCameras = [[260,130,.55],[566,139,2.55],[712,303,-2.35]];
 const battleRounds = 3;
 const battleLives = 3;
 const battleHullCapacity = 140;
+const defenderHullCapacity = 158;
+const captureCells = [[14,289],[669,946]];
+const capturePadPositions = [[69,202],[891,248]];
 const battleRoundCredits = {Victory:65,Defeat:20,Draw:20};
 const battleMatchCredits = {Victory:175,Defeat:45};
 const battlePackSpots = [[160,260],[381,178],[481,233],[579,284],[807,200]];
@@ -45,11 +48,16 @@ function renderBattleSetup() {
   pilot.value = [...pilot.options].some(option => option.value === previousPilot) ? previousPilot : 'equipped';
   renderPilotFaces(get('#battlePilotFaces'),pilot,['equipped',...unlockedPilots()],renderBattleSetup);
   const roster = unlockedPilots().length;
+  const minimum = get('#battleMode').value === 'capture' ? 2 : 1;
+  get('#battleGuardNote').hidden = minimum === 1;
   const allyCount = Math.trunc(Number(get('#battleAllies').value)) || 1;
   const enemyCount = Math.trunc(Number(get('#battleEnemies').value)) || 1;
-  get('#battleAllies').max = get('#battleEnemies').max = roster-1;
-  get('#battleAllies').value = Math.min(roster-1,Math.max(1,allyCount));
-  get('#battleEnemies').value = Math.min(roster-Number(get('#battleAllies').value),Math.max(1,enemyCount));
+  const allySize = clamp(allyCount,minimum,roster-minimum);
+  get('#battleAllies').min = get('#battleEnemies').min = minimum;
+  get('#battleAllies').max = roster-minimum;
+  get('#battleEnemies').max = roster-allySize;
+  get('#battleAllies').value = allySize;
+  get('#battleEnemies').value = clamp(enemyCount,minimum,roster-allySize);
   renderBattleAllyPicker();
 }
 function renderBattleAllyPicker() {
@@ -98,7 +106,7 @@ function startBattle() {
   const spawn = (team,key,frameIndex,index,total) => ({
     team,key,frame:fleet[frameIndex],modules:index === 0 && team === 0 ? progress.battleLevels[frameIndex] : [0,0,0],
     x:team ? 855-index%3*35 : 105+index%3*35,y:55+(index+1)*340/(total+1),
-    angle:team ? -Math.PI/2 : Math.PI/2,health:battleHullCapacity,shotWait:.4+index*.12,scatterWait:0,
+    angle:team ? -Math.PI/2 : Math.PI/2,health:battleHullCapacity,maxHull:battleHullCapacity,shotWait:.4+index*.12,scatterWait:0,
     shieldWait:0,shield:0,trail:[],dealt:0,taken:0,totalDealt:0,totalTaken:0,player:team === 0 && index === 0
   });
   const units = [spawn(0,pilot,playerFrame,0,allyCount)];
@@ -113,6 +121,16 @@ function startBattle() {
   battle = {units,startingPilot:units[0],player:units[0],round:1,wins:0,losses:0,
     mode:get('#battleMode').value === 'capture' ? 'capture' : 'elimination',countdown:3};
   const capture = battle.mode === 'capture';
+  if (capture) {
+    for (const team of [0,1]) {
+      const guards = units.filter(unit => unit.team === team && !unit.player);
+      const defender = pick(guards);
+      defender.defender = true;
+      defender.maxHull = defenderHullCapacity;
+      defender.x = capturePadPositions[team][0]+(team ? -41 : 41);
+      defender.y = capturePadPositions[team][1]+(Math.random()-.5)*46;
+    }
+  }
   battle.walls = capture ? captureWalls : battleWalls;
   battle.cargo = capture ? captureCargo : battleCargo;
   battleBlockers = [...battle.walls,...battle.cargo];
@@ -124,7 +142,8 @@ function startBattle() {
     unit.ai = {
       defensive:firstStyle[unit.team] !== Boolean(index%2),turn:Math.random()<.5 ? -1 : 1,
       phase:Math.random()*Math.PI*2,pace:.8+Math.random()*.35,
-      rangeOffset:(Math.random()-.5)*65
+      rangeOffset:(Math.random()-.5)*65,passage:Math.random()<.5 ? 52 : 397,
+      orbitWidth:36+Math.random()*13,orbitHeight:41+Math.random()*17
     };
   }
   renderBattleRoster();
@@ -143,9 +162,9 @@ function resetBattleRound() {
   Object.assign(battle,{shots:[],hazards,packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
     elapsed:0,charge:null,paused:false,result:'',matchResult:'',roundCredits:0,matchCredits:0,player:battle.startingPilot,transferAt:-Infinity});
   battle.pads = battle.mode === 'capture' ?
-    [0,1].map(team => ({team,x:team ? 891 : 69,y:team ? 248 : 202})) : [];
+    capturePadPositions.map(([x,y],team) => ({team,x,y})) : [];
   for (const unit of battle.units) {
-    Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shieldWait:0,shield:0,slowUntil:0,respawnAt:undefined,protectedUntil:0,lives:battleLives,landing:0,speed:0,dealt:0,taken:0,player:unit===battle.player});
+    Object.assign(unit,unit.spawn,{health:unit.maxHull,scatterWait:0,shieldWait:0,shield:0,slowUntil:0,respawnAt:undefined,protectedUntil:0,lives:battleLives,landing:0,speed:0,dealt:0,taken:0,player:unit===battle.player});
     unit.trail.length = 0;
     if (unit.ai) unit.ai.planAt = 0;
   }
@@ -205,7 +224,7 @@ function fireBattleShot(unit,kind) {
     const speed = powered ? 410 : 470;
     battle.shots.push({x:unit.x,y:unit.y,vx:Math.cos(heading)*speed,vy:Math.sin(heading)*speed,
       team:unit.team,source:unit,kind,life:scatter ? .75 : 2.6,size:powered ? 5 : 2.5,
-      damage:scatter ? 7+tier*2 : powered ? 31+tier*5 : 13+tier*2});
+      damage:Math.round((scatter ? 7+tier*2 : powered ? 31+tier*5 : 13+tier*2)*(unit.defender ? 1.3 : 1))});
   }
   if (scatter) unit.scatterWait = 1.05;
   else unit.shotWait = powered ? .57 : .22;
@@ -236,7 +255,8 @@ function moveBattleUnit(unit,dx,dy,dt) {
   const beforeX = unit.x,beforeY = unit.y;
   const scale = Math.max(1,Math.hypot(dx,dy));
   const speed = (unit.player ? 144+(unit.frame.thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
-  const x = clamp(unit.x+dx/scale*speed*dt,14,946);
+  const [minX,maxX] = unit.defender ? captureCells[unit.team] : [14,946];
+  const x = clamp(unit.x+dx/scale*speed*dt,minX,maxX);
   const y = clamp(unit.y+dy/scale*speed*dt,14,436);
   if (!battleWallAt(x,unit.y,11)) unit.x = x;
   if (!battleWallAt(unit.x,y,11)) unit.y = y;
@@ -302,13 +322,20 @@ function planBattleWaypoint(unit,targetX,targetY) {
   for (const [index,[x,y]] of points.entries()) {
     if (!battleRouteClear(unit.x,unit.y,x,y) || Math.hypot(unit.x-x,unit.y-y)<1.5) continue;
     const remaining = Math.min(...costs[index].map((cost,to) => cost+toTarget[to]));
-    const preference = (1+Math.sin(unit.ai.phase+y/72))*9;
+    const preference = battle?.mode === 'capture' && !unit.defender ?
+      Math.abs(y-unit.ai.passage)*.12 : (1+Math.sin(unit.ai.phase+y/72))*9;
     const score = Math.hypot(unit.x-x,unit.y-y)+remaining+preference;
     if (score < bestCost) {bestCost = score; waypoint = [x,y];}
   }
   return waypoint;
 }
 function captureTarget(unit) {
+  if (unit.defender) {
+    const pad = battle.pads[unit.team];
+    const {phase,turn,pace,orbitWidth,orbitHeight} = unit.ai;
+    const angle = phase+battle.elapsed*turn*pace*1.55;
+    return {x:pad.x+Math.cos(angle)*orbitWidth,y:pad.y+Math.sin(angle)*orbitHeight};
+  }
   return battle.pads[1-unit.team];
 }
 function steerBattleAI(unit,dt) {
@@ -319,7 +346,7 @@ function steerBattleAI(unit,dt) {
   const enemyRange = enemy ? Math.hypot(enemy.x-unit.x,enemy.y-unit.y) : Infinity;
   const threat = incomingBattleShot(unit);
   if (threat && (ai.defensive || unit.health<66 || enemyRange<110)) shieldBattleUnit(unit);
-  const repair = ai.defensive && unit.health<battleHullCapacity*.69 && battle.packs
+  const repair = !unit.defender && ai.defensive && unit.health<unit.maxHull*.69 && battle.packs
     .filter(pack => pack.readyAt<=battle.elapsed && Math.floor(pack.x/320)===Math.floor(unit.x/320) &&
       battleLineClear(unit.x,unit.y,pack.x-unit.x,pack.y-unit.y))
     .sort((a,b) => (a.x-unit.x)**2+(a.y-unit.y)**2-(b.x-unit.x)**2-(b.y-unit.y)**2)[0];
@@ -335,7 +362,7 @@ function steerBattleAI(unit,dt) {
   const dy = aimY-unit.y;
   const range = Math.hypot(dx,dy);
   const idealRange = (ai.defensive ? 237 : 143)+ai.rangeOffset;
-  const landingNearPad = objective && !repair && !needsRoute && range < 18;
+  const landingNearPad = objective && !unit.defender && !repair && !needsRoute && range < 18;
   if (landingNearPad) moveBattleUnit(unit,0,0,dt);
   else if (range > 1) {
     const approach = repair || objective || needsRoute || range>idealRange+35 ? 1 : range<idealRange-38 ? -.72 : 0;
@@ -358,7 +385,7 @@ function steerBattleAI(unit,dt) {
     moveBattleUnit(unit,moveX*ai.pace,moveY*ai.pace,dt);
   }
   if (enemy && enemyRange < 365 && battleLineClear(unit.x,unit.y,enemy.x-unit.x,enemy.y-unit.y)) {
-    if (!ai.defensive && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
+    if ((unit.defender || !ai.defensive) && enemyRange < 155 && unit.scatterWait <= 0) fireBattleShot(unit,'scatter');
     if (unit.shotWait <= 0) {
       fireBattleShot(unit,Math.random()<(ai.defensive ? .29 : .14) ? 'powered' : 'pulse');
       unit.shotWait = (ai.defensive ? .93 : .53)+Math.random()*.58;
@@ -390,10 +417,10 @@ function applyBattleHazards(unit,dt) {
     return true;
   });
   if (inBeam) applyBattleDamage(unit,6.3*dt);
-  if (unit.health <= 0 || unit.health > battleHullCapacity-1) return;
+  if (unit.health <= 0 || unit.health > unit.maxHull-1) return;
   for (const pack of battle.packs) {
     if (pack.readyAt <= battle.elapsed && (unit.x-pack.x)**2+(unit.y-pack.y)**2 < 25**2) {
-      unit.health = Math.min(battleHullCapacity,unit.health+32);
+      unit.health = Math.min(unit.maxHull,unit.health+32);
       pack.readyAt = battle.elapsed+8;
       battleSound('repair');
       break;
@@ -467,7 +494,7 @@ function scheduleBattleRespawn(unit) {
 function respawnBattleDrone(unit) {
   scheduleBattleRespawn(unit);
   if (battle.elapsed < unit.respawnAt) return;
-  Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shield:0,shieldWait:0,
+  Object.assign(unit,unit.spawn,{health:unit.maxHull,scatterWait:0,shield:0,shieldWait:0,
     slowUntil:0,protectedUntil:battle.elapsed+1,landing:0,speed:0,respawnAt:undefined});
   unit.trail.length = 0;
   if (unit.ai) unit.ai.planAt = 0;
@@ -516,7 +543,7 @@ function stepBattle(dt) {
     return;
   }
   const remaining = [0,1].map(team => battle.units.reduce((sum,unit) => sum+(unit.team === team ?
-    Math.max(0,unit.lives-1)*battleHullCapacity+(unit.health || (unit.lives>0 ? battleHullCapacity : 0)) : 0),0));
+    Math.max(0,unit.lives-1)*unit.maxHull+(unit.health || (unit.lives>0 ? unit.maxHull : 0)) : 0),0));
   if (!remaining.every(Boolean) || battle.elapsed >= 150) {
     concludeBattle(remaining[0] === remaining[1] ? 'Draw' : remaining[0] > remaining[1] ? 'Victory' : 'Defeat');
   }
@@ -542,7 +569,13 @@ function renderBattleRoster() {
       bar.setAttribute('aria-label',battlePilotName(unit)+' hull');
       const health = document.createElement('small');
       health.textContent = '100%';
-      if (!unit.player) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
+      if (unit.defender) {
+        name.title = 'Defender';
+        card.classList.add('battle-defender');
+        const role = document.createElement('small');
+        role.textContent = 'Defender';
+        info.append(role);
+      } else if (!unit.player) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
       info.append(name,bar,health);
       card.append(image,info);
       unit.roster = {card,bar,health};
@@ -614,8 +647,8 @@ function updateBattleHud() {
   const score = 'Round '+battle.round+'/'+battleRounds+' · '+battle.wins+'–'+battle.losses;
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     (battle.mode === 'capture' ? 'Capture the Flag · ' : count(0)+' allies · '+count(1)+' rivals · ')+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
-  updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battleHullCapacity+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
-  updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player));
+  updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battle.player.maxHull+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
+  updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player)+(battle.player.defender ? ' · Defender' : ''));
   get('#battleFlagStatus').hidden = battle.mode !== 'capture';
   if (battle.pads.length) {
     const landing = Math.min(100,Math.floor(battle.player.landing/.55*100));
@@ -625,10 +658,10 @@ function updateBattleHud() {
   updateHudText('#battleLives','Lives: '+battle.player.lives+
     (respawning ? ' · Respawn in '+Math.max(0,Math.ceil(battle.player.respawnAt-battle.elapsed))+'s' : ''));
   if (!battle.result) updateHudText('#battleResult','');
-  get('#battleHull').max = battleHullCapacity;
+  get('#battleHull').max = battle.player.maxHull;
   get('#battleHull').value = battle.player.health;
   for (const unit of battle.units) {
-    const charge = Math.ceil(100*unit.health/battleHullCapacity);
+    const charge = Math.ceil(100*unit.health/unit.maxHull);
     const {bar,health,card} = unit.roster;
     card.classList.toggle('battle-controlled',unit.player && charge > 0);
     const readout = charge+'% · '+unit.lives+' lives';
@@ -849,7 +882,8 @@ function drawBattle() {
   for (const shot of battle.shots) drawBattleShot(surface,shot);
   for (const unit of battle.units) {
     if (unit.health <= 0) continue;
-    const color = unit.team ? '#ff5269' : '#69ff9a';
+    const color = unit.defender ? (unit.team ? '#c786ff' : '#68beff') :
+      unit.team ? '#ff5269' : '#69ff9a';
     drawDroneTrail(unit.trail,unit.frame,unit,surface,battle.elapsed,color);
     if (unit.slowUntil>battle.elapsed) {
       circle(unit.x,unit.y,24,surface);
@@ -872,7 +906,7 @@ function drawBattle() {
     surface.fillStyle = '#0b1324';
     surface.fillRect(unit.x-17,unit.y-27,34,4);
     surface.fillStyle = color;
-    surface.fillRect(unit.x-17,unit.y-27,34*unit.health/battleHullCapacity,4);
+    surface.fillRect(unit.x-17,unit.y-27,34*unit.health/unit.maxHull,4);
     const respawnFlash = unit.protectedUntil>battle.elapsed &&
       battleTransferFlash(battle.elapsed-(unit.protectedUntil-1));
     const handoffFlash = unit.player && unit.protectedUntil<=battle.elapsed &&
@@ -883,9 +917,9 @@ function drawBattle() {
       surface.lineWidth = 3;
       surface.stroke();
     }
-    if (unit.player) {
+    if (unit.player || unit.defender) {
       surface.font = 'bold 12px monospace';
-      surface.fillText('YOU',unit.x-11,unit.y+28);
+      surface.fillText(unit.player ? 'YOU' : 'DEF',unit.x-11,unit.y+28);
     }
   }
 }
@@ -957,6 +991,7 @@ function initBattleControls() {
   }
   get('#battlePilot').addEventListener('change',renderBattleSetup);
   get('#battleAllies').addEventListener('change',renderBattleSetup);
+  get('#battleMode').addEventListener('change',renderBattleSetup);
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
   get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
   get('#battleNextRound').addEventListener('click',() => {

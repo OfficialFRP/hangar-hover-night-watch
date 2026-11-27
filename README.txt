@@ -122,3 +122,8 @@ claim its flag, and win the round. A teammate can score for your side.
 In either variant each drone has three lives per round. A drone with
 lives left respawns in three seconds, then flashes three times and is
 invulnerable for one second.
+
+Capture the Flag requires at least two drones per team. An AI defender
+patrols each pad, stays inside its own cell, and has 158 hull and stronger
+shots. Blue marks the allied defender; purple marks the rival defender.
+Attackers can route above or below the center partition.

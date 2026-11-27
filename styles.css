@@ -1141,3 +1141,14 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])){max-width:1640px
   font:900 clamp(42px,12vw,114px)/1 system-ui,sans-serif;
 }
 #battleFlagStatus{font-size:11px;color:#d3e8fe}
+
+#battleFriendly .battle-pilot.battle-defender{border-color:#68beff}
+#battleFriendly .battle-defender meter{accent-color:#68beff}
+#battleOpposing .battle-pilot.battle-defender{border-color:#c786ff}
+#battleOpposing .battle-defender meter{accent-color:#c786ff}
+#battleFriendly .battle-pilot.battle-defender.battle-controlled{box-shadow:inset 0 0 0 1px #68beff}
+#battleGuardNote{color:#b7ddff;font-size:13px}
+@media(orientation:portrait) and (max-width:650px){
+  .battle-roster .battle-defender{flex-basis:126px}
+  #battleArena .battle-status{column-gap:5px;row-gap:3px}
+}

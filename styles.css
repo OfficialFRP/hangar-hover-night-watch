@@ -1393,7 +1393,9 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
 #openingInspire{position:absolute;inset:55.5% 20% auto;height:max(9%,44px);border-radius:5px}
 #openingInspire:is(:hover,:focus-visible){outline:2px solid #9becf5;outline-offset:1px}
 .opening-frame video{display:block;width:100%;max-height:calc(100dvh - 24px);aspect-ratio:16/9;object-fit:contain}
-#skipCredits{position:absolute;right:14px;bottom:14px;min-height:44px;background:#162439ec}
+.opening-controls{position:absolute;right:14px;bottom:14px;display:flex;gap:6px}
+.opening-controls button{min-height:44px;background:#162439ec}
+.opening-controls button[aria-pressed=true]{background:#a5fae6;color:#13263a}
 .list-pagination{
   display:grid;grid-template-columns:auto minmax(3rem,1fr) auto;align-items:center;
   gap:8px;margin-block:7px;text-align:center;
@@ -1410,7 +1412,7 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
 /* Give the credits their own control row on portrait phones. */
 @media(orientation:portrait) and (max-width:650px){
   .opening-frame{width:100%;padding:0}
-  #skipCredits{position:static;display:block;margin:12px 0 0 auto}
+  .opening-controls{position:static;justify-content:flex-end;margin-top:12px}
   #openingInspire{inset:calc((100% - 56px)*.555) 20% auto}
   .list-pagination{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:5px}
   .list-pagination button{min-width:0;padding-inline:5px}

@@ -2600,13 +2600,13 @@ function syncGameMusic() {
     currentPage === 'free' || (currentPage === 'flight' && courseIndex === freeFlightIndex) ? 'free' : 'story';
   setTechnoMusic(soundEnabled,mode);
 }
-function applyAudio() {
+function applyAudio(startMusic = true) {
   soundEnabled = options.sound;
   get('#audio').textContent = soundEnabled ? 'Sound on' : 'Sound off';
   get('#audio').setAttribute('aria-pressed',soundEnabled);
   get('#soundSetting').checked = soundEnabled;
   if (soundEnabled) enableFlightAudio();
-  syncGameMusic();
+  if (startMusic) syncGameMusic();
   if (!soundEnabled) Object.values(effects).forEach(effect => effect.pause());
 }
 function changeAudio(enabled) {
@@ -2733,6 +2733,11 @@ function chooseSave(creating) {
 }
 const openingCredits = get('#openingCredits');
 const openingVideo = get('#openingVideo');
+const openingSound = get('#openingSound');
+function setOpeningMute(muted) {
+  openingVideo.muted = muted;
+  openingSound.setAttribute('aria-pressed',String(!muted));
+}
 let openingTimeout;
 function finishOpeningCredits() {
   if (openingCredits.hidden) return;
@@ -2743,7 +2748,7 @@ function finishOpeningCredits() {
 }
 get('#touchStart').addEventListener('click',() => {
   get('#startScreen').hidden = true;
-  applyAudio();
+  applyAudio(false);
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     openMenu();
     return;
@@ -2751,8 +2756,14 @@ get('#touchStart').addEventListener('click',() => {
   openingCredits.hidden = false;
   get('#skipCredits').focus();
   openingTimeout = setTimeout(finishOpeningCredits,15000);
-  openingVideo.play().catch(finishOpeningCredits);
+  setOpeningMute(savedOptions?.sound === false);
+  openingVideo.play().catch(() => {
+    if (openingCredits.hidden) return;
+    setOpeningMute(true);
+    openingVideo.play().catch(finishOpeningCredits);
+  });
 });
+openingSound.addEventListener('click',() => setOpeningMute(!openingVideo.muted));
 get('#skipCredits').addEventListener('click',finishOpeningCredits);
 openingVideo.addEventListener('timeupdate',() => {
   get('#openingInspire').hidden = openingVideo.currentTime < 2.5 || openingVideo.currentTime >= 6;

@@ -2754,6 +2754,9 @@ get('#touchStart').addEventListener('click',() => {
   openingVideo.play().catch(finishOpeningCredits);
 });
 get('#skipCredits').addEventListener('click',finishOpeningCredits);
+openingVideo.addEventListener('timeupdate',() => {
+  get('#openingInspire').hidden = openingVideo.currentTime < 2.5 || openingVideo.currentTime >= 6;
+});
 openingVideo.addEventListener('ended',finishOpeningCredits);
 openingVideo.addEventListener('error',finishOpeningCredits);
 get('#openMenu').addEventListener('click',openMenu);

@@ -1389,7 +1389,9 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
 }
 
 #openingCredits{align-items:center;justify-items:center;background:#070d18}
-.opening-frame{position:relative;width:min(100%,960px);padding:8px}
+.opening-frame{position:relative;width:min(100%,960px,calc((100dvh - 24px)*16/9));padding:8px}
+#openingInspire{position:absolute;inset:55.5% 20% auto;height:max(9%,44px);border-radius:5px}
+#openingInspire:is(:hover,:focus-visible){outline:2px solid #9becf5;outline-offset:1px}
 .opening-frame video{display:block;width:100%;max-height:calc(100dvh - 24px);aspect-ratio:16/9;object-fit:contain}
 #skipCredits{position:absolute;right:14px;bottom:14px;min-height:44px;background:#162439ec}
 .list-pagination{

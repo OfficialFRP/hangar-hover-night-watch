@@ -151,21 +151,21 @@
   <p id="battleLocked">Locked · Complete all three Story cases to unlock Drone Battle.</p>
   <div id="battleSetup" hidden>
     <div class="battle-settings">
-      <label>Game mode <select id="battleMode"><option value="elimination">Elimination</option><option value="capture">Capture the Flag</option></select></label>
+      <label>Game mode <select id="battleMode"><option value="elimination">Battle Royal</option><option value="capture">Capture the Flag</option></select></label>
       <label>Pilot <select id="battlePilot"></select></label>
       <label>Your team size <input id="battleAllies" type="number" min="1" max="11" value="1"></label>
       <label>Opposing team size <input id="battleEnemies" type="number" min="1" max="11" value="1"></label>
     </div>
     <div id="battlePilotFaces" class="pilot-faces" role="group" aria-label="Battle character portraits"></div>
     <fieldset id="battleAllyPicker" hidden><legend>Choose teammates</legend><div id="battleAllyList"></div></fieldset>
-    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. First team to win three rounds takes the battle. Each round starts with a fresh hull.</p>
-    <p>Capture the Flag: carry the other team’s flag to your base to win a round. Downed drones respawn after four seconds.</p>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Each drone starts the round with three lives.</p>
+    <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round. Drones with lives left respawn after three seconds.</p>
     <button id="battleStart">Start battle</button>
   </div>
   <div id="battleArena" hidden>
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
-      <span id="battleFlagStatus" hidden></span><span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><meter id="battleHull" min="0" max="140" value="140" aria-label="Your hull"></meter>
+      <span id="battleFlagStatus" hidden></span><span id="battlePilotStatus" aria-live="polite"></span><span id="battleHealth"></span><span id="battleLives"></span><meter id="battleHull" min="0" max="140" value="140" aria-label="Your hull"></meter>
       <button id="battleFullscreen" aria-pressed="false">Fullscreen</button><button id="battlePause">Pause</button><button id="battleExit">End battle</button>
     </div>
     <div class="battle-stage">
@@ -226,7 +226,7 @@
 <script src="story.js?v=5"></script>
 <script src="race.js?v=2"></script>
 <script src="audio.js?v=2"></script>
-<script src="battle.js?v=11"></script>
+<script src="battle.js?v=12"></script>
 <script src="game.js?v=20"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.

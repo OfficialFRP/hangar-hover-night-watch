@@ -9,9 +9,12 @@ const battleHeld = new Set();
 const battleStick = {x:0,y:0,id:null};
 const battleWalls = [[317,68,10,79],[317,263,10,119],[636,68,10,126],[636,306,10,76]];
 const battleCargo = [[207,62,64,51],[188,334,66,54],[426,57,66,57],[477,336,66,59],[696,65,64,57],[744,338,65,58]];
-const battleBlockers = [...battleWalls,...battleCargo];
+const captureWalls = [[302,72,10,100],[302,264,10,111],[648,70,10,111],[648,280,10,100]];
+const captureCargo = [[196,94,60,50],[211,325,61,50],[418,77,64,48],[479,312,66,53],[717,95,62,49],[733,321,65,52]];
+let battleBlockers = [...battleWalls,...battleCargo];
 const battleCameras = [[260,130,.55],[566,139,2.55],[712,303,-2.35]];
-const battleWinsRequired = 3;
+const battleRounds = 3;
+const battleLives = 3;
 const battleHullCapacity = 140;
 const battleRoundCredits = {Victory:65,Defeat:20,Draw:20};
 const battleMatchCredits = {Victory:175,Defeat:45};
@@ -109,10 +112,16 @@ function startBattle() {
   }
   battle = {units,startingPilot:units[0],player:units[0],round:1,wins:0,losses:0,
     mode:get('#battleMode').value === 'capture' ? 'capture' : 'elimination',countdown:3};
+  const capture = battle.mode === 'capture';
+  battle.walls = capture ? captureWalls : battleWalls;
+  battle.cargo = capture ? captureCargo : battleCargo;
+  battleBlockers = [...battle.walls,...battle.cargo];
+  battleNavigation = undefined;
+  battleBackdrop = undefined;
   const firstStyle = [Math.random()<.5,Math.random()<.5];
   for (const [index,unit] of units.entries()) {
     unit.spawn = {x:unit.x,y:unit.y,angle:unit.angle,shotWait:unit.shotWait};
-    if (!unit.player) unit.ai = {
+    unit.ai = {
       defensive:firstStyle[unit.team] !== Boolean(index%2),turn:Math.random()<.5 ? -1 : 1,
       phase:Math.random()*Math.PI*2,pace:.8+Math.random()*.35,
       rangeOffset:(Math.random()-.5)*65
@@ -124,7 +133,8 @@ function startBattle() {
   updateBattleHud();
 }
 function resetBattleRound() {
-  const hazards = battleCameras.map(([x,y,angle],index) => ({x,y,angle,index,turret:false,readyAt:1.3+index*.4}));
+  const cameraSites = battle.mode === 'capture' ? [[245,164,.55],[571,124,2.55],[715,278,-2.35]] : battleCameras;
+  const hazards = cameraSites.map(([x,y,angle],index) => ({x,y,angle,index,turret:false,readyAt:1.3+index*.4}));
   if (Math.random()<.58) {
     const sites = [...hazards];
     const count = Math.random()<.32 ? 2 : 1;
@@ -132,10 +142,10 @@ function resetBattleRound() {
   }
   Object.assign(battle,{shots:[],hazards,packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
     elapsed:0,charge:null,paused:false,result:'',matchResult:'',roundCredits:0,matchCredits:0,player:battle.startingPilot,transferAt:-Infinity});
-  battle.flags = battle.mode === 'capture' ?
-    [0,1].map(team => ({team,homeX:team ? 891 : 69,homeY:225,x:team ? 891 : 69,y:225})) : [];
+  battle.pads = battle.mode === 'capture' ?
+    [0,1].map(team => ({team,x:team ? 891 : 69,y:team ? 248 : 202})) : [];
   for (const unit of battle.units) {
-    Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shieldWait:0,shield:0,slowUntil:0,respawnAt:undefined,dealt:0,taken:0,player:unit===battle.player});
+    Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shieldWait:0,shield:0,slowUntil:0,respawnAt:undefined,protectedUntil:0,lives:battleLives,landing:0,speed:0,dealt:0,taken:0,player:unit===battle.player});
     unit.trail.length = 0;
     if (unit.ai) unit.ai.planAt = 0;
   }
@@ -223,6 +233,7 @@ function battlePulseEnd(source) {
   get('#battlePulse').classList.remove('charging');
 }
 function moveBattleUnit(unit,dx,dy,dt) {
+  const beforeX = unit.x,beforeY = unit.y;
   const scale = Math.max(1,Math.hypot(dx,dy));
   const speed = (unit.player ? 144+(unit.frame.thrust-395)*.16 : 94)*(unit.slowUntil>battle.elapsed ? .54 : 1);
   const x = clamp(unit.x+dx/scale*speed*dt,14,946);
@@ -230,6 +241,7 @@ function moveBattleUnit(unit,dx,dy,dt) {
   if (!battleWallAt(x,unit.y,11)) unit.x = x;
   if (!battleWallAt(unit.x,y,11)) unit.y = y;
   unit.angle = turnNose(unit.angle,dx,dy,dt);
+  unit.speed = Math.hypot(unit.x-beforeX,unit.y-beforeY)/dt;
 }
 function battleLineClear(x,y,dx,dy) {
   const steps = Math.ceil(Math.hypot(dx,dy)/14);
@@ -297,14 +309,7 @@ function planBattleWaypoint(unit,targetX,targetY) {
   return waypoint;
 }
 function captureTarget(unit) {
-  if (!battle.flags.length) return;
-  const home = battle.flags[unit.team];
-  const enemyFlag = battle.flags[1-unit.team];
-  if (enemyFlag.carrier === unit) return {x:home.homeX,y:home.homeY};
-  if (home.carrier) return home.carrier;
-  if (unit.ai.defensive && home.returnAt) return home;
-  if (enemyFlag.carrier) return unit.ai.defensive ? {x:home.homeX,y:home.homeY} : enemyFlag.carrier;
-  return enemyFlag;
+  return battle.pads[1-unit.team];
 }
 function steerBattleAI(unit,dt) {
   const enemy = nearestBattleEnemy(unit);
@@ -330,7 +335,9 @@ function steerBattleAI(unit,dt) {
   const dy = aimY-unit.y;
   const range = Math.hypot(dx,dy);
   const idealRange = (ai.defensive ? 237 : 143)+ai.rangeOffset;
-  if (range > 1) {
+  const landingNearPad = objective && !repair && !needsRoute && range < 18;
+  if (landingNearPad) moveBattleUnit(unit,0,0,dt);
+  else if (range > 1) {
     const approach = repair || objective || needsRoute || range>idealRange+35 ? 1 : range<idealRange-38 ? -.72 : 0;
     const orbit = ai.turn*(.43+.27*Math.sin(battle.elapsed*ai.pace+ai.phase));
     const strafe = repair || objective || needsRoute || range>idealRange+35 ? 0 : orbit;
@@ -361,8 +368,11 @@ function steerBattleAI(unit,dt) {
 function battleCameraHeading(camera) {
   return camera.angle+Math.sin(battle.elapsed*1.12+camera.index*1.6)*.85;
 }
+function battleUnitProtected(unit) {
+  return unit.shield > 0 || unit.protectedUntil > battle.elapsed;
+}
 function applyBattleDamage(unit,amount,source) {
-  if (unit.shield > 0 || unit.health <= 0) return;
+  if (battleUnitProtected(unit) || unit.health <= 0) return;
   const damage = Math.min(amount,unit.health);
   unit.health -= damage;
   unit.taken += damage;
@@ -437,39 +447,28 @@ function fireBattleTurrets() {
     battleSound('turret');
   }
 }
-function updateCaptureFlags() {
-  for (const flag of battle.flags) {
-    if (flag.carrier) {
-      const carrier = flag.carrier;
-      flag.x = carrier.x;
-      flag.y = carrier.y;
-      if (carrier.health <= 0) {
-        flag.carrier = undefined;
-        flag.returnAt = battle.elapsed+12;
-      } else {
-        const base = battle.flags[carrier.team];
-        if (Math.hypot(carrier.x-base.homeX,carrier.y-base.homeY)<26) {
-          concludeBattle(carrier.team === 0 ? 'Victory' : 'Defeat');
-          return;
-        }
-      }
+function updateCaptureLandings(dt) {
+  for (const unit of battle.units) {
+    const pad = battle.pads[1-unit.team];
+    const onPad = unit.health > 0 && unit.speed < 16 &&
+      Math.hypot(unit.x-pad.x,unit.y-pad.y) < 24;
+    unit.landing = onPad ? unit.landing+dt : 0;
+    if (unit.landing >= .55) {
+      concludeBattle(unit.team === 0 ? 'Victory' : 'Defeat');
+      return;
     }
-    if (flag.carrier) continue;
-    const near = team => battle.units.find(unit => unit.team === team && unit.health > 0 &&
-      Math.hypot(unit.x-flag.x,unit.y-flag.y)<21);
-    if (flag.returnAt && (battle.elapsed>=flag.returnAt || near(flag.team))) {
-      flag.x = flag.homeX;
-      flag.y = flag.homeY;
-      flag.returnAt = 0;
-    }
-    const thief = near(1-flag.team);
-    if (thief) {flag.carrier = thief; flag.returnAt = 0;}
   }
 }
+function scheduleBattleRespawn(unit) {
+  if (unit.health > 0 || unit.respawnAt !== undefined) return;
+  unit.lives = Math.max(0,unit.lives-1);
+  unit.respawnAt = unit.lives > 0 ? battle.elapsed+3 : Infinity;
+}
 function respawnBattleDrone(unit) {
-  if (unit.respawnAt === undefined) unit.respawnAt = battle.elapsed+4;
+  scheduleBattleRespawn(unit);
   if (battle.elapsed < unit.respawnAt) return;
-  Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shield:1,shieldWait:1,slowUntil:0,respawnAt:undefined});
+  Object.assign(unit,unit.spawn,{health:battleHullCapacity,scatterWait:0,shield:0,shieldWait:0,
+    slowUntil:0,protectedUntil:battle.elapsed+1,landing:0,speed:0,respawnAt:undefined});
   unit.trail.length = 0;
   if (unit.ai) unit.ai.planAt = 0;
 }
@@ -477,7 +476,7 @@ function stepBattle(dt) {
   battle.elapsed += dt;
   for (const unit of battle.units) {
     if (unit.health <= 0) {
-      if (battle.mode === 'capture') respawnBattleDrone(unit);
+      respawnBattleDrone(unit);
       if (unit.health <= 0) continue;
     }
     for (const timer of ['shotWait','scatterWait','shieldWait','shield']) unit[timer] = Math.max(0,unit[timer]-dt);
@@ -499,7 +498,7 @@ function stepBattle(dt) {
     const target = battle.units.find(unit => unit.team !== shot.team && unit.health > 0 &&
       (unit.x-shot.x)**2+(unit.y-shot.y)**2 < (13+shot.size)**2);
     if (!target) return true;
-    if (target.shield > 0) battleSound('blocked');
+    if (battleUnitProtected(target)) battleSound('blocked');
     else if (shot.kind === 'stasis') {
       target.slowUntil = battle.elapsed+3;
       battleSound('slowed');
@@ -509,15 +508,17 @@ function stepBattle(dt) {
     }
     return false;
   });
+  battle.units.forEach(scheduleBattleRespawn);
   transferBattleControl();
   if (battle.mode === 'capture') {
-    updateCaptureFlags();
-    if (!battle.result && battle.elapsed >= 150) concludeBattle('Draw');
+    updateCaptureLandings(dt);
+    if (!battle.result && (battle.elapsed >= 150 || battle.units.every(unit => unit.lives === 0))) concludeBattle('Draw');
     return;
   }
-  const survivors = [0,1].map(team => battle.units.reduce((sum,unit) => sum+(unit.team === team ? unit.health : 0),0));
-  if (!survivors.every(Boolean) || battle.elapsed >= 150) {
-    concludeBattle(survivors[0] === survivors[1] ? 'Draw' : survivors[0] > survivors[1] ? 'Victory' : 'Defeat');
+  const remaining = [0,1].map(team => battle.units.reduce((sum,unit) => sum+(unit.team === team ?
+    Math.max(0,unit.lives-1)*battleHullCapacity+(unit.health || (unit.lives>0 ? battleHullCapacity : 0)) : 0),0));
+  if (!remaining.every(Boolean) || battle.elapsed >= 150) {
+    concludeBattle(remaining[0] === remaining[1] ? 'Draw' : remaining[0] > remaining[1] ? 'Victory' : 'Defeat');
   }
 }
 function battlePilotName(unit) {
@@ -541,7 +542,7 @@ function renderBattleRoster() {
       bar.setAttribute('aria-label',battlePilotName(unit)+' hull');
       const health = document.createElement('small');
       health.textContent = '100%';
-      if (unit.ai) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
+      if (!unit.player) name.title = unit.ai.defensive ? 'Defensive pilot' : 'Offensive pilot';
       info.append(name,bar,health);
       card.append(image,info);
       unit.roster = {card,bar,health};
@@ -579,9 +580,9 @@ function concludeBattle(result) {
     unit.totalTaken += unit.taken;
   }
   battle.roundCredits = battleRoundCredits[result] || 0;
-  const finished = abandoned || battle.wins >= battleWinsRequired || battle.losses >= battleWinsRequired;
+  const finished = abandoned || battle.round === battleRounds;
   if (finished) battle.matchResult = abandoned ? result :
-    battle.wins >= battleWinsRequired ? 'Victory' : 'Defeat';
+    battle.wins === battle.losses ? 'Draw' : battle.wins > battle.losses ? 'Victory' : 'Defeat';
   battle.matchCredits = battleMatchCredits[battle.matchResult] || 0;
   const reward = battle.roundCredits+battle.matchCredits;
   if (reward) {
@@ -610,14 +611,19 @@ function renderBattleRecap(matchTotals) {
 }
 function updateBattleHud() {
   const count = team => battle.units.filter(unit => unit.team === team && unit.health > 0).length;
-  const score = 'Round '+battle.round+' · '+battle.wins+'–'+battle.losses+' · First to '+battleWinsRequired;
+  const score = 'Round '+battle.round+'/'+battleRounds+' · '+battle.wins+'–'+battle.losses;
   updateHudText('#battleStatus',score+' · '+(battle.result || (battle.paused ? 'Paused' :
     (battle.mode === 'capture' ? 'Capture the Flag · ' : count(0)+' allies · '+count(1)+' rivals · ')+Math.max(0,Math.ceil(150-battle.elapsed))+'s')));
   updateHudText('#battleHealth',Math.ceil(battle.player.health)+' / '+battleHullCapacity+' hull'+(battle.player.slowUntil>battle.elapsed ? ' · Slowed' : ''));
   updateHudText('#battlePilotStatus','Flying: '+battlePilotName(battle.player));
   get('#battleFlagStatus').hidden = battle.mode !== 'capture';
-  if (battle.flags.length) updateHudText('#battleFlagStatus',battle.flags.map(flag =>
-    (flag.team ? 'Rival flag: ' : 'Ally flag: ')+(flag.carrier ? 'Taken' : flag.returnAt ? 'Dropped' : 'At base')).join(' · '));
+  if (battle.pads.length) {
+    const landing = Math.min(100,Math.floor(battle.player.landing/.55*100));
+    updateHudText('#battleFlagStatus',landing ? 'Landing '+landing+'%' : 'Land on the opposing pad');
+  }
+  const respawning = battle.player.health<=0 && Number.isFinite(battle.player.respawnAt);
+  updateHudText('#battleLives','Lives: '+battle.player.lives+
+    (respawning ? ' · Respawn in '+Math.max(0,Math.ceil(battle.player.respawnAt-battle.elapsed))+'s' : ''));
   if (!battle.result) updateHudText('#battleResult','');
   get('#battleHull').max = battleHullCapacity;
   get('#battleHull').value = battle.player.health;
@@ -625,9 +631,10 @@ function updateBattleHud() {
     const charge = Math.ceil(100*unit.health/battleHullCapacity);
     const {bar,health,card} = unit.roster;
     card.classList.toggle('battle-controlled',unit.player && charge > 0);
+    const readout = charge+'% · '+unit.lives+' lives';
+    if (health.textContent !== readout) health.textContent = readout;
     if (bar.value !== charge) {
       bar.value = charge;
-      health.textContent = charge+'%';
       card.classList.toggle('battle-ko',charge === 0);
     }
   }
@@ -664,7 +671,7 @@ function drawBattleSprite(surface,kind,x,y,width,height,angle = 0,teamColor) {
   return true;
 }
 function drawBattleHazards(surface) {
-  for (const [x,y,width,height] of battleCargo) {
+  for (const [x,y,width,height] of battle.cargo) {
     surface.fillStyle = '#29495a';
     surface.fillRect(x,y,width,height);
     drawBattleSprite(surface,'cargo',x+width/2,y+height/2,width+8,height+10);
@@ -797,25 +804,21 @@ function drawBattleOutline(surface,frame,color) {
   }
   surface.restore();
 }
-function drawCaptureFlags(surface) {
-  for (const flag of battle.flags) {
-    const color = flag.team ? '#ff667e' : '#69ff9a';
-    circle(flag.homeX,flag.homeY,24,surface);
+function drawCapturePads(surface) {
+  for (const pad of battle.pads) {
+    const color = pad.team ? '#ff667e' : '#69ff9a';
+    surface.fillStyle = '#0d1a25';
+    surface.fillRect(pad.x-30,pad.y-30,60,60);
     surface.strokeStyle = color;
-    surface.lineWidth = 2;
-    surface.stroke();
-    const x = flag.x+(flag.carrier ? 16 : 0), y = flag.y-(flag.carrier ? 13 : 0);
-    surface.strokeStyle = '#f4f7ff';
-    surface.beginPath();
-    surface.moveTo(x,y+12);
-    surface.lineTo(x,y-11);
+    surface.lineWidth = 3;
+    surface.strokeRect(pad.x-29,pad.y-29,58,58);
+    circle(pad.x,pad.y,22,surface);
     surface.stroke();
     surface.fillStyle = color;
-    surface.beginPath();
-    surface.moveTo(x,y-11);
-    surface.lineTo(x+15,y-6);
-    surface.lineTo(x,y-1);
-    surface.fill();
+    surface.font = 'bold 23px monospace';
+    surface.fillText('H',pad.x-7,pad.y+8);
+    surface.font = 'bold 11px monospace';
+    surface.fillText(pad.team ? 'RIVAL PAD' : 'ALLY PAD',pad.x-27,pad.y-36);
   }
 }
 function drawBattle() {
@@ -832,7 +835,7 @@ function drawBattle() {
       art.strokeStyle = '#91b6db33';
       for (let y=20;y<450;y+=24) art.strokeRect(i*320+8,y,304,22);
     });
-    for (const wall of battleWalls) {
+    for (const wall of battle.walls) {
       art.fillStyle = '#7688ab';
       art.fillRect(...wall);
     }
@@ -842,7 +845,7 @@ function drawBattle() {
   }
   surface.drawImage(battleBackdrop,0,0);
   drawBattleHazards(surface);
-  drawCaptureFlags(surface);
+  drawCapturePads(surface);
   for (const shot of battle.shots) drawBattleShot(surface,shot);
   for (const unit of battle.units) {
     if (unit.health <= 0) continue;
@@ -870,13 +873,17 @@ function drawBattle() {
     surface.fillRect(unit.x-17,unit.y-27,34,4);
     surface.fillStyle = color;
     surface.fillRect(unit.x-17,unit.y-27,34*unit.health/battleHullCapacity,4);
+    const respawnFlash = unit.protectedUntil>battle.elapsed &&
+      battleTransferFlash(battle.elapsed-(unit.protectedUntil-1));
+    const handoffFlash = unit.player && unit.protectedUntil<=battle.elapsed &&
+      battleTransferFlash(battle.elapsed-battle.transferAt);
+    if (respawnFlash || handoffFlash) {
+      circle(unit.x,unit.y,28,surface);
+      surface.strokeStyle = '#e0ffeb';
+      surface.lineWidth = 3;
+      surface.stroke();
+    }
     if (unit.player) {
-      if (battleTransferFlash(battle.elapsed-battle.transferAt)) {
-        circle(unit.x,unit.y,28,surface);
-        surface.strokeStyle = '#e0ffeb';
-        surface.lineWidth = 3;
-        surface.stroke();
-      }
       surface.font = 'bold 12px monospace';
       surface.fillText('YOU',unit.x-11,unit.y+28);
     }

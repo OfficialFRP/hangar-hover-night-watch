@@ -105,7 +105,7 @@ The Story checkpoint remains visible alongside the name. A save named
 KING JAK grants all Story missions, pilots, drones and upgrade tiers on
 phone and computer. Saves are local to the browser and device.
 
-Drone Battle keeps the same roster until one team wins three rounds.
+Drone Battle keeps the same roster for three rounds.
 Each round resets hull to 140, cooldowns, and repair packs. Some red cameras
 are replaced by neutral turrets whose purple charges slow either team for
 three seconds. A round win pays 65 CR, a loss or draw pays 20 CR, and a
@@ -113,11 +113,12 @@ match win or loss adds 175 CR or 45 CR respectively. Results show round
 damage and cumulative totals after the match.
 
 The three arena lanes connect at the top, center, and bottom of each divider.
-After either team wins three rounds, view the final match result for cumulative damage totals.
+After round three, view the final match result for cumulative damage totals.
 
-Drone Battle starts with a three-second countdown. In the Capture the Flag
-variant, touch the rival flag and bring it to your own base to win the round.
-Your own flag may be away from base when you score. Downed drones respawn
-after four seconds; a dropped flag returns after twelve seconds or when
-a member of its own team touches it. The first team to three round wins
-takes the match in either Battle variant.
+Drone Battle starts with a three-second countdown. Choose Battle Royal
+or Capture the Flag. Capture the Flag has a dedicated map with a green
+and red landing pad. Hold a steady hover over the opposing pad to land,
+claim its flag, and win the round. A teammate can score for your side.
+In either variant each drone has three lives per round. A drone with
+lives left respawns in three seconds, then flashes three times and is
+invulnerable for one second.

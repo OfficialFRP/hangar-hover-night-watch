@@ -1669,3 +1669,13 @@ main:has(.game-menu:not([hidden]) > .tab-cover) > .layout{flex:1;min-height:0}
   .tab-content .loadout-summary,.tab-content .upgrade-tools{margin-bottom:3px}
   .tab-content .battle-settings button{min-height:38px}
 }
+#page-story:not(.story-board-open) .story-scene img{max-height:clamp(60px,15dvh,145px)}
+#page-story:not(.story-board-open) .case-intro img{max-height:clamp(62px,19dvh,185px)}
+#page-story:not(.story-board-open):has(.case-intro) #storyTitle{
+  font-size:clamp(18px,3.2vw,32px);
+  margin-block:4px;
+}
+@media(max-width:650px) and (orientation:portrait){
+  #page-story:not(.story-board-open) .case-intro img{max-height:clamp(54px,11dvh,93px)}
+  .tab-content .story-mission-picker{margin-block:3px}
+}

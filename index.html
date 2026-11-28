@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=43">
+<link rel="stylesheet" href="styles.css?v=44">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -127,17 +127,25 @@
 <div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><p class="practice-note">Practice cleared missions and your current Story mission.</p><nav id="mission-list" aria-label="Mission list"></nav>
 <div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
 </section>
-<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="unequipDrone" hidden>Unequip</button><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet" data-page-size="6" data-phone-page-size="4"></div>
-<p class="hangar-note">Win a Race to earn 160 CR, or finish all three sections to earn 50 CR.</p>
+<section id="page-hangar" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-hangar.webp" decoding="async" loading="lazy">
+<div class="tab-content"><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="unequipDrone" hidden>Unequip</button><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet" data-page-size="4" data-phone-page-size="2"></div>
+
 <button id="openAchievements" type="button" data-game-dialog="achievementsDialog" aria-haspopup="dialog">Achievements <span id="achievementCount"></span></button>
 <dialog id="achievementsDialog" class="game-picker" aria-labelledby="achievementsTitle">
   <div class="game-picker-header"><h2 id="achievementsTitle">Achievements</h2><form method="dialog"><button>Done</button></form></div>
   <p>Complete every achievement to earn an extra 2,500 CR and unlock Omega XLR.</p>
   <ul id="achievementList" data-page-size="6" data-phone-page-size="3"></ul>
 </dialog>
+</div>
 </section>
-<section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><section id="omegaSettings" hidden><h3>Omega XLR tuning</h3><fieldset id="omegaFields" aria-label="Omega XLR flight and combat settings"></fieldset></section><div id="standardUpgrades" data-page-size="1"><section><h3>Flight modules</h3><div id="mods"></div></section><section><h3>Battle modules</h3><div id="battleMods"></div></section></div><p id="purchaseStatus" role="status"></p></section>
+<section id="page-upgrades" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-upgrades.webp" decoding="async" loading="lazy">
+<div class="tab-content"><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><div id="omegaSettings" hidden><button type="button" data-game-dialog="omegaDialog" aria-haspopup="dialog">Omega XLR tuning</button></div><dialog id="omegaDialog" class="game-picker" aria-labelledby="omegaTitle"><div class="game-picker-header"><h2 id="omegaTitle">Omega XLR tuning</h2><form method="dialog"><button>Done</button></form></div><fieldset id="omegaFields" aria-label="Omega XLR flight and combat settings"></fieldset></dialog><div id="standardUpgrades" data-page-size="1"><section><h3>Flight modules</h3><div id="mods" data-page-size="3" data-phone-page-size="1"></div></section><section><h3>Battle modules</h3><div id="battleMods" data-page-size="3" data-phone-page-size="1"></div></section></div><p id="purchaseStatus" role="status"></p></div>
+</section>
 <section id="page-story" class="panel game-menu">
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-story.webp" decoding="async">
+<div class="tab-content">
 <div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button><button id="openStoryBoard" type="button" aria-pressed="false">Story Board</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
 <h2 id="storyTitle">Story</h2>
@@ -148,8 +156,11 @@
   <div class="story-board-actions"><button id="boardExit" aria-keyshortcuts="Escape">Exit Story Board</button><button id="boardFullscreen" type="button" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="boardResume">Resume here</button></div>
 </div>
 <button id="restartStory">Replay from mission 01</button>
+</div>
 </section>
 <section id="page-race" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-race.webp" decoding="async" loading="lazy">
+<div class="tab-content">
 <div class="arcade-heading"><h2 id="raceTitle">Race</h2><div class="flight-launch-options"><button id="raceNow" type="button">Race Now</button><button id="raceFly" type="button">Open race deck</button></div></div>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
 <div class="pilot-picker-control"><button id="racePilotPicker" type="button" data-game-dialog="racePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
@@ -158,6 +169,7 @@
   <button id="chooseRaceRival" type="button" data-game-dialog="raceRivalDialog" aria-haspopup="dialog">Choose opponent</button>
   <button id="randomRaceRival" type="button">Random opponent</button>
 </div><p id="raceMatch"></p>
+</div>
 </section>
 <section id="page-free" class="panel game-menu" hidden>
 <div class="arcade-heading"><h2>Free Flight</h2><div class="flight-launch-options"><button id="freeFlyNow" type="button">Fly Now</button><button id="freeFly" type="button">Open flight deck</button></div></div>
@@ -167,13 +179,18 @@
 
 </section>
 <section id="page-full" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-full.webp" decoding="async" loading="lazy">
+<div class="tab-content">
   <div class="arcade-heading"><h2>Full Flight</h2><div class="flight-launch-options"><button id="fullFlyNow" type="button">Fly Now</button><button id="fullFly" type="button">Start Full Flight</button></div></div>
   <p id="fullAccess"></p>
   <p>Fly your unlocked Story route in one run. Record all markers, land where required, then keep flying through the east exit. Bank three crash recoveries at legs 1, 13, and 25.</p>
   <button type="button" id="fullTimesButton" data-game-dialog="fullTimesDialog" aria-haspopup="dialog">Personal leaderboard</button>
   <button type="button" id="fullHangar">Change drone</button>
+</div>
 </section>
 <section id="page-battle" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-battle.webp" decoding="async" loading="lazy">
+<div class="tab-content">
   <h2>Drone Battle</h2>
   <p id="battleLocked">Locked · Complete all three Story cases to unlock Drone Battle.</p>
   <div id="battleSetup" hidden>
@@ -186,12 +203,13 @@
     </div>
 
     <button id="chooseBattleAllies" type="button" data-game-dialog="battleAlliesDialog" aria-haspopup="dialog" hidden>Choose teammates</button>
-    <details class="battle-setup-help"><summary>Battle rules</summary>
+    <button type="button" data-game-dialog="battleRulesDialog" aria-haspopup="dialog">Battle rules</button><dialog id="battleRulesDialog" class="game-picker" aria-labelledby="battleRulesTitle"><div class="game-picker-header"><h2 id="battleRulesTitle">Battle rules</h2><form method="dialog"><button>Done</button></form></div>
     <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Your selected drone has three lives per round and respawns after two seconds. Once it runs out of lives, you take over a surviving ally.</p>
     <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad. Hunters engage enemy drones and runners make for the opposing pad.</p>
     <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round.</p>
-    </details>
+    </dialog>
   </div>
+</div>
   <div id="battleArena" hidden>
     <div class="battle-status">
       <strong id="battleStatus"></strong><span id="battleResult" class="battle-sr-only" role="status"></span>
@@ -228,8 +246,10 @@
   </div>
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
+<img class="tab-cover" alt="" width="960" height="320" src="assets/tab-cast.webp" decoding="async" loading="lazy">
+<div class="tab-content">
 <h2>Character Files</h2>
-<div id="characterFiles" data-page-size="6" data-phone-page-size="2"></div>
+<div id="characterFiles" data-page-size="4" data-phone-page-size="2"></div>
 <dialog id="characterProfile" aria-labelledby="profileName">
   <form method="dialog"><button aria-label="Close character profile" autofocus>Close</button></form>
   <div class="profile-gallery">
@@ -239,6 +259,7 @@
   </div>
   <div class="profile-copy"><h3 id="profileName" aria-live="polite"></h3><p class="character-role" id="profileRole"></p><p id="profileBio"></p></div>
 </dialog>
+</div>
 </section>
 </div>
 </main>

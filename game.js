@@ -1302,7 +1302,7 @@ function returnToTitle() {
   openMenu();
   get('#mainMenu').hidden = true;
   get('#startScreen').hidden = false;
-  setTechnoMusic(false);
+  setScoreMusic(false);
   get('#touchStart').focus();
 }
 function generateFreeSector(wasWindy = false) {
@@ -2702,7 +2702,13 @@ for (const mode of ['race','free']) {
     else if (mode === 'race') {refreshRacePilotFaces(); renderRaceRivals(raceOpponents(arcadeLoadout(-1).pilot));}
   });
 }
-get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});
+function startFreeFlight(fly = false) {
+  reset(freeFlightIndex,fly);
+  showPage('flight');
+}
+get('#freeFly').addEventListener('click',() => startFreeFlight());
+get('#freeFlyNow').addEventListener('click',() => startFreeFlight(true));
+get('#fullFlyNow').addEventListener('click',() => startFullFlight(true));
 get('#endFlight').addEventListener('click',leaveFlight);
 get('#returnTitle').addEventListener('click',returnToTitle);
 get('#flightHangar').addEventListener('click',() => showPage('hangar'));
@@ -2766,11 +2772,12 @@ get('#backToHangar').addEventListener('click',() => showPage('hangar'));
 function syncGameMusic() {
   const mode = currentPage === 'menu' ? 'menu' : currentPage === 'battle' ? (battle?.mode || get('#battleMode').value) :
     currentPage === 'race' || (currentPage === 'flight' && courseIndex === -1) ? 'race' :
-    currentPage === 'free' || currentPage === 'full' || (currentPage === 'flight' && (fullRun || courseIndex === freeFlightIndex)) ? 'free' : 'story';
+    currentPage === 'full' || (currentPage === 'flight' && fullRun) ? 'full' :
+    currentPage === 'free' || (currentPage === 'flight' && courseIndex === freeFlightIndex) ? 'free' : 'story';
   const active = (currentPage === 'flight' && state === 'flying') ||
     (currentPage === 'battle' && battle && !battle.paused && !battle.result);
   const level = active ? .23 : currentPage === 'menu' ? .16 : .095;
-  setTechnoMusic(soundEnabled && !document.hidden,mode,level);
+  setScoreMusic(soundEnabled && !document.hidden,mode,level);
 }
 function applyAudio(startMusic = true) {
   soundEnabled = options.sound;

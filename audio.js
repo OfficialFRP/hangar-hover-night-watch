@@ -90,106 +90,159 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Each mode has its own tempo, bass line, drum pattern and lead phrase.
-let technoTrack;
-const technoModes = {
-  menu:{bpm:104,roots:[41,44,39,46],bass:[0,6,10,14],lead:[12,15,19,22,24,19,15,12],leadSteps:[2,7,11,14],snare:[8],hat:[4,12],wave:'sine'},
-  story:{bpm:144,roots:[43,43,46,41],bass:[1,2,3,5,6,7,9,10,11,13,14,15],lead:[12,19,15,22,12,19,24,15],leadSteps:[2,5,10,13],snare:[4,12],hat:[2,6,10,14],wave:'triangle'},
-  elimination:{bpm:152,roots:[40,40,43,38],bass:[1,3,6,7,9,11,13,15],lead:[12,24,15,22,19,15,10,7],leadSteps:[0,3,7,10,14],snare:[4,12,15],hat:[2,5,6,10,13,14],wave:'sawtooth'},
-  capture:{bpm:140,roots:[45,48,43,40],bass:[0,2,5,7,8,10,13,15],lead:[7,12,16,19,17,12,14,19],leadSteps:[2,6,9,12,15],snare:[4,12],hat:[2,3,6,10,11,14],wave:'square'},
-  free:{bpm:128,roots:[42,45,49,47],bass:[0,6,8,10,14],lead:[12,16,21,24,23,19,16,14],leadSteps:[1,5,8,11,14],snare:[4,12],hat:[2,6,10,14,15],wave:'sine'},
-  race:{bpm:160,roots:[47,50,45,43],bass:[1,2,5,6,9,10,11,13,14,15],lead:[12,14,19,21,22,19,17,14],leadSteps:[0,3,6,8,11,14],snare:[4,7,12],hat:[2,6,9,10,14,15],wave:'triangle'}
+// Each mode shares the score's orchestral palette and half-time rhythm.
+let scoreTrack;
+const scoreThemes = {
+  menu:{bpm:132,chords:[[41,0],[37,1],[44,1],[39,1]],motif:[0,7,10,12,14,12,7,3],bass:[0,6,11,14],stabs:[0,10],lift:.7},
+  story:{bpm:142,chords:[[43,0],[39,1],[46,1],[41,1]],motif:[0,7,12,15,14,10,7,3],bass:[0,3,6,10,13,15],stabs:[0,6,12],lift:1},
+  elimination:{bpm:154,chords:[[40,0],[40,0],[43,1],[38,1]],motif:[0,12,7,3,10,12,14,7],bass:[0,3,5,7,10,12,15],stabs:[0,3,10,14],lift:1.15},
+  capture:{bpm:144,chords:[[45,0],[48,1],[43,1],[41,1]],motif:[0,5,7,12,15,12,10,7],bass:[0,2,5,10,13,15],stabs:[0,5,11],lift:1.05},
+  free:{bpm:136,chords:[[42,0],[45,1],[49,0],[47,1]],motif:[0,7,12,14,19,15,12,7],bass:[0,6,10,14],stabs:[0,9],lift:.8},
+  full:{bpm:146,chords:[[43,0],[46,1],[41,1],[48,0]],motif:[0,7,12,19,15,14,10,7],bass:[0,3,6,11,14],stabs:[0,4,10,14],lift:1.05},
+  race:{bpm:156,chords:[[47,0],[50,1],[45,1],[43,1]],motif:[0,7,14,12,15,19,17,12],bass:[0,2,5,7,10,12,14],stabs:[0,6,10,13],lift:1.15}
 };
-function setTechnoMusic(enabled,mode = 'story',level = .22) {
+const scorePitch = midi => 440*2**((midi-69)/12);
+function setScoreMusic(enabled,mode = 'story',level = .22) {
   if (!rotorAudio) return;
   const {context,master} = rotorAudio;
-  if (technoTrack && (!enabled || technoTrack.mode !== mode)) {
-    const {timer,bus} = technoTrack;
+  if (scoreTrack && (!enabled || scoreTrack.mode !== mode)) {
+    const {timer,bus} = scoreTrack;
     clearInterval(timer);
     fadeAudio(bus.gain,0,context.currentTime,.38);
     setTimeout(() => bus.disconnect(),460);
-    technoTrack = null;
+    scoreTrack = null;
   }
   if (!enabled) return;
-  if (technoTrack) {
-    if (technoTrack.level !== level) {
-      technoTrack.level = level;
-      fadeAudio(technoTrack.bus.gain,level,context.currentTime,.32);
+  if (scoreTrack) {
+    if (scoreTrack.level !== level) {
+      scoreTrack.level = level;
+      fadeAudio(scoreTrack.bus.gain,level,context.currentTime,.32);
     }
     return;
   }
-  const track = technoModes[mode];
+  const track = scoreThemes[mode];
   const stepDuration = 60/track.bpm/4;
   const bus = context.createGain();
   bus.gain.value = 0;
   bus.connect(master);
   fadeAudio(bus.gain,level,context.currentTime,.46);
-  const noise = context.createBuffer(1,Math.ceil(context.sampleRate*.19),context.sampleRate);
+  const noise = context.createBuffer(1,Math.ceil(context.sampleRate*.42),context.sampleRate);
   const samples = noise.getChannelData(0);
   for (let i=0;i<samples.length;i++) samples[i] = Math.random()*2-1;
+  const waves = {
+    strings:context.createPeriodicWave(new Float32Array(9),new Float32Array([0,1,.42,.52,.19,.24,.11,.12,.06])),
+    brass:context.createPeriodicWave(new Float32Array(9),new Float32Array([0,1,.68,.34,.32,.16,.12,.07,.06]))
+  };
   let tick = 0;
   let time = context.currentTime+.045;
-  function note(at,type,hz,end,decay,volume,cutoff) {
-    const osc = context.createOscillator();
-    const gain = context.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(hz,at);
-    osc.frequency.exponentialRampToValueAtTime(end,at+decay*.75);
-    gain.gain.setValueAtTime(.001,at);
-    gain.gain.exponentialRampToValueAtTime(volume,at+.004);
-    gain.gain.exponentialRampToValueAtTime(.001,at+decay);
+  function voice(at,type,hz,duration,volume,{attack=.008,release=.08,end=hz,cutoff,detune=0} = {}) {
+    const oscillator = context.createOscillator();
+    const envelope = context.createGain();
+    if (waves[type]) oscillator.setPeriodicWave(waves[type]);
+    else oscillator.type = type;
+    oscillator.detune.value = detune;
+    oscillator.frequency.setValueAtTime(hz,at);
+    if (end !== hz) oscillator.frequency.exponentialRampToValueAtTime(end,at+duration*.75);
+    envelope.gain.setValueAtTime(.0001,at);
+    envelope.gain.exponentialRampToValueAtTime(volume,at+attack);
+    envelope.gain.exponentialRampToValueAtTime(volume*.65,at+Math.max(attack+.001,duration-release));
+    envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);
     if (cutoff) {
       const filter = context.createBiquadFilter();
-      filter.frequency.setValueAtTime(cutoff,at);
-      filter.frequency.exponentialRampToValueAtTime(cutoff*.38,at+decay);
-      osc.connect(filter).connect(gain);
-    } else osc.connect(gain);
-    gain.connect(bus);
-    osc.start(at);
-    osc.stop(at+decay);
+      filter.frequency.value = cutoff;
+      oscillator.connect(filter).connect(envelope);
+    } else oscillator.connect(envelope);
+    envelope.connect(bus);
+    oscillator.start(at);
+    oscillator.stop(at+duration+.006);
   }
-  function percussion(at,type,hz,decay,volume) {
+  function percussion(at,type,hz,duration,volume) {
     const sample = context.createBufferSource();
     const filter = context.createBiquadFilter();
-    const gain = context.createGain();
+    const envelope = context.createGain();
     sample.buffer = noise;
     filter.type = type;
     filter.frequency.value = hz;
-    gain.gain.setValueAtTime(.001,at);
-    gain.gain.exponentialRampToValueAtTime(volume,at+.003);
-    gain.gain.exponentialRampToValueAtTime(.001,at+decay);
-    sample.connect(filter).connect(gain).connect(bus);
+    envelope.gain.setValueAtTime(.0001,at);
+    envelope.gain.exponentialRampToValueAtTime(volume,at+.003);
+    envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    sample.connect(filter).connect(envelope).connect(bus);
     sample.start(at);
-    sample.stop(at+decay);
+    sample.stop(at+duration);
   }
-  const roots = track.roots.map(midi => 440*2**((midi-69)/12));
+  function growl(at,midi,duration,rate,strength) {
+    const hz = scorePitch(midi);
+    voice(at,'sine',hz,duration,strength*.39,{attack:.012,release:.07});
+    const bass = context.createOscillator();
+    const wobble = context.createOscillator();
+    const depth = context.createGain();
+    const filter = context.createBiquadFilter();
+    const envelope = context.createGain();
+    bass.type = 'sawtooth';
+    bass.frequency.value = hz;
+    wobble.type = 'triangle';
+    wobble.frequency.value = rate;
+    depth.gain.value = 370;
+    filter.frequency.value = 570;
+    filter.Q.value = 3;
+    envelope.gain.setValueAtTime(.0001,at);
+    envelope.gain.exponentialRampToValueAtTime(strength*.34,at+.011);
+    envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    wobble.connect(depth).connect(filter.frequency);
+    bass.connect(filter).connect(envelope).connect(bus);
+    bass.start(at);
+    wobble.start(at);
+    bass.stop(at+duration);
+    wobble.stop(at+duration);
+  }
   function schedule() {
     if (context.state !== 'running') return;
     const now = context.currentTime;
     if (time < now) time = now+.025;
     while (time < now+.16) {
-      const bar = Math.floor(tick/16);
+      const bar = Math.floor(tick/16)%8;
       const step = tick%16;
-      const root = roots[bar%roots.length];
-      if (step%4 === 0) note(time,'sine',149,45,.23,.88);
-      if (track.snare.includes(step)) percussion(time,'bandpass',1500,.13,.38);
-      if (track.hat.includes(step)) percussion(time,'highpass',7100,.08,.27);
-      if (track.bass.includes(step)) {
-        const bass = root*(step%8 === 7 ? 2 : 1);
-        note(time,'sawtooth',bass,bass,stepDuration*.84,.27,step%4 === 2 ? 910 : 475);
+      const [root,major] = track.chords[bar%track.chords.length];
+      const third = major ? 4 : 3;
+      const drop = bar !== 3 && bar !== 7;
+      const intensity = track.lift*(bar < 4 ? .83 : 1);
+      if (step === 0) {
+        for (const interval of [0,third,7,12]) {
+          voice(time,'strings',scorePitch(root+12+interval),stepDuration*15.7,.038,
+            {attack:.12,release:.32,cutoff:1500,detune:interval%2 ? -6 : 6});
+        }
+        voice(time,'sine',scorePitch(root-12),stepDuration*5,.19,{end:scorePitch(root-17),release:.18});
       }
-      const phrase = track.leadSteps.indexOf(step);
-      if (phrase >= 0 && bar%8 !== 7) {
-        const pitch = root*2*2**(track.lead[(bar*2+phrase)%track.lead.length]/12);
-        note(time,track.wave,pitch,pitch,.18,.105,1800);
-        note(time+stepDuration*1.5,'sine',pitch,pitch,.14,.046);
+      if (step%2 === 0) {
+        const interval = [0,7,12,third][(step/2+bar)%4];
+        voice(time,'strings',scorePitch(root+12+interval),stepDuration*1.36,.067*intensity,
+          {attack:.025,release:.075,cutoff:2600});
       }
+      if (track.stabs.includes(step)) {
+        const semitones = track.motif[(bar+track.stabs.indexOf(step)*2)%track.motif.length];
+        voice(time,'brass',scorePitch(root+12+semitones),stepDuration*(step===0 ? 3.4 : 2.25),.13*intensity,
+          {attack:.038,release:.115,cutoff:2200});
+      }
+      if (drop && track.bass.includes(step)) {
+        const gap = (track.bass.find(next => next > step) ?? 16)-step;
+        growl(time,root-12+(step===14 ? 7 : 0),stepDuration*Math.min(3.8,gap*.91),
+          (step%3===0 ? 2 : 4)/(stepDuration*4),.52*intensity);
+      }
+      if (step===0 || step===6 || (drop && step===11)) {
+        voice(time,'sine',142,.22,.68*intensity,{end:42,release:.14});
+      }
+      if (step===8 || (bar===7 && step===14)) {
+        percussion(time,'bandpass',1650,.18,.38*intensity);
+        voice(time,'triangle',205,.11,.24*intensity,{end:112,release:.075});
+      }
+      if (step%4===2 || (drop && step%4===3)) percussion(time,'highpass',7000,.057,.14*intensity);
+      if (!drop && step===12) percussion(time,'highpass',4600,.32,.21*intensity);
       tick++;
       time += stepDuration;
     }
   }
   schedule();
-  technoTrack = {mode,level,bus,timer:setInterval(schedule,50)};
+  scoreTrack = {mode,level,bus,timer:setInterval(schedule,50)};
 }
 
 // Short synthesized effects share the game's sound toggle and audio context.

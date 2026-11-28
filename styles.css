@@ -1453,3 +1453,10 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
   .game-picker .pilot-faces img{width:min(100%,64px)}
   .free-flight-cover{max-height:88px}
 }
+
+.flight-launch-options{display:flex;justify-content:flex-end;gap:6px;grid-column:2}
+.flight-launch-options button:first-child{background:#a6f2d6;color:#112632;border-color:#a6f2d6;font-weight:750}
+@media(max-width:420px){
+  #page-free .arcade-heading,#page-full .arcade-heading{grid-template-columns:minmax(0,1fr)}
+  .flight-launch-options{grid-column:1;justify-content:flex-start}
+}

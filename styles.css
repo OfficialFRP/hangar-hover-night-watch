@@ -1465,3 +1465,63 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
 .story-board-actions{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
 .story-board-actions button{min-height:44px}
 #storyBoardNav .pager button{min-width:44px;min-height:44px}
+
+main:has(#page-story.story-board-open:not([hidden])){
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+}
+main:has(#page-story.story-board-open:not([hidden])) .layout{flex:1;min-height:0}
+#page-story.story-board-open{
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  block-size:min(100%,680px);
+  overflow:auto;
+}
+#page-story.story-board-open #storyTitle{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  block-size:2.4em;
+  margin:6px 0;
+  font:700 clamp(15px,3vw,24px)/1.2 "Hangar Airframe",system-ui,sans-serif;
+}
+#page-story.story-board-open .story-scene{
+  grid-template:minmax(0,1fr) minmax(0,clamp(64px,16dvh,116px)) / minmax(0,1fr);
+  min-block-size:0;
+  margin:6px 0;
+  border:1px solid #537c8f;
+  border-radius:10px;
+  background:#0c1926;
+}
+#page-story.story-board-open .story-scene img{
+  grid-area:1 / 1;
+  inline-size:100%;
+  block-size:100%;
+  max-block-size:none;
+  min-block-size:0;
+  object-fit:contain;
+  box-shadow:none;
+}
+#page-story.story-board-open .story-scene div{
+  grid-area:2 / 1;
+  display:block;
+  overflow:auto;
+  padding:8px 12px;
+}
+#page-story.story-board-open #dialogue{
+  margin:0;
+  font:400 clamp(.82rem,2.4vw,1rem)/1.4 system-ui,sans-serif;
+  overflow-wrap:anywhere;
+}
+@media(max-height:510px) and (orientation:landscape){
+  #page-story.story-board-open .story-scene{
+    grid-template:minmax(0,1fr) / minmax(0,42%) minmax(0,1fr);
+  }
+  #page-story.story-board-open .story-scene div{grid-area:1 / 2}
+}
+button:focus-visible,select:focus-visible,summary:focus-visible{
+  outline:2px solid #b8fce9;
+  outline-offset:2px;
+}

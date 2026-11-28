@@ -181,7 +181,8 @@ function cleanSaveName(name) {
   return typeof name === 'string' ? name.trim().slice(0,28) : '';
 }
 function hasKingAccess() {
-  return progress.playerName.trim().replace(/\s+/g,' ').toUpperCase() === 'KING JAK';
+  return ['KING JAK','QUEEN MARY','QUEEN AMBER','KING ZACH'].includes(
+    progress.playerName.trim().replace(/\s+/g,' ').toUpperCase());
 }
 function applyKingUpgrades() {
   if (!hasKingAccess()) return;
@@ -652,6 +653,7 @@ function renderStory() {
   const slide = entry?.line ?? lineIndex;
   const title = entry?.title || sceneTitle;
   const [speaker,dialogue,link,illustration] = lines[slide];
+  get('#page-story').classList.toggle('story-board-open',Boolean(entry));
   get('#storyTitle').textContent = title;
   get('#openStoryBoard').setAttribute('aria-pressed',Boolean(entry));
   get('#storyBoardNav').hidden = !entry;
@@ -2757,7 +2759,8 @@ window.addEventListener('keydown',event => {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
       get('dialog[open]') || event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
-  if (currentPage === 'story' && storyBoard && ['ArrowLeft','ArrowRight','Escape'].includes(key)) {
+  if (currentPage === 'story' && storyBoard && (key === 'Escape' ||
+      (['ArrowLeft','ArrowRight'].includes(key) && !document.activeElement?.closest('.pages, header')))) {
     event.preventDefault();
     if (key === 'Escape') closeStoryBoard();
     else moveStoryBoard(key === 'ArrowLeft' ? -1 : 1);
@@ -2801,6 +2804,97 @@ window.addEventListener('keydown',event => {
   }
   if (key === 'c') activateJam();
 });
+// Menus move focus with arrows. Native buttons and inputs keep their normal activation behavior.
+const menuControl = 'button, a[href], select, input:not([type=hidden]), textarea, summary, [tabindex]:not([tabindex="-1"])';
+function menuControls(root) {
+  return [...root.querySelectorAll(menuControl)].filter(control =>
+    !control.matches(':disabled') && !control.closest('[hidden], [inert]') &&
+    control.getClientRects().length && getComputedStyle(control).visibility !== 'hidden');
+}
+function currentMenuControls(dialog) {
+  if (dialog) return menuControls(dialog);
+  if (!get('#openingCredits').hidden) return menuControls(get('#openingCredits'));
+  if (!get('#startScreen').hidden) return menuControls(get('#startScreen'));
+  if (!mainMenu.hidden) return menuControls(mainMenu);
+  const page = get('#page-'+currentPage);
+  if (storyBoard && currentPage === 'story') return menuControls(get('#storyBoardNav'));
+  return page ? menuControls(page) : [];
+}
+function spatialMenuTarget(controls,origin,direction) {
+  const rect = origin.getBoundingClientRect();
+  const horizontal = direction === 'ArrowLeft' || direction === 'ArrowRight';
+  const sign = direction === 'ArrowRight' || direction === 'ArrowDown' ? 1 : -1;
+  const center = box => [box.left+box.width/2,box.top+box.height/2];
+  const [x,y] = center(rect);
+  let target, nearest = Infinity;
+  for (const control of controls) {
+    if (control === origin) continue;
+    const [nextX,nextY] = center(control.getBoundingClientRect());
+    const primary = sign*(horizontal ? nextX-x : nextY-y);
+    if (primary <= 2) continue;
+    const perpendicular = Math.abs(horizontal ? nextY-y : nextX-x);
+    const distance = primary + perpendicular*3;
+    if (distance < nearest) {
+      nearest = distance;
+      target = control;
+    }
+  }
+  return target;
+}
+function handleMenuKeyboard(event) {
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+      event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
+  const dialog = [...document.querySelectorAll('dialog[open]')].at(-1);
+  const key = event.key;
+  const inGame = !main.hidden && mainMenu.hidden;
+  if (/^[1-8]$/.test(key) && inGame && !dialog) {
+    event.preventDefault();
+    if (!event.repeat) {
+      const tab = pageButtons[Number(key)-1];
+      tab.focus();
+      tab.click();
+    }
+    return;
+  }
+  if ((currentPage === 'flight' && state === 'flying') || canControlBattle()) return;
+  const isArrow = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(key);
+  if (!isArrow && key !== 'Enter') return;
+  const focused = document.activeElement;
+  if (key === 'Enter' && focused?.closest(menuControl)) return;
+  const controls = currentMenuControls(dialog);
+  const tabs = inGame && !dialog ? pageButtons : [];
+  const header = tabs.length ? menuControls(get('main header')) : [];
+  const tabIndex = tabs.indexOf(focused);
+  let target;
+  if (key === 'Enter') {
+    target = controls[0] || tabs.find(tab => tab.getAttribute('aria-pressed') === 'true');
+  } else if (tabIndex >= 0 && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+    const step = key === 'ArrowLeft' ? -1 : 1;
+    target = tabs[(tabIndex+step+tabs.length)%tabs.length];
+  } else if (tabIndex >= 0 && key === 'ArrowDown') {
+    target = controls[0];
+  } else if (tabIndex >= 0 && key === 'ArrowUp') {
+    target = header.find(control => control.id === 'openMenu') || header[0];
+  } else if (header.includes(focused)) {
+    target = key === 'ArrowDown' ? tabs.find(tab => tab.getAttribute('aria-pressed') === 'true') :
+      spatialMenuTarget(header,focused,key);
+  } else if (controls.includes(focused)) {
+    target = spatialMenuTarget(controls,focused,key);
+    if (!target && key === 'ArrowUp') target = tabs.find(tab => tab.getAttribute('aria-pressed') === 'true');
+    if (!target && key !== 'ArrowUp') {
+      const step = key === 'ArrowLeft' ? -1 : 1;
+      target = controls[(controls.indexOf(focused)+step+controls.length)%controls.length];
+    }
+  } else {
+    target = tabs.find(tab => tab.getAttribute('aria-pressed') === 'true') || controls[0];
+  }
+  if (!target) return;
+  event.preventDefault();
+  target.focus();
+  if (key === 'Enter' && !event.repeat) target.click();
+}
+window.addEventListener('keydown',handleMenuKeyboard);
+
 window.addEventListener('keyup',event => {
   if (event.key === ' ' && advancingWithSpace) {
     advancingWithSpace = false;
@@ -2890,16 +2984,19 @@ document.addEventListener('visibilitychange',() => {
   clearInputs();
   if (state === 'flying') togglePause();
 });
-pageButtons.forEach(button => button.addEventListener('click',() => {
-  const page = button.dataset.page;
-  if (page === currentPage) return;
-  if (page === 'race') {
-    if (courseIndex === -1 && (state === 'flying' || state === 'paused')) showPage('flight');
-    else selectRace();
-  } else if (page === 'free' && courseIndex === freeFlightIndex && (state === 'flying' || state === 'paused')) showPage('flight');
-  else if (page === 'story') resumeCampaign();
-  else showPage(page);
-}));
+pageButtons.forEach((button,index) => {
+  button.setAttribute('aria-keyshortcuts',String(index+1));
+  button.addEventListener('click',() => {
+    const page = button.dataset.page;
+    if (page === currentPage) return;
+    if (page === 'race') {
+      if (courseIndex === -1 && (state === 'flying' || state === 'paused')) showPage('flight');
+      else selectRace();
+    } else if (page === 'free' && courseIndex === freeFlightIndex && (state === 'flying' || state === 'paused')) showPage('flight');
+    else if (page === 'story') resumeCampaign();
+    else showPage(page);
+  });
+});
 for (const button of document.querySelectorAll('[data-game-dialog]')) {
   button.addEventListener('click',() => get('#'+button.dataset.gameDialog).showModal());
 }

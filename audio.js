@@ -90,14 +90,14 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Rock backbeats, electric bass, and palm-muted guitar riffs.
+// Cinematic rock with sustained synth chords and recurring melodic figures.
 let scoreTrack;
 const scoreThemes = {
-  menu:{bpm:116,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.22},
-  story:{bpm:128,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],swing:.18},
+  menu:{bpm:116,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],theme:[19,17,15,22],swing:.16},
+  story:{bpm:128,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],theme:[15,19,24,22],swing:.12},
   elimination:{bpm:148,roots:[40,40,38,43],kicks:[0,3,7,10,14],bass:[0,3,10,14],keys:[0,11],hook:[12,15,19,17],swing:.09},
   capture:{bpm:140,roots:[45,41,43,48],kicks:[0,6,9,14],bass:[0,6,9,13],keys:[0,6,12],hook:[19,22,19,24],swing:.13},
-  free:{bpm:124,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],swing:.25},
+  free:{bpm:124,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],theme:[19,26,24,17],swing:.18},
   full:{bpm:136,roots:[43,46,41,48],kicks:[0,5,8,14],bass:[0,5,9,13],keys:[0,6,11],hook:[19,15,22,26],swing:.17},
   race:{bpm:152,roots:[47,50,45,43],kicks:[0,3,6,10,13],bass:[0,6,10,13],keys:[0,7,12],hook:[19,24,22,15],swing:.10}
 };
@@ -131,12 +131,14 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
   for (let i=0;i<samples.length;i++) samples[i] = Math.random()*2-1;
   const keys = context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.16,0,.09,0,.03]));
   const guitar = context.createPeriodicWave(new Float32Array(11),new Float32Array([0,1,.54,.72,.28,.31,.17,.14,.08,.07,.04]));
+  const pad = context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.30,.46,.14,.10,.06]));
   let tick = 0;
   let time = context.currentTime+.045;
   function voice(at,type,hz,duration,volume,{attack=.008,release=.08,end=hz,cutoff,detune=0} = {}) {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
-    if (type === 'keys' || type === 'guitar') oscillator.setPeriodicWave(type === 'keys' ? keys : guitar);
+    const wave = {keys,guitar,pad}[type];
+    if (wave) oscillator.setPeriodicWave(wave);
     else oscillator.type = type;
     oscillator.detune.value = detune;
     oscillator.frequency.setValueAtTime(hz,at);
@@ -181,6 +183,14 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       const turnaround = bar%4 === 3;
       const driving = Boolean(track.hook);
       const chorus = bar >= 4;
+      const lifted = bar%4 >= 2;
+      if (step === 0) {
+        const chord = bar%4 === 0 ? [0,7,15] : [0,7,lifted ? 14 : 12];
+        for (const [index,interval] of chord.entries()) {
+          voice(time,'pad',scorePitch(root+12+interval),stepDuration*15.9,
+            chorus ? .062 : .049,{attack:.21,release:.38,cutoff:lifted ? 1750 : 1130,detune:index === 1 ? -7 : 5});
+        }
+      }
       const kick = step === 0 || step === 8 || (track.kicks.includes(step) && step !== 4 && step !== 12);
       if (kick) {
         voice(beat,'sine',driving ? 116 : 96,.15,.66,{end:44,release:.105});
@@ -213,25 +223,26 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
           {attack:kick ? .025 : .009,release:.14,end:hz});
         voice(beat,'triangle',hz*2,duration,.064,{attack:.016,release:.13,cutoff:380});
       }
-      if ((step%2 === 0 && (!turnaround || step < 10)) || (chorus && track.keys.includes(step))) {
+      if ((step%(driving || chorus ? 2 : 4) === 0 && (!turnaround || step < 10)) || (chorus && track.keys.includes(step))) {
         const accent = step === 0 || step === 8 || (chorus && step === 12);
         const rootNote = root+(step >= 12 && !turnaround ? 7 : 0);
         const length = stepDuration*(accent ? 2.7 : .83);
         const intervals = accent ? [0,7,12] : [0,7];
         for (const [index,interval] of intervals.entries()) {
-          voice(beat+index*.008,'guitar',scorePitch(rootNote+interval),length,accent ? .086 : .059,
-            {attack:.008,release:accent ? .12 : .045,cutoff:accent ? 2850 : 1250,detune:index%2 ? 5 : -4});
+          voice(beat+index*.008,'guitar',scorePitch(rootNote+interval),length,accent ? .080 : .049,
+            {attack:.008,release:accent ? .12 : .045,cutoff:accent ? 2450 : 1120,detune:index%2 ? 5 : -4});
         }
       }
       if (driving && chorus && [2,7,11,14].includes(step)) {
         const motifStep = [2,7,11,14].indexOf(step);
         const note = scorePitch(root+track.hook[(motifStep+bar)%track.hook.length]);
         const length = stepDuration*(step === 7 ? 1.75 : 1.28);
-        voice(beat,'guitar',note,length,.09,{attack:.012,release:.07,cutoff:3200,detune:-4});
-        voice(beat+stepDuration*.74,'guitar',note,length,.023,{attack:.015,release:.08,cutoff:1650,detune:4});
-      } else if (!driving && turnaround && step === 13) {
-        voice(beat,'keys',scorePitch(root+26),stepDuration*2.4,.046,
-          {attack:.026,release:.22,cutoff:1350});
+        voice(beat,'guitar',note,length,.084,{attack:.012,release:.09,cutoff:2850,detune:-4});
+        voice(beat+stepDuration*.74,'pad',note,length,.036,{attack:.035,release:.11,cutoff:2100,detune:5});
+      } else if (!driving && track.keys.includes(step)) {
+        const note = scorePitch(root+track.theme[(bar+track.keys.indexOf(step))%track.theme.length]);
+        voice(beat,'keys',note,stepDuration*3.4,.064,{attack:.019,release:.20,cutoff:2300});
+        voice(beat+stepDuration*1.5,'keys',note,stepDuration*2.2,.023,{attack:.026,release:.15,cutoff:1350});
       }
       tick++;
       time += stepDuration;

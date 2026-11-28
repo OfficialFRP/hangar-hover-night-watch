@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=42">
+<link rel="stylesheet" href="styles.css?v=43">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -81,7 +81,7 @@
   <span class="battery-heading"><span class="battery-icon" aria-hidden="true"></span>Battery</span>
   <meter min="0" max="100" value="100"></meter><b aria-hidden="true">100%</b>
   <span class="battery-track" aria-hidden="true"><span class="battery-fill"></span></span><span id="batteryCondition" aria-hidden="true">Stable</span>
-</span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span><button id="flightFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button></div>
+</span><span id="gates"></span><span id="time"></span><span id="best"></span><span id="alert"></span><span id="jamStatus"></span><button id="flightFullscreen" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><output id="freeWallet" aria-label="Credit balance" hidden></output></div>
 <aside id="raceDuel" aria-label="Race pilots and battery" hidden>
   <div class="racer-card" id="playerRacer">
     <img id="playerRacerPortrait" alt="" width="64" height="64" hidden>
@@ -141,10 +141,10 @@
 <div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button><button id="openStoryBoard" type="button" aria-pressed="false">Story Board</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
 <h2 id="storyTitle">Story</h2>
-<div class="story-scene"><img id="portrait" alt=""><div id="storyCopy"><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div>
+<div id="boardSlidePanel" class="story-slide-panel"><button type="button" id="boardPrevious" aria-label="Previous slide" aria-keyshortcuts="ArrowLeft" hidden></button><div class="story-scene"><img id="portrait" alt=""><div id="storyCopy"><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div><button type="button" id="boardNext" aria-label="Next slide" aria-keyshortcuts="ArrowRight" hidden></button></div>
 <div id="storyCampaignNav" class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext" aria-keyshortcuts="Space">Continue</button></div>
 <div id="storyBoardNav" hidden>
-  <div class="pager"><button id="boardPrevious" aria-label="Previous slide" aria-keyshortcuts="ArrowLeft">←</button><output id="boardStep" aria-live="polite"></output><button id="boardNext" aria-label="Next slide" aria-keyshortcuts="ArrowRight">→</button></div>
+  <output id="boardStep" aria-live="polite"></output>
   <div class="story-board-actions"><button id="boardExit" aria-keyshortcuts="Escape">Exit Story Board</button><button id="boardFullscreen" type="button" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="boardResume">Resume here</button></div>
 </div>
 <button id="restartStory">Replay from mission 01</button>
@@ -290,9 +290,9 @@
 <script src="north-quay.js"></script>
 <script src="story.js?v=6"></script>
 <script src="race.js?v=5"></script>
-<script src="audio.js?v=9"></script>
-<script src="battle.js?v=24"></script>
-<script src="game.js?v=45"></script>
+<script src="audio.js?v=10"></script>
+<script src="battle.js?v=25"></script>
+<script src="game.js?v=46"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

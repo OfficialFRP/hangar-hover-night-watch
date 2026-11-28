@@ -665,21 +665,21 @@ body::before{
 #characterProfile form{display:flex;justify-content:flex-end;margin-bottom:8px}
 #characterProfile form button{min-height:44px}
 .profile-gallery{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:6px;align-items:center}
-.profile-gallery button{
+:is(.profile-gallery button,#boardPrevious,#boardNext){
   display:grid;place-items:center;min-height:44px;padding:0;touch-action:manipulation;
   color:#c7edf4;background:#17283b;border:1px solid #55768a;border-radius:50%;
   box-shadow:inset 0 1px #d1f3ff22;
 }
-.profile-gallery button::before{
+:is(.profile-gallery button,#boardPrevious,#boardNext)::before{
   content:"";width:11px;height:11px;border:solid currentColor;border-width:0 2px 2px 0;
   border-radius:1px;transform:translateX(-2px) rotate(-45deg);
 }
-.profile-gallery #profilePrevious::before{transform:translateX(2px) rotate(135deg)}
-.profile-gallery button:not(:disabled):is(:hover,:focus-visible){
+:is(.profile-gallery #profilePrevious,#boardPrevious)::before{transform:translateX(2px) rotate(135deg)}
+:is(.profile-gallery button,#boardPrevious,#boardNext):not(:disabled):is(:hover,:focus-visible){
   color:#efffff;background:#233d51;border-color:#9becf5;
 }
-.profile-gallery button:not(:disabled):active{background:#31546a}
-.profile-gallery button:disabled{opacity:.4}
+:is(.profile-gallery button,#boardPrevious,#boardNext):not(:disabled):active{background:#31546a}
+:is(.profile-gallery button,#boardPrevious,#boardNext):disabled{opacity:.4}
 #profileArt{
   display:block;width:100%;height:min(59dvh,430px);object-fit:contain;
   background:#0c1322;border:1px solid #44546d;border-radius:8px;
@@ -1491,7 +1491,7 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
   justify-self:center;
   margin:0;
   width:100%;
-  max-width:none;
+  max-width:980px;
   min-block-size:0;
   padding:6px 8px;
   overflow:hidden;
@@ -1579,3 +1579,14 @@ button:focus-visible,select:focus-visible,summary:focus-visible{
   #storyBoardNav{justify-content:center}
   #storyBoardNav .story-board-actions{justify-content:center}
 }
+
+
+#page-story.story-board-open .story-slide-panel{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) 44px;
+  align-items:center;
+  gap:clamp(3px,1vw,10px);
+  min-height:0;
+}
+#page-story.story-board-open .story-slide-panel > button{width:44px;height:44px}
+#freeWallet{color:#a8f5ab;font-size:.85rem;font-variant-numeric:tabular-nums}

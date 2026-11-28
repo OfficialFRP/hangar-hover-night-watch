@@ -101,7 +101,17 @@ const achievements = [
   ['clean-race','No Interference','Win a race without jamming.',125,flight => flight?.raceWin && flight.noJams],
   ['free-first','Open Skies','Clear your first Free Flight sector.',75,() => progress.freeBest >= 1],
   ['free-five','Long Haul','Clear five Free Flight sectors in one run.',175,() => progress.freeBest >= 5],
-  ['free-ten','Beyond the Horizon','Clear ten Free Flight sectors in one run.',300,() => progress.freeBest >= 10]
+  ['free-ten','Beyond the Horizon','Clear ten Free Flight sectors in one run.',300,() => progress.freeBest >= 10],
+  ['free-clean-one','Clean Takeoff','Clear a Free Flight sector without crashing.',100,event => event?.cleanSectors >= 1],
+  ['free-clean-three','Steady Hands','Clear three consecutive Free Flight sectors without crashing.',250,event => event?.cleanSectors >= 3],
+  ['free-clean-six','Smooth Operator','Clear six consecutive Free Flight sectors without crashing.',500,event => event?.cleanSectors >= 6],
+  ['full-case-one','Freight Run','Clear the first 12 legs in one Full Flight run.',250,event => event?.fullLegs >= 12],
+  ['full-case-two','Harbor Run','Clear the first 24 legs in one Full Flight run.',500,event => event?.fullLegs >= 24],
+  ['full-route','Night Watch Marathon','Clear all 36 legs in one Full Flight run.',1000,event => event?.fullLegs === 36],
+  ['royal-round','Opening Salvo','Win a Battle Royal round.',150,event => event?.battleMode === 'elimination' && event.roundWon],
+  ['royal-match','Air Superiority','Win a Battle Royal match.',400,event => event?.battleMode === 'elimination' && event.matchWon],
+  ['flag-round','Flag Secured','Win a Capture the Flag round.',150,event => event?.battleMode === 'capture' && event.roundWon],
+  ['flag-match','Harbor Standard','Win a Capture the Flag match.',400,event => event?.battleMode === 'capture' && event.matchWon]
 ];
 const pilotUnlocks = {rook:1,cipher:3,patch:2,director:1,sable:3,iman:6,reed:6,morrow:18,kade:12,vey:24,leena:24,mateo:24};
 const freeFlightIndex = -2;
@@ -131,7 +141,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,fullTimes:[],raceOpponent:'random',pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules(),omega:normalizeOmega(),completionReward:false};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,fullTimes:[],fullBest:0,raceOpponent:'random',pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules(),omega:normalizeOmega(),completionReward:false};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -162,7 +172,8 @@ function loadProgress(key) {
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
-    playerName,fullTimes:rankFullTimes(saved.fullTimes),omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
+    playerName,fullTimes:rankFullTimes(saved.fullTimes),
+    fullBest:Number.isFinite(saved.fullBest) && saved.fullBest > 0 ? saved.fullBest : rankFullTimes(saved.fullTimes)[0]?.seconds || 0,omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
     battleLevels:fleet.map((_,frame) => battleModules.map((_,index) =>
       Math.min(battleTierLimit,validCount(saved.battleLevels?.[frame]?.[index])))),
     credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
@@ -454,6 +465,7 @@ let fullRun = null;
 let padSecured = false;
 let freeBonus = 0;
 let freeCleared = 0;
+let freeCleanSectors = 0;
 let flightLoadout;
 let rivalAngle = 0;
 let tookSignalDamage = false;
@@ -660,6 +672,7 @@ function renderStory() {
   get('#storyCampaignNav').hidden = Boolean(entry);
   get('.story-mission-picker').hidden = Boolean(entry);
   get('#restartStory').hidden = Boolean(entry);
+  get('#boardPrevious').hidden = get('#boardNext').hidden = !entry;
   if (entry) {
     get('#boardPrevious').disabled = storyBoard.position === 0;
     get('#boardNext').disabled = storyBoard.position === storyBoard.entries.length-1;
@@ -915,6 +928,10 @@ function refreshLoadout() {
   stats = flightStats(index,flightLoadout?.pilot);
   renderHangar();
 }
+function updateWallet() {
+  updateHudText('#wallet',progress.credits.toLocaleString()+' CR');
+  updateHudText('#freeWallet',progress.credits.toLocaleString()+' CR');
+}
 function renderHangar() {
   const active = state === 'flying' || state === 'paused';
   renderAchievements();
@@ -923,7 +940,7 @@ function renderHangar() {
   renderLoadout();
   get('#upgradeTitle').textContent = fleet[progress.selected].name + ' upgrades';
   get('#funds').textContent = progress.credits.toLocaleString() + ' credits';
-  get('#wallet').textContent = progress.credits.toLocaleString() + ' CR';
+  updateWallet();
   get('#loadoutName').textContent = fleet[progress.selected].name;
   get('#unequipDrone').hidden = progress.selected === 0;
   get('#unequipDrone').disabled = active;
@@ -1056,7 +1073,7 @@ function reset(index, fly = false, chapterFlight = false, run = null, retry = fa
   storyFlight = chapterFlight;
   courseIndex = index;
   flightLoadout = index < 0 ? arcadeLoadout(index) : null;
-  freeSector = freeBonus = freeCleared = 0;
+  freeSector = freeBonus = freeCleared = freeCleanSectors = 0;
   easyFlight = options.difficulty === 'easy';
   raceSection = 0;
   rivalAngle = 0;
@@ -1089,6 +1106,8 @@ function reset(index, fly = false, chapterFlight = false, run = null, retry = fa
   flightNeedsRender = true;
   refreshLoadout();
   configureRaceHud();
+  get('#freeWallet').hidden = index !== freeFlightIndex;
+  if (index === freeFlightIndex) updateWallet();
   if (fly) {
     sound('launch');
     overlay.hidden = true;
@@ -1128,9 +1147,21 @@ function finish(won, message, collision = false) {
     const total = run.elapsed + elapsed;
     state = won ? 'won' : 'lost';
     clearInputs();
+    const rankable = won && run.count === courses.length;
+    if (won) {
+      const finishTime = Math.round(total*100)/100;
+      const previous = progress.fullBest;
+      const improved = rankable && previous > 0 && finishTime < previous;
+      if (rankable && (!previous || improved)) progress.fullBest = finishTime;
+      const payout = rankable ? 500+(improved ? 1000 : 0) : 0;
+      progress.credits += payout;
+      const bonus = awardAchievements({fullLegs:run.count});
+      if (payout || bonus) saveProgress();
+      if (payout) message += ' +500 CR for completing the challenge.'+(improved ? ' +1,000 CR for a new personal best.' : '');
+      message += achievementMessage(bonus);
+    }
     renderHangar();
     sound(won ? 'complete' : 'crash');
-    const rankable = won && run.count === courses.length;
     const title = won ? 'Full Flight complete' : 'Full Flight ended';
     menu(title,message+' Total time '+formatFullTime(total)+'.',
       rankable ? 'Record time' : 'Full Flight setup',rankable ? () => recordFullFlight(total) : () => showPage('full'));
@@ -1371,7 +1402,13 @@ function advanceFullFlight() {
   fullRun.elapsed += elapsed;
   drained += elapsed;
   courseIndex++;
-  if (courseIndex%12 === 0) fullRun.hits += 3;
+  if (courseIndex%12 === 0) {
+    fullRun.hits += 3;
+    if (awardAchievements({fullLegs:courseIndex})) {
+      saveProgress();
+      updateWallet();
+    }
+  }
   course = accessibleCourse(fullFlightCourse(courses[courseIndex]));
   elapsed = landing = jam = 0;
   padSecured = cellCollected = false;
@@ -1462,9 +1499,11 @@ function advanceFreeSector(previous) {
   progress.freeBest = Math.max(progress.freeBest,freeCleared);
   const payout = previous.crashed ? 0 : freeCleared >= 20 ? 20 : 10;
   progress.credits += payout;
-  const bonus = awardAchievements();
+  freeCleanSectors = previous.crashed ? 0 : freeCleanSectors+1;
+  const bonus = awardAchievements({cleanSectors:freeCleanSectors});
   freeBonus += payout + bonus;
   saveProgress();
+  updateWallet();
   course = accessibleCourse(generateFreeSector(Boolean(course.wind)));
   moveToNextSector();
   get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+(payout ? ' · +'+payout+' CR' : ' · Previous sector credits forfeited')+achievementMessage(bonus);
@@ -2765,7 +2804,7 @@ window.addEventListener('keydown',event => {
   if (!next) return;
   const focusedButton = event.target?.closest?.('button');
   if (focusedButton && focusedButton !== next &&
-      focusedButton.closest('.pager, .brief-actions, .battle-result-card')) return;
+      focusedButton.closest('.pager, .story-slide-panel, .brief-actions, .battle-result-card')) return;
   event.preventDefault();
   if (!event.repeat && !next.disabled) {
     advancingWithSpace = true;
@@ -2844,7 +2883,7 @@ function currentMenuControls(dialog) {
   if (!get('#startScreen').hidden) return menuControls(get('#startScreen'));
   if (!mainMenu.hidden) return menuControls(mainMenu);
   const page = get('#page-'+currentPage);
-  if (storyBoard && currentPage === 'story') return menuControls(get('#storyBoardNav'));
+  if (storyBoard && currentPage === 'story') return [...menuControls(get('#boardSlidePanel')),...menuControls(get('#storyBoardNav'))];
   return page ? menuControls(page) : [];
 }
 function spatialMenuTarget(controls,origin,direction) {

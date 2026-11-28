@@ -90,7 +90,7 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Techno kicks and offbeat hats with syncopated bass and electro hooks.
+// Rock backbeats, electric bass, and palm-muted guitar riffs.
 let scoreTrack;
 const scoreThemes = {
   menu:{bpm:116,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.22},
@@ -130,13 +130,13 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
   const samples = noise.getChannelData(0);
   for (let i=0;i<samples.length;i++) samples[i] = Math.random()*2-1;
   const keys = context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.16,0,.09,0,.03]));
-  const electro = context.createPeriodicWave(new Float32Array(8),new Float32Array([0,1,.42,.16,.21,.06,.035,.014]));
+  const guitar = context.createPeriodicWave(new Float32Array(11),new Float32Array([0,1,.54,.72,.28,.31,.17,.14,.08,.07,.04]));
   let tick = 0;
   let time = context.currentTime+.045;
   function voice(at,type,hz,duration,volume,{attack=.008,release=.08,end=hz,cutoff,detune=0} = {}) {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
-    if (type === 'keys' || type === 'electro') oscillator.setPeriodicWave(type === 'keys' ? keys : electro);
+    if (type === 'keys' || type === 'guitar') oscillator.setPeriodicWave(type === 'keys' ? keys : guitar);
     else oscillator.type = type;
     oscillator.detune.value = detune;
     oscillator.frequency.setValueAtTime(hz,at);
@@ -148,7 +148,7 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
     if (cutoff) {
       const filter = context.createBiquadFilter();
       filter.frequency.setValueAtTime(cutoff,at);
-      if (type === 'electro') filter.frequency.exponentialRampToValueAtTime(cutoff*.32,at+duration*.8);
+      if (type === 'guitar') filter.frequency.exponentialRampToValueAtTime(cutoff*.52,at+duration*.82);
       oscillator.connect(filter).connect(envelope);
     } else oscillator.connect(envelope);
     envelope.connect(bus);
@@ -181,7 +181,7 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       const turnaround = bar%4 === 3;
       const driving = Boolean(track.hook);
       const chorus = bar >= 4;
-      const kick = step%4 === 0;
+      const kick = step === 0 || step === 8 || (track.kicks.includes(step) && step !== 4 && step !== 12);
       if (kick) {
         voice(beat,'sine',driving ? 116 : 96,.15,.66,{end:44,release:.105});
         percussion(beat,'bandpass',1850,.024,.045);
@@ -190,14 +190,14 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       }
       if (step === 4 || step === 12) {
         const snare = beat+stepDuration*.045;
-        percussion(snare,'bandpass',1470,.15,.39);
+        percussion(snare,'bandpass',1790,.17,.43);
         percussion(snare+.009,'highpass',2900,.095,.20);
         voice(snare,'triangle',165,.076,.11,{end:116,release:.059});
       } else if (turnaround && step === 15) {
         percussion(beat,'bandpass',1420,.065,.11);
       }
       if (step%2 === 0 || (step === 11 && bar%2)) {
-        const openHat = step%4 === 2;
+        const openHat = step === 14 && (chorus || turnaround);
         percussion(beat,'highpass',6650,openHat ? .115 : .034,openHat ? .16 : step%4 === 0 ? .12 : .075);
       }
       if (driving && ((chorus && step === 7) || (step === 15 && bar%2))) {
@@ -209,27 +209,26 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
         const midi = note > 47 ? note-12 : note;
         const hz = scorePitch(midi);
         const duration = stepDuration*Math.min(driving ? 4.8 : 3.2,gap*.92);
-        voice(beat,'sine',hz,duration,driving ? .40 : .31,
-          {attack:kick ? .025 : .009,release:.14,end:driving ? hz*.978 : hz});
+        voice(beat,'triangle',hz,duration,driving ? .31 : .25,
+          {attack:kick ? .025 : .009,release:.14,end:hz});
         voice(beat,'triangle',hz*2,duration,.064,{attack:.016,release:.13,cutoff:380});
-      } else if (step%4 === 2) {
-        voice(beat,'electro',scorePitch(root),stepDuration*.76,.085,
-          {attack:.008,release:.045,cutoff:640});
       }
-      if (track.keys.includes(step) && !(turnaround && step > 8)) {
-        const voicing = step === 0 ? [15,19,22] : step < 10 ? [19,26] : [22];
-        for (const [index,interval] of voicing.entries()) {
-          const note = scorePitch(root+interval);
-          voice(beat+index*.012,'keys',note,stepDuration*(step === 0 ? 4.7 : 2.65),step === 0 ? .054 : .039,
-            {attack:.02,release:.23,cutoff:1240,detune:index%2 ? -4 : 5});
+      if ((step%2 === 0 && (!turnaround || step < 10)) || (chorus && track.keys.includes(step))) {
+        const accent = step === 0 || step === 8 || (chorus && step === 12);
+        const rootNote = root+(step >= 12 && !turnaround ? 7 : 0);
+        const length = stepDuration*(accent ? 2.7 : .83);
+        const intervals = accent ? [0,7,12] : [0,7];
+        for (const [index,interval] of intervals.entries()) {
+          voice(beat+index*.008,'guitar',scorePitch(rootNote+interval),length,accent ? .086 : .059,
+            {attack:.008,release:accent ? .12 : .045,cutoff:accent ? 2850 : 1250,detune:index%2 ? 5 : -4});
         }
       }
       if (driving && chorus && [2,7,11,14].includes(step)) {
         const motifStep = [2,7,11,14].indexOf(step);
         const note = scorePitch(root+track.hook[(motifStep+bar)%track.hook.length]);
         const length = stepDuration*(step === 7 ? 1.75 : 1.28);
-        voice(beat,'electro',note,length,.078,{attack:.011,release:.07,cutoff:2100,detune:-4});
-        voice(beat+stepDuration*.75,'electro',note,length,.025,{attack:.015,release:.08,cutoff:1250,detune:4});
+        voice(beat,'guitar',note,length,.09,{attack:.012,release:.07,cutoff:3200,detune:-4});
+        voice(beat+stepDuration*.74,'guitar',note,length,.023,{attack:.015,release:.08,cutoff:1650,detune:4});
       } else if (!driving && turnaround && step === 13) {
         voice(beat,'keys',scorePitch(root+26),stepDuration*2.4,.046,
           {attack:.026,release:.22,cutoff:1350});

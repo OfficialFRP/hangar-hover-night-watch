@@ -673,10 +673,13 @@ function concludeBattle(result) {
     battle.wins === battle.losses ? 'Draw' : battle.wins > battle.losses ? 'Victory' : 'Defeat';
   battle.matchCredits = battleMatchCredits[battle.matchResult] || 0;
   const reward = battle.roundCredits+battle.matchCredits;
-  if (reward) {
+  const bonus = abandoned ? 0 : awardAchievements({
+    battleMode:battle.mode,roundWon:result === 'Victory',matchWon:battle.matchResult === 'Victory'
+  });
+  if (reward || bonus) {
     progress.credits += reward;
     saveProgress();
-    updateHudText('#wallet',progress.credits.toLocaleString()+' CR');
+    updateWallet();
   }
   if (!abandoned) battleSound((battle.matchResult || result) === 'Victory' ? 'win' : 'loss');
   clearBattleInput();

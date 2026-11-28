@@ -444,9 +444,8 @@ let gamePage = 'story';
 let easyFlight = false;
 let storyLives = 3;
 let storyMission = 0;
-let pendingStoryDoor = null;
+let flightProtection = 0;
 let activeRoom = null;
-let storyRoom = null;
 let storyFlight = false;
 let race;
 let raceSection = 0;
@@ -591,7 +590,7 @@ function briefingScene(index) {
   return {title:'Case 0'+(Math.floor(index/12)+1)+' · '+chapter+' / '+courses[index].name,lines:[[speaker,line]]};
 }
 function storyBoardEntries() {
-  return Array.from({length:courses.length+1},(_,index) => {
+  const scenes = Array.from({length:courses.length+1},(_,index) => {
     const intro = caseIntros[index];
     const reveal = campaignReveals[index];
     return [
@@ -600,6 +599,11 @@ function storyBoardEntries() {
       ...(index < courses.length ? [{...briefingScene(index),index,line:0,kind:'briefing'}] : [])
     ];
   }).flat();
+  const profiles = Object.entries(crew).map(([key,[name,role,portrait]]) => ({
+    title:name,line:0,kind:'character',
+    lines:[[key,crewBios[key],null,{src:'assets/crew-full-'+portrait+'.webp',alt:'Full-body illustration of '+name}]]
+  }));
+  return [...scenes,...profiles];
 }
 function openStoryBoard() {
   if (storyBoard) return;
@@ -620,7 +624,7 @@ function moveStoryBoard(direction) {
   renderStory();
 }
 function boardEntryUnlocked(entry) {
-  return entry.index === courses.length ? hasKingAccess() || progress.campaignNext >= courses.length
+  return entry.kind === 'character' ? false : entry.index === courses.length ? hasKingAccess() || progress.campaignNext >= courses.length
     : canPractice(entry.index);
 }
 function continueFromStoryBoard() {
@@ -666,7 +670,7 @@ function renderStory() {
     get('#boardStep').textContent = (storyBoard.position+1)+' / '+storyBoard.entries.length;
     const unlocked = boardEntryUnlocked(entry);
     get('#boardResume').disabled = !unlocked;
-    get('#boardResume').textContent = unlocked ? 'Resume here' : 'Checkpoint locked';
+    get('#boardResume').textContent = entry.kind === 'character' ? 'Character profile' : unlocked ? 'Resume here' : 'Checkpoint locked';
   }
   const position = campaignPosition();
   const shownCase = storyLines === campaignReveals[12].lines ? 0 :
@@ -689,13 +693,13 @@ function renderStory() {
   image.hidden = !speaker && !illustration;
   const scene = get('.story-scene');
   scene.classList.toggle('credits-scene',!speaker && !illustration);
-  scene.classList.toggle('team-scene',Boolean(illustration));
+  scene.classList.toggle('team-scene',Boolean(illustration && !speaker));
   scene.classList.toggle('case-intro',Boolean(illustration?.caseIntro));
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
     const variant = speaker === 'rook' && title.includes('Sable’s Signature') ? 7 : portrait;
-    image.src = 'assets/crew-' + (lines.length > 1 && variant < 8 ? 'expression-' : '') + variant + '.webp';
-    image.alt = name + ', ' + role;
+    image.src = illustration?.src || 'assets/crew-' + (lines.length > 1 && variant < 8 ? 'expression-' : '') + variant + '.webp';
+    image.alt = illustration?.alt || name + ', ' + role;
     get('#speaker').textContent = name + ' · ' + role;
   } else {
     get('#speaker').textContent = '';
@@ -706,6 +710,7 @@ function renderStory() {
   }
   const dialogueNode = get('#dialogue');
   dialogueNode.textContent = dialogue;
+  get('#storyCopy').scrollTop = 0;
   if (link) {
     const website = document.createElement('a');
     website.href = link;
@@ -1045,11 +1050,10 @@ function accessibleCourse(source) {
     width > 280 || height > 245 || ++obstacles%4 !== 0)};
 }
 function reset(index, fly = false, chapterFlight = false, run = null, retry = false) {
-  const storyDoor = chapterFlight && pendingStoryDoor?.index === index ? pendingStoryDoor : null;
-  const previousDoor = chapterFlight && storyFlight && storyMission === index ? storyRoom?.west : null;
+  flightProtection = retry ? 1 : 0;
   if (!retry) storyLives = 3;
   storyMission = index;
-  activeRoom = storyRoom = {};
+  activeRoom = {};
   fullRun = run;
   padSecured = false;
   storyFlight = chapterFlight;
@@ -1081,18 +1085,6 @@ function reset(index, fly = false, chapterFlight = false, run = null, retry = fa
   jam = scan = 0;
   jamsLeft = maxJams;
   cellCollected = false;
-  if (previousDoor && !storyDoor) {
-    activeRoom.west = previousDoor;
-    previousDoor.room.east.room = activeRoom;
-  } else if (storyDoor) {
-    const opening = westOpening(storyDoor.exit);
-    activeRoom.west = {opening,room:storyDoor.room};
-    storyDoor.room.east = {opening:storyDoor.exit,room:activeRoom};
-    drone = portalSpawn(opening,storyDoor.offset,true,false);
-    if (fly) pendingStoryDoor = null;
-  } else if (chapterFlight) {
-    pendingStoryDoor = null;
-  }
   terrain = paintTerrain();
   record = index < 0 ? 0 : storedBest();
   clearInputs();
@@ -1211,6 +1203,8 @@ function turnNose(angle,dx,dy,dt) {
 }
 function update(dt) {
   elapsed += dt;
+  flightProtection = Math.max(0,flightProtection-dt);
+  const protectedDrone = airframe.omega || flightProtection > 0;
   jam = Math.max(0,jam-dt);
   rechargeFlash = Math.max(0,rechargeFlash-dt);
   const dx = clamp(+pressed('ArrowRight','d') - +pressed('ArrowLeft','a') + stick.x,-1,1);
@@ -1234,7 +1228,7 @@ function update(dt) {
   const profile = course.windPattern;
   const wind = gust * Math.sin(elapsed*(profile?.frequency ?? 2.3)+(profile?.phase ?? 0));
   const crosswind = course.exit || course.quay ? gust*(profile?.lateral ?? .76)*Math.sin(elapsed*1.47+.8) : 0;
-  const restricted = !airframe.omega && radarLocked && jam === 0;
+  const restricted = !protectedDrone && radarLocked && jam === 0;
   const damping = braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9);
   const drag = Math.exp(-(damping+(restricted ? 2.1 : 0))*dt);
   const steering = stats.thrust * (restricted ? .32 : 1);
@@ -1247,7 +1241,7 @@ function update(dt) {
   const radius = airframe.size;
   const strikes = course.walls.filter(wall => touchesStructure(wall,drone.x,drone.y,radius));
   if (strikes.length) {
-    if (airframe.omega) {
+    if (protectedDrone) {
       bounceOff(strikes[0],previousX,previousY,true);
     } else if (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY)) {
       return finish(false,'The drone hit an obstacle. Brake before tight turns.');
@@ -1261,7 +1255,7 @@ function update(dt) {
   const edgeX = clamp(drone.x,westOpen ? -Infinity : radius,doorOpen ? Infinity : 960-radius);
   const edgeY = clamp(drone.y,radius,500-radius);
   if (drone.x !== edgeX || drone.y !== edgeY) {
-    if (!airframe.omega) return finish(false,'The drone hit the perimeter.');
+    if (!protectedDrone) return finish(false,'The drone hit the perimeter.');
     if (drone.x !== edgeX) drone.vx *= -.36;
     if (drone.y !== edgeY) drone.vy *= -.36;
     drone.x = edgeX;
@@ -1282,13 +1276,13 @@ function update(dt) {
   const previousSignal = cameraSignal;
   cameraSignal = '';
   for (const [index,camera] of (course.cameras || []).entries()) {
-    if ((camera[3] === 'red' && (airframe.omega || jam > 0)) || !inBeam(camera,index,x,y)) continue;
+    if ((camera[3] === 'red' && (protectedDrone || jam > 0)) || !inBeam(camera,index,x,y)) continue;
     cameraSignal = camera[3];
     if (cameraSignal === 'red') break;
   }
   const underThreat = previousSignal === 'red' || radarLocked;
   for (const patrol of patrols) updatePatrol(patrol,x,y,dt);
-  radarLocked = !airframe.omega && jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
+  radarLocked = !protectedDrone && jam === 0 && patrols.some(patrol => patrol.pursuing && inPatrolRadar(patrol,x,y));
   if (radarLocked || cameraSignal === 'red') {
     tookSignalDamage = true;
     if (!underThreat) sound('drain');
@@ -1302,7 +1296,7 @@ function update(dt) {
     sound('charge');
   }
   collectRechargePack(x,y);
-  if (elapsed + drained >= stats.seconds) {
+  if (flightProtection === 0 && elapsed + drained >= stats.seconds) {
     return finish(false, radarLocked ? 'Battery depleted under patrol radar. Break line of sight or use Jam.' : cameraSignal === 'red' ? 'Battery depleted under a red camera. Break its line of sight.' : 'Battery depleted. Press R or fly again.');
   }
   const target = course.gates[gate];
@@ -1319,13 +1313,7 @@ function update(dt) {
       else if (fullRun) finish(true,'You cleared all '+fullRun.count+' legs of this route.');
       else if (courseIndex === freeFlightIndex) enterNewRoom(advanceFreeSector);
       else if (courseIndex === -1 && raceSection < race.sections.length-1) enterNewRoom(advanceRaceSection);
-      else {
-        if (storyFlight && courseIndex+1 < courses.length) {
-          saveRoom();
-          pendingStoryDoor = {index:courseIndex+1,room:activeRoom,exit:course.exit,offset:y-course.exit[0]};
-        }
-        finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
-      }
+      else finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
     }
     return;
   }
@@ -1473,6 +1461,7 @@ function advanceFreeSector() {
   get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+' · +'+payout+' CR'+achievementMessage(bonus);
 }
 function respawnRacer() {
+  flightProtection = 1;
   const [x,y] = course.start;
   drone = {x,y,vx:0,vy:0,angle:0};
   drained = -elapsed;
@@ -1502,11 +1491,11 @@ function westOpening([center,height]) {
     x >= radius*2+5 || top >= center+height/2 || top+depth <= center-height/2)};
   return [center,height];
 }
-function portalSpawn([center,height],offset,eastbound,carry = true) {
+function portalSpawn([center,height],offset,eastbound) {
   const radius = airframe.size;
   const limit = Math.max(0,height/2-radius-.5);
   return {x:eastbound ? radius+2 : 958-radius,y:center+clamp(offset,-limit,limit),
-    vx:carry ? clamp(drone.vx,-115,115) : 0,vy:carry ? drone.vy*.25 : 0,angle:drone.angle};
+    vx:clamp(drone.vx,-115,115),vy:drone.vy*.25,angle:drone.angle};
 }
 function saveRoom() {
   Object.assign(activeRoom,{course,courseIndex,raceSection,freeSector,gate,scan,padSecured,
@@ -2666,7 +2655,16 @@ function draw() {
   drawDroneTrail(droneTrail,airframe);
   ctx.translate(drone.x,drone.y);
   ctx.rotate(drone.angle);
+  const flash = flightProtection > 0 && respawnFlashAt(1-flightProtection);
+  if (flash) ctx.filter = 'brightness(1.65)';
   paintDrone(ctx,airframe,elapsed*35);
+  ctx.filter = 'none';
+  if (flash) {
+    circle(0,0,airframe.size+7,ctx);
+    ctx.strokeStyle = '#e0ffeb';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
   if (airframe.omega && !reduceFlightEffects.matches) {
     drawOmegaShine(ctx,-12,-8,3,.9*Math.max(0,Math.cos(elapsed*4))**6);
   }
@@ -2708,7 +2706,7 @@ function hud() {
   const power = get('#power');
   const hostile = radarLocked || cameraSignal === 'red';
   if (courseIndex === -1) updateRaceBattery(battery,hostile);
-  updateHudText('#batteryCondition',hostile ? 'Draining' : rechargeFlash > 0 ? 'Charging' : battery <= 20 ? 'Critical' : battery <= 45 ? 'Low' : 'Stable');
+  updateHudText('#batteryCondition',flightProtection > 0 ? 'Protected' : hostile ? 'Draining' : rechargeFlash > 0 ? 'Charging' : battery <= 20 ? 'Critical' : battery <= 45 ? 'Low' : 'Stable');
   if (batteryMeter.value !== battery) {
     batteryMeter.value = battery;
     power.style.setProperty('--battery-level',battery+'%');
@@ -3034,6 +3032,11 @@ get('#openStoryBoard').addEventListener('click',() => storyBoard ? closeStoryBoa
 get('#boardPrevious').addEventListener('click',() => moveStoryBoard(-1));
 get('#boardNext').addEventListener('click',() => moveStoryBoard(1));
 get('#boardExit').addEventListener('click',closeStoryBoard);
+get('#boardCharacters').addEventListener('click',() => {
+  storyBoard.position = storyBoard.entries.findIndex(entry => entry.kind === 'character');
+  renderStory();
+  get('#boardNext').focus();
+});
 get('#boardResume').addEventListener('click',continueFromStoryBoard);
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
 get('#storyNext').addEventListener('click',() => {
@@ -3156,8 +3159,6 @@ function enterGame(page) {
 }
 function openSave(key,saved) {
   storyBoard = null;
-  pendingStoryDoor = null;
-  storyRoom = null;
   activeSlot = key;
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;

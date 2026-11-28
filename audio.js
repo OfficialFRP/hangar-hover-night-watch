@@ -93,13 +93,13 @@ function flightAudio(speed, thrusting, braking, flying) {
 // Instrumental hip-hop grooves, from laid-back pocket drums to sparse 808 patterns.
 let scoreTrack;
 const scoreThemes = {
-  menu:{bpm:82,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.21},
-  story:{bpm:88,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],swing:.19},
-  elimination:{bpm:96,roots:[40,40,38,43],kicks:[0,3,7,10,14],bass:[0,3,10,14],keys:[0,11],swing:.1,trap:true},
-  capture:{bpm:93,roots:[45,41,43,48],kicks:[0,6,9,14],bass:[0,6,9,13],keys:[0,6,12],swing:.14,trap:true},
-  free:{bpm:79,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],swing:.24},
-  full:{bpm:91,roots:[43,46,41,48],kicks:[0,5,8,14],bass:[0,5,9,13],keys:[0,6,11],swing:.17},
-  race:{bpm:100,roots:[47,50,45,43],kicks:[0,3,6,10,13],bass:[0,6,10,13],keys:[0,7,12],swing:.13,trap:true}
+  menu:{bpm:80,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.22},
+  story:{bpm:89,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],swing:.18},
+  elimination:{bpm:114,roots:[40,40,38,43],kicks:[0,3,7,10,14],bass:[0,3,10,14],keys:[0,11],hook:[12,15,19,17],swing:.09},
+  capture:{bpm:106,roots:[45,41,43,48],kicks:[0,6,9,14],bass:[0,6,9,13],keys:[0,6,12],hook:[19,22,19,24],swing:.13},
+  free:{bpm:76,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],swing:.25},
+  full:{bpm:98,roots:[43,46,41,48],kicks:[0,5,8,14],bass:[0,5,9,13],keys:[0,6,11],hook:[19,15,22,26],swing:.17},
+  race:{bpm:122,roots:[47,50,45,43],kicks:[0,3,6,10,13],bass:[0,6,10,13],keys:[0,7,12],hook:[19,24,22,15],swing:.10}
 };
 const scorePitch = midi => 440*2**((midi-69)/12);
 function setScoreMusic(enabled,mode = 'story',level = .22) {
@@ -130,12 +130,13 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
   const samples = noise.getChannelData(0);
   for (let i=0;i<samples.length;i++) samples[i] = Math.random()*2-1;
   const keys = context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.16,0,.09,0,.03]));
+  const electro = context.createPeriodicWave(new Float32Array(8),new Float32Array([0,1,.42,.16,.21,.06,.035,.014]));
   let tick = 0;
   let time = context.currentTime+.045;
   function voice(at,type,hz,duration,volume,{attack=.008,release=.08,end=hz,cutoff,detune=0} = {}) {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
-    if (type === 'keys') oscillator.setPeriodicWave(keys);
+    if (type === 'keys' || type === 'electro') oscillator.setPeriodicWave(type === 'keys' ? keys : electro);
     else oscillator.type = type;
     oscillator.detune.value = detune;
     oscillator.frequency.setValueAtTime(hz,at);
@@ -146,7 +147,8 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
     envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);
     if (cutoff) {
       const filter = context.createBiquadFilter();
-      filter.frequency.value = cutoff;
+      filter.frequency.setValueAtTime(cutoff,at);
+      if (type === 'electro') filter.frequency.exponentialRampToValueAtTime(cutoff*.32,at+duration*.8);
       oscillator.connect(filter).connect(envelope);
     } else oscillator.connect(envelope);
     envelope.connect(bus);
@@ -177,9 +179,12 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       const root = track.roots[bar%track.roots.length];
       const beat = time+(step%2 ? stepDuration*track.swing : 0);
       const turnaround = bar%4 === 3;
-      const kick = track.kicks.includes(step) && !(turnaround && step === 15);
+      const driving = Boolean(track.hook);
+      const chorus = bar >= 4;
+      const kick = (track.kicks.includes(step) || (driving && chorus && step === 8)) &&
+        !(turnaround && step === 15);
       if (kick) {
-        voice(beat,'sine',97,.16,.62,{end:41,release:.105});
+        voice(beat,'sine',driving ? 116 : 96,.15,.66,{end:44,release:.105});
         percussion(beat,'bandpass',1850,.024,.045);
       }
       if (step === 4 || step === 12) {
@@ -194,7 +199,7 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
         const openHat = step === 14 && bar%2 === 0;
         percussion(beat,'highpass',6650,openHat ? .13 : .045,openHat ? .16 : step%4 === 0 ? .12 : .075);
       }
-      if (track.trap && (step === 7 || (step === 15 && bar%2))) {
+      if (driving && ((chorus && step === 7) || (step === 15 && bar%2))) {
         for (let hit=0;hit<3;hit++) percussion(time+stepDuration*(.12+hit*.26),'highpass',7900,.028,.06+hit*.021);
       }
       if (track.bass.includes(step)) {
@@ -202,9 +207,9 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
         const note = root+(step === track.bass.at(-1) && bar%2 ? 7 : 0);
         const midi = note > 47 ? note-12 : note;
         const hz = scorePitch(midi);
-        const duration = stepDuration*Math.min(track.trap ? 4.8 : 3.2,gap*.92);
-        voice(beat,'sine',hz,duration,track.trap ? .44 : .31,
-          {attack:kick ? .025 : .009,release:.14,end:track.trap ? hz*.978 : hz});
+        const duration = stepDuration*Math.min(driving ? 4.8 : 3.2,gap*.92);
+        voice(beat,'sine',hz,duration,driving ? .40 : .31,
+          {attack:kick ? .025 : .009,release:.14,end:driving ? hz*.978 : hz});
         voice(beat,'triangle',hz*2,duration,.052,{attack:.016,release:.13,cutoff:310});
       }
       if (track.keys.includes(step) && !(turnaround && step > 8)) {
@@ -214,6 +219,16 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
           voice(beat+index*.012,'keys',note,stepDuration*(step === 0 ? 4.7 : 2.65),step === 0 ? .054 : .039,
             {attack:.02,release:.23,cutoff:1240,detune:index%2 ? -4 : 5});
         }
+      }
+      if (driving && chorus && [2,7,11,14].includes(step)) {
+        const motifStep = [2,7,11,14].indexOf(step);
+        const note = scorePitch(root+track.hook[(motifStep+bar)%track.hook.length]);
+        const length = stepDuration*(step === 7 ? 1.75 : 1.28);
+        voice(beat,'electro',note,length,.078,{attack:.011,release:.07,cutoff:2100,detune:-4});
+        voice(beat+stepDuration*.75,'electro',note,length,.025,{attack:.015,release:.08,cutoff:1250,detune:4});
+      } else if (!driving && turnaround && step === 13) {
+        voice(beat,'keys',scorePitch(root+26),stepDuration*2.4,.046,
+          {attack:.026,release:.22,cutoff:1350});
       }
       tick++;
       time += stepDuration;

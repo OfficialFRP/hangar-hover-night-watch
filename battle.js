@@ -181,7 +181,7 @@ function resetBattleRound() {
     for (let i=0;i<count;i++) sites.splice(Math.floor(Math.random()*sites.length),1)[0].turret = true;
   }
   Object.assign(battle,{shots:[],hazards,packs:battlePackSpots.map(([x,y]) => ({x,y,readyAt:0})),
-    elapsed:0,charge:null,paused:false,result:'',matchResult:'',roundCredits:0,matchCredits:0,player:battle.startingPilot,transferAt:-Infinity});
+    elapsed:0,charge:null,paused:false,result:'',matchResult:'',roundCredits:0,matchCredits:0,player:battle.startingPilot});
   battle.pads = battle.mode === 'capture' ?
     capturePadPositions.map(([x,y],team) => ({team,x,y})) : [];
   for (const unit of battle.units) {
@@ -491,10 +491,11 @@ function transferBattleControl() {
   battle.player.player = false;
   battle.player = replacement;
   replacement.player = true;
-  battle.transferAt = battle.elapsed;
+  replacement.protectedUntil = battle.elapsed+1;
+  replacement.slowUntil = 0;
   clearBattleInput();
 }
-function battleTransferFlash(elapsedSinceTransfer) {
+function respawnFlashAt(elapsedSinceTransfer) {
   return elapsedSinceTransfer >= 0 && elapsedSinceTransfer < 1 &&
     elapsedSinceTransfer % (1/3) < .15;
 }
@@ -992,7 +993,10 @@ function drawBattle() {
       surface.lineWidth = 2;
       surface.stroke();
     }
+    const flash = unit.protectedUntil>battle.elapsed &&
+      respawnFlashAt(battle.elapsed-(unit.protectedUntil-1));
     surface.save();
+    if (flash) surface.filter = 'brightness(1.65)';
     surface.translate(unit.x,unit.y);
     surface.rotate(unit.angle);
     drawBattleOutline(surface,unit.frame,color);
@@ -1005,11 +1009,7 @@ function drawBattle() {
     surface.fillRect(unit.x-17,unit.y-27,34,4);
     surface.fillStyle = color;
     surface.fillRect(unit.x-17,unit.y-27,34*unit.health/unit.maxHull,4);
-    const respawnFlash = unit.protectedUntil>battle.elapsed &&
-      battleTransferFlash(battle.elapsed-(unit.protectedUntil-1));
-    const handoffFlash = unit.player && unit.protectedUntil<=battle.elapsed &&
-      battleTransferFlash(battle.elapsed-battle.transferAt);
-    if (respawnFlash || handoffFlash) {
+    if (flash) {
       circle(unit.x,unit.y,28,surface);
       surface.strokeStyle = '#e0ffeb';
       surface.lineWidth = 3;

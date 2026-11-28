@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=40">
+<link rel="stylesheet" href="styles.css?v=41">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -145,7 +145,7 @@
 <div id="storyCampaignNav" class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext" aria-keyshortcuts="Space">Continue</button></div>
 <div id="storyBoardNav" hidden>
   <div class="pager"><button id="boardPrevious" aria-label="Previous slide" aria-keyshortcuts="ArrowLeft">←</button><output id="boardStep" aria-live="polite"></output><button id="boardNext" aria-label="Next slide" aria-keyshortcuts="ArrowRight">→</button></div>
-  <div class="story-board-actions"><button id="boardExit" aria-keyshortcuts="Escape">Exit Story Board</button><button id="boardCharacters">Characters</button><button id="boardResume">Resume here</button></div>
+  <div class="story-board-actions"><button id="boardExit" aria-keyshortcuts="Escape">Exit Story Board</button><button id="boardFullscreen" type="button" aria-keyshortcuts="F" aria-pressed="false">Fullscreen</button><button id="boardResume">Resume here</button></div>
 </div>
 <button id="restartStory">Replay from mission 01</button>
 </section>
@@ -187,7 +187,7 @@
 
     <button id="chooseBattleAllies" type="button" data-game-dialog="battleAlliesDialog" aria-haspopup="dialog" hidden>Choose teammates</button>
     <details class="battle-setup-help"><summary>Battle rules</summary>
-    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Your selected drone has three lives per round and respawns after three seconds. Once it runs out of lives, you take over a surviving ally.</p>
+    <p>Your team includes your drone. Unfilled teammate spots and all opponents are randomized. Up to 12 drones can join a battle. Each battle has three rounds. Your selected drone has three lives per round and respawns after two seconds. Once it runs out of lives, you take over a surviving ally.</p>
     <p id="battleGuardNote" hidden>Capture the Flag requires at least two drones per team. One AI teammate guards the pad. Hunters engage enemy drones and runners make for the opposing pad.</p>
     <p>Capture the Flag: hover on the opposing landing pad until you land. A successful landing wins the round.</p>
     </details>
@@ -291,8 +291,8 @@
 <script src="story.js?v=6"></script>
 <script src="race.js?v=5"></script>
 <script src="audio.js?v=8"></script>
-<script src="battle.js?v=23"></script>
-<script src="game.js?v=43"></script>
+<script src="battle.js?v=24"></script>
+<script src="game.js?v=44"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

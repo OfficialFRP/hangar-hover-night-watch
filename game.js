@@ -590,7 +590,7 @@ function briefingScene(index) {
   return {title:'Case 0'+(Math.floor(index/12)+1)+' · '+chapter+' / '+courses[index].name,lines:[[speaker,line]]};
 }
 function storyBoardEntries() {
-  const scenes = Array.from({length:courses.length+1},(_,index) => {
+  return Array.from({length:courses.length+1},(_,index) => {
     const intro = caseIntros[index];
     const reveal = campaignReveals[index];
     return [
@@ -599,11 +599,6 @@ function storyBoardEntries() {
       ...(index < courses.length ? [{...briefingScene(index),index,line:0,kind:'briefing'}] : [])
     ];
   }).flat();
-  const profiles = Object.entries(crew).map(([key,[name,role,portrait]]) => ({
-    title:name,line:0,kind:'character',
-    lines:[[key,crewBios[key],null,{src:'assets/crew-full-'+portrait+'.webp',alt:'Full-body illustration of '+name}]]
-  }));
-  return [...scenes,...profiles];
 }
 function openStoryBoard() {
   if (storyBoard) return;
@@ -615,6 +610,7 @@ function openStoryBoard() {
   get(get('#boardNext').disabled ? '#boardPrevious' : '#boardNext').focus();
 }
 function closeStoryBoard() {
+  exitStoryFullscreen();
   storyBoard = null;
   renderStory();
   get('#openStoryBoard').focus();
@@ -624,7 +620,7 @@ function moveStoryBoard(direction) {
   renderStory();
 }
 function boardEntryUnlocked(entry) {
-  return entry.kind === 'character' ? false : entry.index === courses.length ? hasKingAccess() || progress.campaignNext >= courses.length
+  return entry.index === courses.length ? hasKingAccess() || progress.campaignNext >= courses.length
     : canPractice(entry.index);
 }
 function continueFromStoryBoard() {
@@ -670,7 +666,7 @@ function renderStory() {
     get('#boardStep').textContent = (storyBoard.position+1)+' / '+storyBoard.entries.length;
     const unlocked = boardEntryUnlocked(entry);
     get('#boardResume').disabled = !unlocked;
-    get('#boardResume').textContent = entry.kind === 'character' ? 'Character profile' : unlocked ? 'Resume here' : 'Checkpoint locked';
+    get('#boardResume').textContent = unlocked ? 'Resume here' : 'Checkpoint locked';
   }
   const position = campaignPosition();
   const shownCase = storyLines === campaignReveals[12].lines ? 0 :
@@ -771,6 +767,7 @@ function resumeCampaign() {
 }
 
 function showPage(page) {
+  if (currentPage === 'story' && page !== 'story') exitStoryFullscreen();
   if (currentPage === 'battle' && page !== 'battle') {pauseBattle(); exitBattleFullscreen();}
   if (currentPage === 'flight' && page !== 'flight') exitFlightFullscreen();
   if (page !== 'flight' && state === 'flying') togglePause();
@@ -1358,14 +1355,13 @@ function startFullFlight(fly = false) {
 }
 function advanceFullFlight() {
   fullRun.elapsed += elapsed;
+  drained += elapsed;
   courseIndex++;
   course = accessibleCourse(fullFlightCourse(courses[courseIndex]));
-  elapsed = drained = landing = jam = 0;
+  elapsed = landing = jam = 0;
   padSecured = cellCollected = false;
   jamsLeft = maxJams;
-  stats = flightStats(progress.selected);
   moveToNextSector();
-  rechargeFlash = 1.1;
   updateHudText('#raceLive','Leg '+(courseIndex+1)+' / '+fullRun.count+' · '+course.name);
 }
 function formatFullTime(seconds) {
@@ -1455,9 +1451,7 @@ function advanceFreeSector() {
   freeBonus += payout + bonus;
   saveProgress();
   course = accessibleCourse(generateFreeSector(Boolean(course.wind)));
-  drained = -elapsed;
   moveToNextSector();
-  rechargeFlash = 1.1;
   get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+' · +'+payout+' CR'+achievementMessage(bonus);
 }
 function respawnRacer() {
@@ -2757,6 +2751,15 @@ window.addEventListener('keydown',event => {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
       get('dialog[open]') || event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
+  if (currentPage === 'story' && storyBoard) {
+    const board = get('#page-story');
+    if (key === 'f' || (key === 'Escape' &&
+        (document.fullscreenElement === board || board.classList.contains('story-board-expanded')))) {
+      event.preventDefault();
+      if (!event.repeat) key === 'f' ? get('#boardFullscreen').click() : exitStoryFullscreen();
+      return;
+    }
+  }
   if (currentPage === 'story' && storyBoard && (key === 'Escape' ||
       (['ArrowLeft','ArrowRight'].includes(key) && !document.activeElement?.closest('.pages, header')))) {
     event.preventDefault();
@@ -3032,11 +3035,6 @@ get('#openStoryBoard').addEventListener('click',() => storyBoard ? closeStoryBoa
 get('#boardPrevious').addEventListener('click',() => moveStoryBoard(-1));
 get('#boardNext').addEventListener('click',() => moveStoryBoard(1));
 get('#boardExit').addEventListener('click',closeStoryBoard);
-get('#boardCharacters').addEventListener('click',() => {
-  storyBoard.position = storyBoard.entries.findIndex(entry => entry.kind === 'character');
-  renderStory();
-  get('#boardNext').focus();
-});
 get('#boardResume').addEventListener('click',continueFromStoryBoard);
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
 get('#storyNext').addEventListener('click',() => {
@@ -3133,6 +3131,7 @@ function showMenuSection(section) {
   section.querySelector('button:not(:disabled):not([hidden]), select')?.focus();
 }
 function openMenu() {
+  if (currentPage === 'story') exitStoryFullscreen();
   pauseBattle();
   if (currentPage === 'battle') exitBattleFullscreen();
   if (currentPage === 'flight') exitFlightFullscreen();
@@ -3451,6 +3450,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+const exitStoryFullscreen = createFullscreenControl(get('#page-story'),get('#boardFullscreen'),'story-board-expanded');
 const exitFlightFullscreen = createFullscreenControl(
   get('#page-flight'),get('#flightFullscreen'),'flight-expanded',refreshFlightViewport
 );

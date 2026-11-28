@@ -535,7 +535,7 @@ function updateCaptureLandings(dt) {
 function scheduleBattleRespawn(unit) {
   if (unit.health > 0 || unit.respawnAt !== undefined) return;
   unit.lives = Math.max(0,unit.lives-1);
-  unit.respawnAt = unit.lives > 0 ? battle.elapsed+3 : Infinity;
+  unit.respawnAt = unit.lives > 0 ? battle.elapsed+2 : Infinity;
   if (unit === battle.player) clearBattleInput();
 }
 function respawnBattleDrone(unit) {

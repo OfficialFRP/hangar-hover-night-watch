@@ -1485,8 +1485,7 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
   justify-self:center;
   margin:0;
   width:100%;
-  max-width:820px;
-  max-block-size:680px;
+  max-width:none;
   min-block-size:0;
   overflow:auto;
 }
@@ -1531,7 +1530,7 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
 }
 @media(min-width:651px),(max-height:510px) and (orientation:landscape){
   #page-story.story-board-open .story-scene{
-    grid-template:minmax(0,1fr) / minmax(0,42%) minmax(0,1fr);
+    grid-template:minmax(0,1fr) / minmax(0,68%) minmax(0,1fr);
   }
   #page-story.story-board-open .story-scene div{
     grid-area:1 / 2;
@@ -1543,4 +1542,18 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
 button:focus-visible,select:focus-visible,summary:focus-visible{
   outline:2px solid #b8fce9;
   outline-offset:2px;
+}
+
+#page-story.story-board-open:is(:fullscreen,.story-board-expanded){
+  position:fixed;
+  inset:0;
+  z-index:25;
+  inline-size:100%;
+  block-size:100dvh;
+  max-inline-size:none;
+  max-block-size:none;
+  border-radius:0;
+  background:#0a1420;
+  padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
+    max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
 }

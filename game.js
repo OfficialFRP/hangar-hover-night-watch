@@ -1100,7 +1100,21 @@ function reset(index, fly = false, chapterFlight = false, run = null, retry = fa
     menu(course.name,pilot+course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight,run));
   }
 }
-function finish(won, message) {
+function finish(won, message, collision = false) {
+  if (!won && collision) {
+    if (courseIndex === freeFlightIndex) {
+      activeRoom.crashed = true;
+      respawnArcadeDrone();
+      updateHudText('#raceLive','Sector '+(freeSector+1)+' · Sector credits forfeited');
+      return;
+    }
+    if (fullRun?.hits > 0) {
+      fullRun.hits--;
+      respawnArcadeDrone();
+      updateHudText('#raceLive','Leg '+(courseIndex+1)+' / '+fullRun.count+' · Hits left '+fullRun.hits);
+      return;
+    }
+  }
   if (!won && storyFlight) {
     storyLives--;
     if (storyLives > 0) {
@@ -1241,7 +1255,7 @@ function update(dt) {
     if (protectedDrone) {
       bounceOff(strikes[0],previousX,previousY,true);
     } else if (strikes.some(wall => !isPadded(wall[4])) || !bounceOff(strikes[0],previousX,previousY)) {
-      return finish(false,'The drone hit an obstacle. Brake before tight turns.');
+      return finish(false,'The drone hit an obstacle. Brake before tight turns.',true);
     }
   }
   const insideDoor = ([center,height]) => Math.abs(drone.y-center) < height/2-radius;
@@ -1252,7 +1266,7 @@ function update(dt) {
   const edgeX = clamp(drone.x,westOpen ? -Infinity : radius,doorOpen ? Infinity : 960-radius);
   const edgeY = clamp(drone.y,radius,500-radius);
   if (drone.x !== edgeX || drone.y !== edgeY) {
-    if (!protectedDrone) return finish(false,'The drone hit the perimeter.');
+    if (!protectedDrone) return finish(false,'The drone hit the perimeter.',true);
     if (drone.x !== edgeX) drone.vx *= -.36;
     if (drone.y !== edgeY) drone.vy *= -.36;
     drone.x = edgeX;
@@ -1350,13 +1364,14 @@ function flightExitReady() {
   return gate === course.gates.length && (!fullRun || !course.pad || padSecured);
 }
 function startFullFlight(fly = false) {
-  reset(0,fly,false,{count:fullFlightCount(),elapsed:0});
+  reset(0,fly,false,{count:fullFlightCount(),elapsed:0,hits:3});
   showPage('flight');
 }
 function advanceFullFlight() {
   fullRun.elapsed += elapsed;
   drained += elapsed;
   courseIndex++;
+  if (courseIndex%12 === 0) fullRun.hits += 3;
   course = accessibleCourse(fullFlightCourse(courses[courseIndex]));
   elapsed = landing = jam = 0;
   padSecured = cellCollected = false;
@@ -1438,21 +1453,32 @@ function generateFreeSector(wasWindy = false) {
     const [x,y] = pick(sector.gates);
     sector.cameras.push([x-44,y-34,.8,Math.random()<.72 ? 'red' : 'green']);
   }
-  sector.intro = 'Clear four checkpoints and exit east. Each new sector refills your battery. Unlimited Jams have a short cooldown.';
+  sector.intro = 'Clear four checkpoints and exit east. Battery carries over. Crashes cost the current sector’s credit reward. Unlimited Jams have a short cooldown.';
   return sector;
 }
-function advanceFreeSector() {
+function advanceFreeSector(previous) {
   freeSector++;
   freeCleared = freeSector;
   progress.freeBest = Math.max(progress.freeBest,freeCleared);
-  const payout = freeCleared >= 20 ? 20 : 10;
+  const payout = previous.crashed ? 0 : freeCleared >= 20 ? 20 : 10;
   progress.credits += payout;
   const bonus = awardAchievements();
   freeBonus += payout + bonus;
   saveProgress();
   course = accessibleCourse(generateFreeSector(Boolean(course.wind)));
   moveToNextSector();
-  get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+' · +'+payout+' CR'+achievementMessage(bonus);
+  get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+(payout ? ' · +'+payout+' CR' : ' · Previous sector credits forfeited')+achievementMessage(bonus);
+}
+function respawnArcadeDrone() {
+  flightProtection = 1;
+  const [x,y] = course.start;
+  drone = {x,y,vx:0,vy:0,angle:0};
+  gate = scan = landing = jam = 0;
+  padSecured = false;
+  resetRoomVisuals();
+  patrols = planPatrols();
+  clearInputs();
+  sound('crash');
 }
 function respawnRacer() {
   flightProtection = 1;
@@ -1500,7 +1526,7 @@ function enterNewRoom(advance) {
   const previous = activeRoom;
   const offset = drone.y-course.exit[0];
   activeRoom = {};
-  advance();
+  advance(previous);
   const opening = westOpening(previous.course.exit);
   activeRoom.west = {opening,room:previous};
   previous.east = {opening:previous.course.exit,room:activeRoom};
@@ -2720,7 +2746,7 @@ function hud() {
   updateFlightButton('#returnTitle','hidden',state !== 'lost');
   updateFlightButton('#flightHangar','hidden',state !== 'lost' && state !== 'won');
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
-  updateHudText('#best',storyFlight ? 'Lives '+storyLives+' / 3' : courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s · Lives ∞' : 'Lives ∞') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
+  updateHudText('#best',storyFlight ? 'Lives '+storyLives+' / 3' : fullRun ? 'Hits left '+fullRun.hits : courseIndex === freeFlightIndex ? (activeRoom.crashed ? 'Sector credits forfeited' : 'Lives ∞') : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s · Lives ∞' : 'Lives ∞') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 // Advance the current message without stealing Space from form controls or flight braking.
 let advancingWithSpace = false;

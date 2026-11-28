@@ -1471,7 +1471,13 @@ main:has(#page-story.story-board-open:not([hidden])){
   display:flex;
   flex-direction:column;
 }
-main:has(#page-story.story-board-open:not([hidden])) > :is(header,.pages){flex:none}
+main:has(#page-story.story-board-open:not([hidden])){
+  max-width:1440px;
+  padding-block:env(safe-area-inset-top) env(safe-area-inset-bottom);
+}
+main:has(#page-story.story-board-open:not([hidden])) > header{display:none}
+main:has(#page-story.story-board-open:not([hidden])) > .pages{flex:none;margin-bottom:3px}
+main:has(#page-story.story-board-open:not([hidden])) .pages button{min-height:44px}
 main:has(#page-story.story-board-open:not([hidden])) .layout{
   display:grid;
   grid-template:minmax(0,1fr) / minmax(0,1fr);
@@ -1487,7 +1493,8 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
   width:100%;
   max-width:none;
   min-block-size:0;
-  overflow:auto;
+  padding:6px 8px;
+  overflow:hidden;
 }
 #page-story.story-board-open #storyTitle{
   display:-webkit-box;
@@ -1495,11 +1502,11 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
   -webkit-line-clamp:2;
   overflow:hidden;
   block-size:2.4em;
-  margin:6px 0;
+  margin:2px 0;
   font:700 clamp(15px,3vw,24px)/1.2 "Hangar Airframe",system-ui,sans-serif;
 }
 #page-story.story-board-open .story-scene{
-  grid-template:minmax(0,1fr) minmax(0,clamp(64px,16dvh,116px)) / minmax(0,1fr);
+  grid-template:minmax(0,1fr) minmax(0,clamp(52px,12dvh,96px)) / minmax(0,1fr);
   contain:size;
   align-self:stretch;
   min-block-size:0;
@@ -1530,7 +1537,7 @@ main:has(#page-story.story-board-open:not([hidden])) .layout{
 }
 @media(min-width:651px),(max-height:510px) and (orientation:landscape){
   #page-story.story-board-open .story-scene{
-    grid-template:minmax(0,1fr) / minmax(0,68%) minmax(0,1fr);
+    grid-template:minmax(0,1fr) / minmax(0,76%) minmax(0,1fr);
   }
   #page-story.story-board-open .story-scene div{
     grid-area:1 / 2;
@@ -1556,4 +1563,19 @@ button:focus-visible,select:focus-visible,summary:focus-visible{
   background:#0a1420;
   padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
     max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+}
+
+
+#page-story.story-board-open .case-picker{margin-bottom:2px}
+#storyBoardNav{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:4px;
+}
+#storyBoardNav .pager{margin:0}
+@media(max-width:540px){
+  #storyBoardNav{justify-content:center}
+  #storyBoardNav .story-board-actions{justify-content:center}
 }

@@ -90,16 +90,16 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Instrumental hip-hop grooves, from laid-back pocket drums to sparse 808 patterns.
+// Techno kicks and offbeat hats with syncopated bass and electro hooks.
 let scoreTrack;
 const scoreThemes = {
-  menu:{bpm:80,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.22},
-  story:{bpm:89,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],swing:.18},
-  elimination:{bpm:114,roots:[40,40,38,43],kicks:[0,3,7,10,14],bass:[0,3,10,14],keys:[0,11],hook:[12,15,19,17],swing:.09},
-  capture:{bpm:106,roots:[45,41,43,48],kicks:[0,6,9,14],bass:[0,6,9,13],keys:[0,6,12],hook:[19,22,19,24],swing:.13},
-  free:{bpm:76,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],swing:.25},
-  full:{bpm:98,roots:[43,46,41,48],kicks:[0,5,8,14],bass:[0,5,9,13],keys:[0,6,11],hook:[19,15,22,26],swing:.17},
-  race:{bpm:122,roots:[47,50,45,43],kicks:[0,3,6,10,13],bass:[0,6,10,13],keys:[0,7,12],hook:[19,24,22,15],swing:.10}
+  menu:{bpm:116,roots:[41,37,44,39],kicks:[0,7,10],bass:[0,6,10],keys:[0,10],swing:.22},
+  story:{bpm:128,roots:[43,39,46,41],kicks:[0,6,10,15],bass:[0,7,10,14],keys:[0,7,13],swing:.18},
+  elimination:{bpm:148,roots:[40,40,38,43],kicks:[0,3,7,10,14],bass:[0,3,10,14],keys:[0,11],hook:[12,15,19,17],swing:.09},
+  capture:{bpm:140,roots:[45,41,43,48],kicks:[0,6,9,14],bass:[0,6,9,13],keys:[0,6,12],hook:[19,22,19,24],swing:.13},
+  free:{bpm:124,roots:[42,45,49,47],kicks:[0,6,10],bass:[0,6,11],keys:[0,9],swing:.25},
+  full:{bpm:136,roots:[43,46,41,48],kicks:[0,5,8,14],bass:[0,5,9,13],keys:[0,6,11],hook:[19,15,22,26],swing:.17},
+  race:{bpm:152,roots:[47,50,45,43],kicks:[0,3,6,10,13],bass:[0,6,10,13],keys:[0,7,12],hook:[19,24,22,15],swing:.10}
 };
 const scorePitch = midi => 440*2**((midi-69)/12);
 function setScoreMusic(enabled,mode = 'story',level = .22) {
@@ -181,11 +181,12 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       const turnaround = bar%4 === 3;
       const driving = Boolean(track.hook);
       const chorus = bar >= 4;
-      const kick = (track.kicks.includes(step) || (driving && chorus && step === 8)) &&
-        !(turnaround && step === 15);
+      const kick = step%4 === 0;
       if (kick) {
         voice(beat,'sine',driving ? 116 : 96,.15,.66,{end:44,release:.105});
         percussion(beat,'bandpass',1850,.024,.045);
+      } else if (chorus && track.kicks.includes(step)) {
+        percussion(beat,'bandpass',950,.065,.11);
       }
       if (step === 4 || step === 12) {
         const snare = beat+stepDuration*.045;
@@ -196,8 +197,8 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
         percussion(beat,'bandpass',1420,.065,.11);
       }
       if (step%2 === 0 || (step === 11 && bar%2)) {
-        const openHat = step === 14 && bar%2 === 0;
-        percussion(beat,'highpass',6650,openHat ? .13 : .045,openHat ? .16 : step%4 === 0 ? .12 : .075);
+        const openHat = step%4 === 2;
+        percussion(beat,'highpass',6650,openHat ? .115 : .034,openHat ? .16 : step%4 === 0 ? .12 : .075);
       }
       if (driving && ((chorus && step === 7) || (step === 15 && bar%2))) {
         for (let hit=0;hit<3;hit++) percussion(time+stepDuration*(.12+hit*.26),'highpass',7900,.028,.06+hit*.021);
@@ -210,7 +211,10 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
         const duration = stepDuration*Math.min(driving ? 4.8 : 3.2,gap*.92);
         voice(beat,'sine',hz,duration,driving ? .40 : .31,
           {attack:kick ? .025 : .009,release:.14,end:driving ? hz*.978 : hz});
-        voice(beat,'triangle',hz*2,duration,.052,{attack:.016,release:.13,cutoff:310});
+        voice(beat,'triangle',hz*2,duration,.064,{attack:.016,release:.13,cutoff:380});
+      } else if (step%4 === 2) {
+        voice(beat,'electro',scorePitch(root),stepDuration*.76,.085,
+          {attack:.008,release:.045,cutoff:640});
       }
       if (track.keys.includes(step) && !(turnaround && step > 8)) {
         const voicing = step === 0 ? [15,19,22] : step < 10 ? [19,26] : [22];

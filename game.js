@@ -3416,7 +3416,7 @@ function preloadMedia() {
     index < 8 ? ['crew-'+index,'crew-expression-'+index] : ['crew-'+index]))];
   const sceneArt = Object.values(campaignReveals).flatMap(({lines}) =>
     lines.flatMap(([, , ,illustration]) => illustration ? [illustration.src] : []));
-  const art = ['assets/night-watch-crew.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt,...Object.values(caseIntros).map(({src}) => src)];
+  const art = ['assets/night-watch-crew-reyes-kade-voss.webp',...portraits.map(name => 'assets/'+name+'.webp'),...sceneArt,...Object.values(caseIntros).map(({src}) => src)];
   const atlases = [atlas,quayAtlas,omegaArt,onyxArt,clubAtlas,storyAtlas,fleetArt,equipmentAtlas,factoryAtlas,workcellAtlas,shipAtlas,shipMachineryAtlas,verticalShipAtlas];
   const media = [
     ...atlases.map(image => () => image.decode()),

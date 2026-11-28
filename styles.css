@@ -480,7 +480,7 @@ body::before{
   inset:0;
   z-index:-1;
   background:linear-gradient(90deg,#100d2040,#13112722 55%,#120f2417),
-    url(assets/night-watch-crew.webp) center top / cover no-repeat;
+    url(assets/night-watch-crew-reyes-kade-voss.webp) center top / cover no-repeat;
 }
 .launch-screen{
   min-height:100dvh;

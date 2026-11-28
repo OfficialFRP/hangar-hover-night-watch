@@ -61,7 +61,7 @@ function normalizeOmega(saved) {
 }
 function frameAvailable(index,save = progress) {
   const frame = fleet[index];
-  return Boolean(frame && (frame.omega ? save.completionReward === true || save.playerName.includes('AEON') :
+  return Boolean(frame && (frame.omega ? save.completionReward === true || save.playerName.includes('XLR') :
     !frame.cost || save.ownedFrames.includes(index)));
 }
 const upgrades = [
@@ -441,6 +441,11 @@ const pageButtons = [...document.querySelectorAll('[data-page]')];
 let currentPage = 'menu';
 let gamePage = 'story';
 let easyFlight = false;
+let storyLives = 3;
+let storyMission = 0;
+let pendingStoryDoor = null;
+let activeRoom = null;
+let storyRoom = null;
 let storyFlight = false;
 let race;
 let raceSection = 0;
@@ -448,6 +453,7 @@ let freeSector = 0;
 let fullRun = null;
 let padSecured = false;
 let freeBonus = 0;
+let freeCleared = 0;
 let flightLoadout;
 let rivalAngle = 0;
 let tookSignalDamage = false;
@@ -510,6 +516,11 @@ function selectRace(force = false) {
     if (frame && !frame.omega && opponents.includes(saved.rival)) {
       race = validRaceSections(saved) ? {...saved,frame} :
         generateRace(fleet[progress.selected],null,null,saved.rival,frame);
+      if (race.paceVersion !== 2) {
+        race = {...race,paceVersion:2,finishTime:race.finishTime*rivalPace,
+          sections:race.sections.map(section => ({...section,startTime:section.startTime*rivalPace,
+            splits:section.splits.map(split => split*rivalPace)}))};
+      }
       race.defeated = saved.defeated === true;
       progress.raceMatch = race;
       saveProgress();
@@ -667,7 +678,7 @@ function resumeCampaign() {
       saveProgress();
       startBriefing(index);
     });
-  } else if (storyFlight && courseIndex === index && (state === 'ready' || state === 'paused' || state === 'flying' || state === 'lost')) {
+  } else if (storyFlight && storyMission === index && (state === 'ready' || state === 'paused' || state === 'flying' || state === 'lost')) {
     showPage('flight');
   } else {
     startBriefing(index);
@@ -946,17 +957,29 @@ function configureRaceHud() {
   updateHudText('#rivalRacerName',crew[race.rival][0]);
   updateHudText('#rivalRacerFrame',race.frame.name);
 }
-function reset(index, fly = false, chapterFlight = false, run = null) {
+function accessibleCourse(source) {
+  if (!easyFlight) return source;
+  let obstacles = 0;
+  return {...source,walls:source.walls.filter(([x,y,width,height]) =>
+    x < 48 || x+width > 912 || y === 0 || y+height >= 500 ||
+    width > 280 || height > 245 || ++obstacles%4 !== 0)};
+}
+function reset(index, fly = false, chapterFlight = false, run = null, retry = false) {
+  const storyDoor = chapterFlight && pendingStoryDoor?.index === index ? pendingStoryDoor : null;
+  const previousDoor = chapterFlight && storyFlight && storyMission === index ? storyRoom?.west : null;
+  if (!retry) storyLives = 3;
+  storyMission = index;
+  activeRoom = storyRoom = {};
   fullRun = run;
   padSecured = false;
   storyFlight = chapterFlight;
   courseIndex = index;
   flightLoadout = index < 0 ? arcadeLoadout(index) : null;
-  freeSector = freeBonus = 0;
-  easyFlight = index >= 0 && options.difficulty === 'easy';
+  freeSector = freeBonus = freeCleared = 0;
+  easyFlight = options.difficulty === 'easy';
   raceSection = 0;
   rivalAngle = 0;
-  course = run ? fullFlightCourse(courses[index]) : index === freeFlightIndex ? generateFreeSector() : index === -1 ? race.sections[0].course : courses[index];
+  course = accessibleCourse(run ? fullFlightCourse(courses[index]) : index === freeFlightIndex ? generateFreeSector() : index === -1 ? race.sections[0].course : courses[index]);
   nextRaceCall = 3;
   raceCallouts = 0;
   wasBraking = false;
@@ -978,6 +1001,18 @@ function reset(index, fly = false, chapterFlight = false, run = null) {
   jam = scan = 0;
   jamsLeft = maxJams;
   cellCollected = false;
+  if (previousDoor && !storyDoor) {
+    activeRoom.west = previousDoor;
+    previousDoor.room.east.room = activeRoom;
+  } else if (storyDoor) {
+    const opening = westOpening(storyDoor.exit);
+    activeRoom.west = {opening,room:storyDoor.room};
+    storyDoor.room.east = {opening:storyDoor.exit,room:activeRoom};
+    drone = portalSpawn(opening,storyDoor.offset,true,false);
+    if (fly) pendingStoryDoor = null;
+  } else if (chapterFlight) {
+    pendingStoryDoor = null;
+  }
   terrain = paintTerrain();
   record = index < 0 ? 0 : storedBest();
   clearInputs();
@@ -997,6 +1032,14 @@ function reset(index, fly = false, chapterFlight = false, run = null) {
   }
 }
 function finish(won, message) {
+  if (!won && storyFlight) {
+    storyLives--;
+    if (storyLives > 0) {
+      reset(storyMission,true,true,null,true);
+      sound('crash');
+      return;
+    }
+  }
   if (fullRun) {
     const run = fullRun;
     const total = run.elapsed + elapsed;
@@ -1015,7 +1058,7 @@ function finish(won, message) {
     state = 'lost';
     clearInputs();
     sound('crash');
-    menu('Free Flight ended',message+' Sectors cleared: '+freeSector+'. '+freeBonus+' bonus CR.','Free Flight setup',() => showPage('free'));
+    menu('Free Flight ended',message+' Sectors cleared: '+freeCleared+'. '+freeBonus+' CR earned.','Free Flight setup',() => showPage('free'));
     return;
   }
   state = won ? 'won' : 'lost';
@@ -1052,7 +1095,7 @@ function finish(won, message) {
       message,won ? 'Mission select' : 'Fly again',
       () => {
         if (won) showPage('missions');
-        else reset(courseIndex,true,storyFlight);
+        else reset(storyFlight ? storyMission : courseIndex,true,storyFlight);
       });
   }
 }
@@ -1103,7 +1146,7 @@ function update(dt) {
       get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(ahead || raceCallouts % 2 === 0 ? 1 : 2) + '”';
     }
   }
-  const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .55 : 1) : 0;
+  const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .46 : 1) : 0;
   const profile = course.windPattern;
   const wind = gust * Math.sin(elapsed*(profile?.frequency ?? 2.3)+(profile?.phase ?? 0));
   const crosswind = course.exit || course.quay ? gust*(profile?.lateral ?? .76)*Math.sin(elapsed*1.47+.8) : 0;
@@ -1126,10 +1169,12 @@ function update(dt) {
       return finish(false,'The drone hit an obstacle. Brake before tight turns.');
     }
   }
-  const doorOpen = course.exit && flightExitReady() &&
-    Math.abs(drone.y-course.exit[0]) < course.exit[1]/2-radius;
-  const rightEdge = doorOpen ? Infinity : 960-radius;
-  const edgeX = clamp(drone.x,radius,rightEdge);
+  const insideDoor = ([center,height]) => Math.abs(drone.y-center) < height/2-radius;
+  const east = activeRoom.east?.opening || (flightExitReady() && course.exit);
+  const west = activeRoom.west?.opening;
+  const doorOpen = east && insideDoor(east);
+  const westOpen = west && insideDoor(west);
+  const edgeX = clamp(drone.x,westOpen ? -Infinity : radius,doorOpen ? Infinity : 960-radius);
   const edgeY = clamp(drone.y,radius,500-radius);
   if (drone.x !== edgeX || drone.y !== edgeY) {
     if (!airframe.omega) return finish(false,'The drone hit the perimeter.');
@@ -1139,6 +1184,8 @@ function update(dt) {
     drone.y = edgeY;
   }
   const {x,y,vx,vy} = drone;
+  if (westOpen && x <= 0) return revisitRoom(activeRoom.west,y-west[0],false);
+  if (doorOpen && x >= 960 && activeRoom.east) return revisitRoom(activeRoom.east,y-east[0],true);
   const drifting = Math.hypot(vx,vy) > 12;
   drone.angle = dx || dy ? turnNose(drone.angle,dx,dy,dt) :
     drifting ? turnNose(drone.angle,vx,vy,dt) : turnNose(drone.angle,0,0,dt);
@@ -1184,10 +1231,17 @@ function update(dt) {
   }
   if (course.exit && (!course.pad || padSecured)) {
     if (doorOpen && x >= 960) {
-      if (fullRun) advanceFullFlight();
-      else if (courseIndex === freeFlightIndex) advanceFreeSector();
-      else if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
-      else finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
+      if (fullRun && courseIndex+1 < fullRun.count) enterNewRoom(advanceFullFlight);
+      else if (fullRun) finish(true,'You cleared all '+fullRun.count+' legs of this route.');
+      else if (courseIndex === freeFlightIndex) enterNewRoom(advanceFreeSector);
+      else if (courseIndex === -1 && raceSection < race.sections.length-1) enterNewRoom(advanceRaceSection);
+      else {
+        if (storyFlight && courseIndex+1 < courses.length) {
+          saveRoom();
+          pendingStoryDoor = {index:courseIndex+1,room:activeRoom,exit:course.exit,offset:y-course.exit[0]};
+        }
+        finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
+      }
     }
     return;
   }
@@ -1231,13 +1285,9 @@ function startFullFlight(fly = false) {
   showPage('flight');
 }
 function advanceFullFlight() {
-  if (courseIndex+1 >= fullRun.count) {
-    finish(true,'You cleared all '+fullRun.count+' legs of this route.');
-    return;
-  }
   fullRun.elapsed += elapsed;
   courseIndex++;
-  course = fullFlightCourse(courses[courseIndex]);
+  course = accessibleCourse(fullFlightCourse(courses[courseIndex]));
   elapsed = drained = landing = jam = 0;
   padSecured = cellCollected = false;
   jamsLeft = maxJams;
@@ -1325,33 +1375,83 @@ function generateFreeSector(wasWindy = false) {
 }
 function advanceFreeSector() {
   freeSector++;
-  progress.freeBest = Math.max(progress.freeBest,freeSector);
+  freeCleared = freeSector;
+  progress.freeBest = Math.max(progress.freeBest,freeCleared);
+  const payout = freeCleared >= 20 ? 20 : 10;
+  progress.credits += payout;
   const bonus = awardAchievements();
-  freeBonus += bonus;
+  freeBonus += payout + bonus;
   saveProgress();
-  course = generateFreeSector(Boolean(course.wind));
+  course = accessibleCourse(generateFreeSector(Boolean(course.wind)));
   drained = -elapsed;
   moveToNextSector();
   rechargeFlash = 1.1;
-  get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+achievementMessage(bonus);
+  get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+' · +'+payout+' CR'+achievementMessage(bonus);
 }
 function advanceRaceSection() {
   raceSection++;
-  course = race.sections[raceSection].course;
+  course = accessibleCourse(race.sections[raceSection].course);
   moveToNextSector();
   get('#raceLive').textContent = 'Section ' + (raceSection+1) + ' / ' + raceSectionCount + ' · ' + course.name;
 }
-function moveToNextSector() {
-  const [x,y] = course.start;
-  drone = {x,y,vx:Math.min(drone.vx,115),vy:0,angle:drone.angle};
-  gate = scan = 0;
+function westOpening([center,height]) {
+  const radius = airframe.size;
+  const offsets = Array.from({length:501},(_,i) => i%2 ? -(i+1)/2 : i/2);
+  const entryCenter = offsets.map(offset => center+offset).find(y =>
+    y >= height/2 && y <= 500-height/2 && !course.walls.some(([x,top,width,depth]) =>
+      x < radius*2+5 && top < y+height/2 && top+depth > y-height/2));
+  if (entryCenter !== undefined) return [entryCenter,height];
+  // Keep the full opening clear on maps whose structures reach the entry wall.
+  course = {...course,walls:course.walls.filter(([x,top,width,depth]) =>
+    x >= radius*2+5 || top >= center+height/2 || top+depth <= center-height/2)};
+  return [center,height];
+}
+function portalSpawn([center,height],offset,eastbound,carry = true) {
+  const radius = airframe.size;
+  const limit = Math.max(0,height/2-radius-.5);
+  return {x:eastbound ? radius+2 : 958-radius,y:center+clamp(offset,-limit,limit),
+    vx:carry ? clamp(drone.vx,-115,115) : 0,vy:carry ? drone.vy*.25 : 0,angle:drone.angle};
+}
+function saveRoom() {
+  Object.assign(activeRoom,{course,courseIndex,raceSection,freeSector,gate,scan,padSecured,
+    packCollected,cellCollected,patrols,rechargePack});
+}
+function enterNewRoom(advance) {
+  saveRoom();
+  const previous = activeRoom;
+  const offset = drone.y-course.exit[0];
+  activeRoom = {};
+  advance();
+  const opening = westOpening(previous.course.exit);
+  activeRoom.west = {opening,room:previous};
+  previous.east = {opening:previous.course.exit,room:activeRoom};
+  drone = portalSpawn(opening,offset,true);
+  terrain = paintTerrain();
+}
+function revisitRoom(link,offset,eastbound) {
+  saveRoom();
+  activeRoom = link.room;
+  ({course,courseIndex,raceSection,freeSector,gate,scan,padSecured,
+    packCollected,cellCollected,patrols,rechargePack} = activeRoom);
+  drone = portalSpawn(eastbound ? activeRoom.west.opening : activeRoom.east.opening,offset,eastbound);
+  landing = 0;
+  resetRoomVisuals();
+  terrain = paintTerrain();
+  if (fullRun) updateHudText('#raceLive','Leg '+(courseIndex+1)+' / '+fullRun.count+' · '+course.name);
+  else if (courseIndex === freeFlightIndex) updateHudText('#raceLive','Sector '+(freeSector+1)+' · '+course.name);
+  else if (courseIndex === -1) updateHudText('#raceLive','Section '+(raceSection+1)+' / '+raceSectionCount+' · '+course.name);
+}
+function resetRoomVisuals() {
   droneTrail.length = 0;
   cameraSignal = '';
   radarLocked = false;
+}
+function moveToNextSector() {
+  gate = scan = landing = 0;
+  resetRoomVisuals();
   patrols = planPatrols();
   rechargePack = planRechargePack();
-  packCollected = false;
-  terrain = paintTerrain();
+  packCollected = cellCollected = false;
   sound('scan');
 }
 function planRechargePack() {
@@ -2322,7 +2422,7 @@ function renderLoadout() {
 function drawWarehouseExit() {
   const [center,height] = course.exit;
   const top = center-height/2;
-  const open = flightExitReady();
+  const open = activeRoom.east || flightExitReady();
   ctx.fillStyle = open ? '#9de9d72a' : '#10151e';
   ctx.fillRect(909,top,51,height);
   ctx.fillStyle = open ? '#9de9d7' : '#ed937e';
@@ -2430,6 +2530,15 @@ function draw() {
     }
   });
   if (course.exit) drawWarehouseExit();
+  if (activeRoom.west) {
+    const [center,height] = activeRoom.west.opening;
+    ctx.fillStyle = '#9de9d72a';
+    ctx.fillRect(0,center-height/2,49,height);
+    ctx.fillStyle = '#9de9d7';
+    ctx.fillRect(0,center-height/2-7,13,7);
+    ctx.fillRect(0,center+height/2,13,7);
+    label('← RETURN',18,center-height/2-12,'#9de9d7',13);
+  }
   if (course.pad) drawLandingPad();
   if (rechargePack && !packCollected) drawBatteryPickup(...rechargePack);
   if (jam > 0) {
@@ -2523,7 +2632,7 @@ function hud() {
   updateFlightButton('#returnTitle','hidden',state !== 'lost');
   updateFlightButton('#flightHangar','hidden',state !== 'lost' && state !== 'won');
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
-  updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
+  updateHudText('#best',storyFlight ? 'Lives '+storyLives+' / 3' : courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 // Advance the current message without stealing Space from form controls or flight braking.
 let advancingWithSpace = false;
@@ -2588,7 +2697,7 @@ window.addEventListener('keydown',event => {
   if (key === 'r') {
     if (fullRun) startFullFlight(true);
     else if (courseIndex === -1 && race.defeated) selectRace();
-    else reset(courseIndex,true,storyFlight);
+    else reset(storyFlight ? storyMission : courseIndex,true,storyFlight);
   }
   if (key === 'c') activateJam();
 });
@@ -2721,6 +2830,7 @@ get('#backToRacePilots').addEventListener('click',() => {
   selectRace();
   get('#racePilotPicker').click();
 });
+get('#raceNow').addEventListener('click',() => {reset(-1,true); showPage('flight');});
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
@@ -2800,7 +2910,7 @@ get('#pause').addEventListener('click',togglePause);
 get('#retryFlight').addEventListener('click',() => {
   if (state !== 'paused') return;
   if (fullRun) startFullFlight(true);
-  else reset(courseIndex,true,storyFlight);
+  else reset(storyFlight ? storyMission : courseIndex,true,storyFlight);
 });
 action.addEventListener('click',() => nextAction());
 const main = get('main');
@@ -2842,6 +2952,8 @@ function enterGame(page) {
   }
 }
 function openSave(key,saved) {
+  pendingStoryDoor = null;
+  storyRoom = null;
   activeSlot = key;
   progress = saved || {...freshProgress(),ignoreLegacyBests:true};
   race = undefined;

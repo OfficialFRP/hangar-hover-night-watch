@@ -90,7 +90,7 @@ function flightAudio(speed, thrusting, braking, flying) {
   rotorAudio.throttle = audible && thrusting;
 }
 
-// Each mode shares the score's orchestral palette and half-time rhythm.
+// Each mode shares the score's electronic palette and swung half-time rhythm.
 let scoreTrack;
 const scoreThemes = {
   menu:{bpm:132,chords:[[41,0],[37,1],[44,1],[39,1]],motif:[0,7,10,12,14,12,7,3],bass:[0,6,11,14],stabs:[0,10],lift:.7},
@@ -130,8 +130,8 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
   const samples = noise.getChannelData(0);
   for (let i=0;i<samples.length;i++) samples[i] = Math.random()*2-1;
   const waves = {
-    strings:context.createPeriodicWave(new Float32Array(9),new Float32Array([0,1,.42,.52,.19,.24,.11,.12,.06])),
-    brass:context.createPeriodicWave(new Float32Array(9),new Float32Array([0,1,.68,.34,.32,.16,.12,.07,.06]))
+    pluck:context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.21,0,.13,0,.04])),
+    lead:context.createPeriodicWave(new Float32Array(7),new Float32Array([0,1,.31,.44,.12,.17,.08]))
   };
   let tick = 0;
   let time = context.currentTime+.045;
@@ -206,37 +206,49 @@ function setScoreMusic(enabled,mode = 'story',level = .22) {
       const third = major ? 4 : 3;
       const drop = bar !== 3 && bar !== 7;
       const intensity = track.lift*(bar < 4 ? .83 : 1);
-      if (step === 0) {
-        for (const interval of [0,third,7,12]) {
-          voice(time,'strings',scorePitch(root+12+interval),stepDuration*15.7,.038,
-            {attack:.12,release:.32,cutoff:1500,detune:interval%2 ? -6 : 6});
+      const swing = step%2 ? stepDuration*.17 : 0;
+      const beat = time+swing;
+      const houseKick = drop && bar >= 4 && (mode === 'race' || mode === 'capture' || mode === 'full');
+      if (step === 0 || step === 10) {
+        const chord = step === 0 ? [0,third,10,14] : [7,third+12];
+        for (const [index,interval] of chord.entries()) {
+          voice(beat+index*.009,'pluck',scorePitch(root+12+interval),stepDuration*(step === 0 ? 5.4 : 2.5),.09,
+            {attack:.007,release:.18,detune:index%2 ? -4 : 4});
         }
-        voice(time,'sine',scorePitch(root-12),stepDuration*5,.19,{end:scorePitch(root-17),release:.18});
-      }
-      if (step%2 === 0) {
-        const interval = [0,7,12,third][(step/2+bar)%4];
-        voice(time,'strings',scorePitch(root+12+interval),stepDuration*1.36,.067*intensity,
-          {attack:.025,release:.075,cutoff:2600});
       }
       if (track.stabs.includes(step)) {
         const semitones = track.motif[(bar+track.stabs.indexOf(step)*2)%track.motif.length];
-        voice(time,'brass',scorePitch(root+12+semitones),stepDuration*(step===0 ? 3.4 : 2.25),.13*intensity,
-          {attack:.038,release:.115,cutoff:2200});
+        const note = scorePitch(root+24+semitones);
+        voice(beat,'lead',note,stepDuration*1.8,.095*intensity,{attack:.012,release:.13,cutoff:2150});
+        voice(beat+stepDuration*.75,'triangle',note,stepDuration*1.1,.029*intensity,{cutoff:1200});
       }
-      if (drop && track.bass.includes(step)) {
+      if (track.bass.includes(step)) {
         const gap = (track.bass.find(next => next > step) ?? 16)-step;
-        growl(time,root-12+(step===14 ? 7 : 0),stepDuration*Math.min(3.8,gap*.91),
-          (step%3===0 ? 2 : 4)/(stepDuration*4),.52*intensity);
+        const midi = root-12+(step===14 ? 7 : 0);
+        const length = stepDuration*Math.min(4.4,gap*.91);
+        if (drop && (bar >= 4 || step%3 === 0)) {
+          growl(beat,midi,length,(step%3===0 ? 2 : 4)/(stepDuration*4),.51*intensity);
+        } else {
+          voice(beat,'sine',scorePitch(midi),length,.33*intensity,
+            {attack:.005,release:.12,end:scorePitch(midi-2)});
+        }
       }
-      if (step===0 || step===6 || (drop && step===11)) {
-        voice(time,'sine',142,.22,.68*intensity,{end:42,release:.14});
+      if (houseKick ? step%4 === 0 : step===0 || step===6 || (drop && step===11)) {
+        voice(beat,'sine',134,.2,.66*intensity,{end:43,release:.145});
+        percussion(beat,'highpass',3400,.024,.067*intensity);
       }
-      if (step===8 || (bar===7 && step===14)) {
-        percussion(time,'bandpass',1650,.18,.38*intensity);
-        voice(time,'triangle',205,.11,.24*intensity,{end:112,release:.075});
+      if (step===8 || (bar===7 && step===14) || (houseKick && step%8===4)) {
+        percussion(beat,'bandpass',1780,.16,.35*intensity);
+        percussion(beat+.017,'highpass',2400,.082,.17*intensity);
+        voice(beat,'triangle',183,.092,.18*intensity,{end:108,release:.07});
       }
-      if (step%4===2 || (drop && step%4===3)) percussion(time,'highpass',7000,.057,.14*intensity);
-      if (!drop && step===12) percussion(time,'highpass',4600,.32,.21*intensity);
+      if (step%2 === 0 || (drop && step%4===3)) {
+        percussion(beat,'highpass',7400,step%4===2 ? .095 : .041,(step%4===2 ? .17 : .09)*intensity);
+      }
+      if (step===15 && (bar%2===1)) {
+        for (let hit=0;hit<3;hit++) percussion(time+hit*stepDuration/3,'highpass',8200,.027,.085+hit*.026);
+      }
+      if (!drop && step===12) percussion(beat,'highpass',4700,.32,.18*intensity);
       tick++;
       time += stepDuration;
     }

@@ -19,6 +19,7 @@ const raceDistricts = [
   {name:'Gale Warehouse Sprint', props:['cargo','fan','drum','forklift'], y:[225,305,205,285], wind:175}
 ];
 const raceSectionCount = 3;
+const rivalPace = 1.045;
 function generateRace(playerFrame,previousRival,previousCourse,existingRival,existingFrame) {
   const rival = existingRival || pick(Object.keys(racePilots).filter(name => name !== previousRival));
   const frame = existingFrame || fleet[progress.pilotFrames?.[rival]] || pick(fleet.filter(frame => frame !== playerFrame && !frame.omega));
@@ -33,7 +34,7 @@ function generateRace(playerFrame,previousRival,previousCourse,existingRival,exi
     sections.push({...segment,startTime:finishTime});
     finishTime += segment.splits.at(-1);
   }
-  return {rival,frame,sections,finishTime};
+  return {rival,frame,sections,finishTime,paceVersion:2};
 }
 function generateRaceSection(district,index) {
   const start = [64,250];
@@ -73,7 +74,7 @@ function generateRaceSection(district,index) {
   for (let i=1;i<path.length;i++) {
     const [x,y] = path[i];
     const [px,py] = path[i-1];
-    splits.push(splits[i-1]+Math.hypot(x-px,y-py)/(speed*randomBetween(.87,1.12)));
+    splits.push(splits[i-1]+Math.hypot(x-px,y-py)/(speed*randomBetween(.87,1.12))*rivalPace);
   }
   return {
     path,splits,

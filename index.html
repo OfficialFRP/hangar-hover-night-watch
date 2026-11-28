@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=36">
+<link rel="stylesheet" href="styles.css?v=37">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -57,7 +57,7 @@
       <h2 id="settingsTitle">Options</h2>
       <label for="difficulty">Story and Practice difficulty</label>
       <select id="difficulty" aria-describedby="difficultyHelp"><option value="normal">Normal</option><option value="easy">Easy</option></select>
-      <p id="difficultyHelp">Easy adds 30% battery time, reduces signal drain and wind, and makes scanning and landing more forgiving. Difficulty applies on the next launch.</p>
+      <p id="difficultyHelp">Easy adds 30% battery time, removes some interior obstacles, reduces signal drain and crosswind, and makes scanning and landing more forgiving. Difficulty applies on the next launch.</p>
       <label for="sensitivity">Touch sensitivity <output id="sensitivityValue" for="sensitivity"></output></label>
       <input id="sensitivity" type="range" min="50" max="150" value="100" step="5">
       <label class="sound-option"><input id="soundSetting" type="checkbox"> Game audio</label>
@@ -146,7 +146,7 @@
 <button id="restartStory">Replay from mission 01</button>
 </section>
 <section id="page-race" class="panel game-menu" hidden>
-<div class="arcade-heading"><h2 id="raceTitle">Race</h2><button id="raceFly">Open race deck</button></div>
+<div class="arcade-heading"><h2 id="raceTitle">Race</h2><div class="flight-launch-options"><button id="raceNow" type="button">Race Now</button><button id="raceFly" type="button">Open race deck</button></div></div>
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
 <div class="pilot-picker-control"><button id="racePilotPicker" type="button" data-game-dialog="racePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
 
@@ -285,10 +285,10 @@
 </dialog>
 <script src="north-quay.js"></script>
 <script src="story.js?v=6"></script>
-<script src="race.js?v=4"></script>
-<script src="audio.js?v=5"></script>
+<script src="race.js?v=5"></script>
+<script src="audio.js?v=6"></script>
 <script src="battle.js?v=22"></script>
-<script src="game.js?v=39"></script>
+<script src="game.js?v=40"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

@@ -131,7 +131,7 @@ function writeData(key,value) {
 }
 function freshProgress() {
   const modules = () => fleet.map(() => [0,0,0]);
-  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules(),omega:normalizeOmega(),completionReward:false};
+  return {orisonExpanded:true,credits:100,cleared:[],selected:0,ownedFrames:[],activeLevels:modules(),levels:modules(),bests:{},achievements:[],noJamClears:[],raceFinishes:0,raceWins:0,fullTimes:[],raceOpponent:'random',pilotFrames:{},freeBest:0,playerName:'',battleLevels:modules(),omega:normalizeOmega(),completionReward:false};
 }
 function loadProgress(key) {
   const saved = readData(key);
@@ -162,7 +162,7 @@ function loadProgress(key) {
       .filter(([name,time]) => /^(?:orison-)?\d+$/.test(name) && Number.isFinite(time) && time > 0));
   }
   return {...defaults,...saved,orisonExpanded:true,levels,activeLevels,selected,ownedFrames,bests,
-    playerName,omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
+    playerName,fullTimes:rankFullTimes(saved.fullTimes),omega:normalizeOmega(saved.omega),completionReward:saved.completionReward === true,
     battleLevels:fleet.map((_,frame) => battleModules.map((_,index) =>
       Math.min(battleTierLimit,validCount(saved.battleLevels?.[frame]?.[index])))),
     credits:validCount(saved.credits,defaults.credits),freeBest:validCount(saved.freeBest),
@@ -445,6 +445,8 @@ let storyFlight = false;
 let race;
 let raceSection = 0;
 let freeSector = 0;
+let fullRun = null;
+let padSecured = false;
 let freeBonus = 0;
 let flightLoadout;
 let rivalAngle = 0;
@@ -456,7 +458,7 @@ let nextRaceCall;
 let raceCallouts = 0;
 let wasBraking = false;
 function raceLine(group) {
-  const pool = racePilots[race.rival][group];
+  const pool = (racePilots[race.rival] || racePilots.rook)[group];
   const line = pick(pool.filter(quote => quote !== race.lastLine));
   race.lastLine = line;
   return line;
@@ -482,12 +484,30 @@ function validRaceSections(saved) {
         (index !== sections.length-1 || saved.finishTime === section.startTime+section.splits.at(-1));
     });
 }
-function selectRace() {
+function raceOpponents(pilot) {
+  const available = ['rook',...unlockedPilots()].filter(key => key !== pilot);
+  return [...new Set(available.length ? available : Object.keys(racePilots).filter(key => key !== pilot).slice(0,1))];
+}
+function renderRaceRivals(opponents) {
+  const select = get('#raceRival');
+  select.replaceChildren(new Option('Random opponent','random'),
+    ...opponents.map(key => new Option(crew[key][0],key)));
+  select.value = progress.raceOpponent;
+  renderPilotFaces(get('#raceRivalFaces'),select,opponents,() => chooseRaceOpponent(select.value));
+}
+function chooseRaceOpponent(key) {
+  progress.raceOpponent = key;
+  selectRace(true);
+}
+function selectRace(force = false) {
   const loadout = arcadeLoadout(-1);
+  const opponents = raceOpponents(loadout.pilot);
+  const chosen = opponents.includes(progress.raceOpponent) ? progress.raceOpponent : 'random';
+  progress.raceOpponent = chosen;
   if (!race && progress.raceMatch) {
     const saved = progress.raceMatch;
     const frame = fleet[progress.pilotFrames?.[saved.rival]] || fleet.find(frame => frame.name === saved.frame?.name);
-    if (frame && !frame.omega && Object.hasOwn(racePilots,saved.rival)) {
+    if (frame && !frame.omega && opponents.includes(saved.rival)) {
       race = validRaceSections(saved) ? {...saved,frame} :
         generateRace(fleet[progress.selected],null,null,saved.rival,frame);
       race.defeated = saved.defeated === true;
@@ -495,8 +515,10 @@ function selectRace() {
       saveProgress();
     }
   }
-  if (!race || race.defeated || race.rival === loadout.pilot) {
-    const opponent = pick(Object.keys(racePilots).filter(key => key !== loadout.pilot && key !== race?.rival));
+  if (force === true || !race || race.defeated || !opponents.includes(race.rival) ||
+      (chosen !== 'random' && chosen !== race.rival)) {
+    const alternatives = opponents.filter(key => key !== race?.rival);
+    const opponent = chosen === 'random' ? pick(alternatives.length ? alternatives : opponents) : chosen;
     race = generateRace(fleet[loadout.frame],race?.rival,race?.sections[0].course.name,opponent);
     progress.raceMatch = race;
     saveProgress();
@@ -658,7 +680,7 @@ function showPage(page) {
   if (page !== 'flight' && state === 'flying') togglePause();
   currentPage = page;
   const tabPage = page === 'missions' ? 'story' : page === 'flight' ?
-    courseIndex === freeFlightIndex ? 'free' : courseIndex === -1 ? 'race' : 'story' : page;
+    fullRun ? 'full' : courseIndex === freeFlightIndex ? 'free' : courseIndex === -1 ? 'race' : 'story' : page;
   pageButtons.forEach(button => {
     const selected = button.dataset.page === tabPage;
     button.setAttribute('aria-pressed',selected);
@@ -669,6 +691,8 @@ function showPage(page) {
   if (page === 'flight') {hud(); flightNeedsRender = true;}
   if (page === 'story') renderStory();
   if (page === 'race' || page === 'free') arcadeOptions(page);
+  if (page === 'race' && race) renderRaceRivals(raceOpponents(arcadeLoadout(-1).pilot));
+  if (page === 'full') renderFullFlight();
   if (page === 'free') get('#freeRecord').textContent = 'Best: '+progress.freeBest+' sectors';
   if (page === 'characters') renderCharacterFiles();
   if (page === 'battle') renderBattleSetup();
@@ -808,6 +832,8 @@ function renderHangar() {
   get('#funds').textContent = progress.credits.toLocaleString() + ' credits';
   get('#wallet').textContent = progress.credits.toLocaleString() + ' CR';
   get('#loadoutName').textContent = fleet[progress.selected].name;
+  get('#unequipDrone').hidden = progress.selected === 0;
+  get('#unequipDrone').disabled = active;
   const equippedFrame = fleet[progress.selected];
   const equipped = flightStats(progress.selected);
   get('#loadoutStats').textContent = equipped.seconds + ' s battery · ' + Math.round(equipped.thrust) +
@@ -920,7 +946,9 @@ function configureRaceHud() {
   updateHudText('#rivalRacerName',crew[race.rival][0]);
   updateHudText('#rivalRacerFrame',race.frame.name);
 }
-function reset(index, fly = false, chapterFlight = false) {
+function reset(index, fly = false, chapterFlight = false, run = null) {
+  fullRun = run;
+  padSecured = false;
   storyFlight = chapterFlight;
   courseIndex = index;
   flightLoadout = index < 0 ? arcadeLoadout(index) : null;
@@ -928,11 +956,12 @@ function reset(index, fly = false, chapterFlight = false) {
   easyFlight = index >= 0 && options.difficulty === 'easy';
   raceSection = 0;
   rivalAngle = 0;
-  course = index === freeFlightIndex ? generateFreeSector() : index === -1 ? race.sections[0].course : courses[index];
+  course = run ? fullFlightCourse(courses[index]) : index === freeFlightIndex ? generateFreeSector() : index === -1 ? race.sections[0].course : courses[index];
   nextRaceCall = 3;
   raceCallouts = 0;
   wasBraking = false;
-  get('#raceLive').hidden = index >= 0;
+  get('#raceLive').hidden = index >= 0 && !run;
+  if (run) updateHudText('#raceLive','Leg '+(index+1)+' / '+run.count+' · '+course.name);
   if (index === freeFlightIndex) get('#raceLive').textContent = 'Sector 1 · '+course.name;
   if (index === -1) get('#raceLive').textContent = crew[race.rival][0] + ' · “' + raceLine(0) + '”';
   const [x,y] = course.start;
@@ -964,10 +993,23 @@ function reset(index, fly = false, chapterFlight = false) {
     const warning = (patrols.length || index === -1) ? ' Sentinels chase on radar lock. Break line of sight or use Jam.' : '';
     const recharge = rechargePack ? ' Fly through the battery pack for a top-up.' : '';
     const pilot = flightLoadout?.pilot ? crew[flightLoadout.pilot][0]+' · '+airframe.name+'. ' : '';
-    menu(course.name,pilot+course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight));
+    menu(course.name,pilot+course.intro+warning+recharge,'Launch drone',() => reset(index,true,storyFlight,run));
   }
 }
 function finish(won, message) {
+  if (fullRun) {
+    const run = fullRun;
+    const total = run.elapsed + elapsed;
+    state = won ? 'won' : 'lost';
+    clearInputs();
+    renderHangar();
+    sound(won ? 'complete' : 'crash');
+    const rankable = won && run.count === courses.length;
+    const title = won ? 'Full Flight complete' : 'Full Flight ended';
+    menu(title,message+' Total time '+formatFullTime(total)+'.',
+      rankable ? 'Record time' : 'Full Flight setup',rankable ? () => recordFullFlight(total) : () => showPage('full'));
+    return;
+  }
   if (courseIndex === -1) {concludeRace(won,message); return;}
   if (courseIndex === freeFlightIndex) {
     state = 'lost';
@@ -1062,8 +1104,9 @@ function update(dt) {
     }
   }
   const gust = course.wind ? (course.wind === true ? 120 : course.wind) * airframe.windResponse * (easyFlight ? .55 : 1) : 0;
-  const wind = gust * Math.sin(elapsed * 2.3);
-  const crosswind = course.exit || course.quay ? gust*.76 * Math.sin(elapsed*1.47+.8) : 0;
+  const profile = course.windPattern;
+  const wind = gust * Math.sin(elapsed*(profile?.frequency ?? 2.3)+(profile?.phase ?? 0));
+  const crosswind = course.exit || course.quay ? gust*(profile?.lateral ?? .76)*Math.sin(elapsed*1.47+.8) : 0;
   const restricted = !airframe.omega && radarLocked && jam === 0;
   const damping = braking ? stats.brake : ((dx || dy) ? 1.9 : airframe.stability || 1.9);
   const drag = Math.exp(-(damping+(restricted ? 2.1 : 0))*dt);
@@ -1083,7 +1126,7 @@ function update(dt) {
       return finish(false,'The drone hit an obstacle. Brake before tight turns.');
     }
   }
-  const doorOpen = course.exit && gate === course.gates.length &&
+  const doorOpen = course.exit && flightExitReady() &&
     Math.abs(drone.y-course.exit[0]) < course.exit[1]/2-radius;
   const rightEdge = doorOpen ? Infinity : 960-radius;
   const edgeX = clamp(drone.x,radius,rightEdge);
@@ -1134,14 +1177,15 @@ function update(dt) {
   const target = course.gates[gate];
   const onTarget = target && Math.hypot(x-target[0],y-target[1]) < (easyFlight ? 36 : 29);
   scan = onTarget ? scan + dt*(cameraSignal === 'green' ? 1.6 : 1) : 0;
-  if (onTarget && (storyFlight || courseIndex < 0 || scan >= .24)) {
+  if (onTarget && (storyFlight || fullRun || courseIndex < 0 || scan >= .24)) {
     gate++;
     scan = 0;
     sound('scan');
   }
-  if (course.exit) {
+  if (course.exit && (!course.pad || padSecured)) {
     if (doorOpen && x >= 960) {
-      if (courseIndex === freeFlightIndex) advanceFreeSector();
+      if (fullRun) advanceFullFlight();
+      else if (courseIndex === freeFlightIndex) advanceFreeSector();
       else if (courseIndex === -1 && raceSection < race.sections.length-1) advanceRaceSection();
       else finish(true,(course.sea ? 'Rescue route confirmed in ' : 'Warehouse cleared in ') + elapsed.toFixed(1) + ' seconds.');
     }
@@ -1153,15 +1197,114 @@ function update(dt) {
   landing = steady ? landing + dt : 0;
   if (landing >= 0.65) {
     sound('land');
-    finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
+    if (fullRun) {
+      padSecured = true;
+      updateHudText('#raceLive','Pad secured · Fly through the east exit');
+    } else finish(true,'Targets recorded and drone extracted in ' + elapsed.toFixed(1) + ' seconds.');
   }
 }
-function generateFreeSector() {
+function fullFlightCount() {
+  return hasKingAccess() ? courses.length : Math.min(courses.length,Math.max(1,(progress.campaignNext || 0)+1));
+}
+function fullFlightCourse(source) {
+  if (source.exit || !source.pad) return source;
+  const candidates = Array.from({length:37},(_,index) => 70+10*index)
+    .sort((a,b) => Math.abs(a-source.pad[1])-Math.abs(b-source.pad[1]));
+  const clear = candidates.find(y => !source.walls.some(wall =>
+    wall[0]+wall[2] > 909 && y >= wall[1]-24 && y <= wall[1]+wall[3]+24));
+  return {...source,exit:[clear ?? source.pad[1],122],
+    intro:'Record every marker, land on the pad, then continue through the east exit.'};
+}
+function flightExitReady() {
+  return gate === course.gates.length && (!fullRun || !course.pad || padSecured);
+}
+function startFullFlight(fly = false) {
+  reset(0,fly,false,{count:fullFlightCount(),elapsed:0});
+  showPage('flight');
+}
+function advanceFullFlight() {
+  if (courseIndex+1 >= fullRun.count) {
+    finish(true,'You cleared all '+fullRun.count+' legs of this route.');
+    return;
+  }
+  fullRun.elapsed += elapsed;
+  courseIndex++;
+  course = fullFlightCourse(courses[courseIndex]);
+  elapsed = drained = landing = jam = 0;
+  padSecured = cellCollected = false;
+  jamsLeft = maxJams;
+  stats = flightStats(progress.selected);
+  moveToNextSector();
+  rechargeFlash = 1.1;
+  updateHudText('#raceLive','Leg '+(courseIndex+1)+' / '+fullRun.count+' · '+course.name);
+}
+function formatFullTime(seconds) {
+  const centiseconds = Math.round(seconds*100);
+  return Math.floor(centiseconds/6000)+':'+((centiseconds%6000)/100).toFixed(2).padStart(5,'0');
+}
+function rankFullTimes(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .filter(entry => typeof entry?.name === 'string' && Number.isFinite(entry.seconds) && entry.seconds > 0)
+    .map(entry => ({name:cleanSaveName(entry.name) || 'Pilot',seconds:entry.seconds}))
+    .sort((a,b)=>a.seconds-b.seconds).slice(0,13);
+}
+function renderFullFlight() {
+  const count = fullFlightCount();
+  updateHudText('#fullAccess',count+' / '+courses.length+' Story legs available.');
+  const times = progress.fullTimes;
+  get('#fullTimesEmpty').hidden = times.length !== 0;
+  get('#fullTimes').replaceChildren(...times.map(({name,seconds})=>{
+    const item = document.createElement('li');
+    item.textContent = name+' · '+formatFullTime(seconds);
+    return item;
+  }));
+}
+const fullNameDialog = get('#fullNameDialog');
+let fullTimeToRecord;
+function recordFullFlight(seconds) {
+  fullTimeToRecord = seconds;
+  fullNameDialog.returnValue = '';
+  get('#fullName').value = progress.playerName;
+  fullNameDialog.showModal();
+  get('#fullName').focus();
+}
+fullNameDialog.addEventListener('close',() => {
+  const seconds = fullTimeToRecord;
+  fullTimeToRecord = undefined;
+  if (fullNameDialog.returnValue !== 'record' || !seconds) return;
+  progress.fullTimes = rankFullTimes([...progress.fullTimes,{name:get('#fullName').value,seconds}]);
+  saveProgress();
+  showPage('full');
+  get('#fullTimesDialog').showModal();
+});
+function leaveFlight() {
+  const destination = fullRun ? 'full' : courseIndex === -1 ? 'race' :
+    courseIndex === freeFlightIndex ? 'free' : storyFlight ? 'story' : 'missions';
+  state = 'lost';
+  clearInputs();
+  flightAudio(0,false,false,false);
+  if (destination === 'story') {
+    storyFlight = false;
+    resumeCampaign();
+  } else showPage(destination);
+  renderHangar();
+}
+function returnToTitle() {
+  leaveFlight();
+  openMenu();
+  get('#mainMenu').hidden = true;
+  get('#startScreen').hidden = false;
+  setTechnoMusic(false);
+  get('#touchStart').focus();
+}
+function generateFreeSector(wasWindy = false) {
   const theme = pick(courses);
   const district = {name:theme.name,props:allObstacles,y:[250,250,250,250].map(y => y+randomBetween(-85,85)),
-    wind:Math.random()<.45 ? pick([85,120,175,230]) : 0};
+    wind:!wasWindy && Math.random()<.38 ? pick([85,120,175,230]) : 0};
   const {course:sector} = generateRaceSection(district,freeSector);
   sector.seconds = freeFlightBattery;
+  if (district.wind) sector.windPattern = {frequency:randomBetween(1.15,3),phase:randomBetween(0,Math.PI*2),
+    lateral:randomBetween(-.9,.9)};
   sector.sea = Boolean(theme.sea);
   sector.quay = Boolean(theme.quay);
   sector.sentinels = Math.random()<.24 ? 2 : Math.random()<.65 ? 1 : 0;
@@ -1178,7 +1321,7 @@ function advanceFreeSector() {
   const bonus = awardAchievements();
   freeBonus += bonus;
   saveProgress();
-  course = generateFreeSector();
+  course = generateFreeSector(Boolean(course.wind));
   drained = -elapsed;
   moveToNextSector();
   rechargeFlash = 1.1;
@@ -2171,7 +2314,7 @@ function renderLoadout() {
 function drawWarehouseExit() {
   const [center,height] = course.exit;
   const top = center-height/2;
-  const open = gate === course.gates.length;
+  const open = flightExitReady();
   ctx.fillStyle = open ? '#9de9d72a' : '#10151e';
   ctx.fillRect(909,top,51,height);
   ctx.fillStyle = open ? '#9de9d7' : '#ed937e';
@@ -2205,7 +2348,7 @@ function drawLandingPad() {
   ctx.globalAlpha = armed ? 1 : .38;
   if (!drawSprite(ctx,8,px-37,py-37,74,74)) label('H',px,py,'#c9fa74',37);
   ctx.restore();
-  label(armed ? 'LAND' : 'PAD',px,py+54);
+  label(padSecured ? 'SECURED' : armed ? 'LAND' : 'PAD',px,py+54);
   if (landing > 0) {
     ctx.strokeStyle = '#c9fa74';
     ctx.lineWidth = 5;
@@ -2238,8 +2381,9 @@ function drawBatteryPickup(x,y) {
 }
 function draw() {
   ctx.drawImage(terrain,0,0);
-  if (course.exit || course.quay) {
-    const drift = 29 * Math.sin(elapsed * 2.3);
+  if (course.wind && (course.exit || course.quay)) {
+    const {frequency,phase} = course.windPattern || {frequency:2.3,phase:0};
+    const drift = 29*Math.sin(elapsed*frequency+phase);
     ctx.strokeStyle = '#aedcc83a';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2256,7 +2400,7 @@ function draw() {
   patrols.forEach(drawPatrol);
   const cell = chargeCells[courseIndex];
   if (cell && !cellCollected) drawBatteryPickup(...cell);
-  label(courseIndex === freeFlightIndex ? 'SECTOR '+(freeSector+1) : courseIndex === -1 ? 'RACE ' + (raceSection+1) + '/' + raceSectionCount : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
+  label(fullRun ? 'LEG '+(courseIndex+1)+'/'+fullRun.count : courseIndex === freeFlightIndex ? 'SECTOR '+(freeSector+1) : courseIndex === -1 ? 'RACE ' + (raceSection+1) + '/' + raceSectionCount : 'NODE ' + String(courseIndex+1).padStart(2,'0'),62,27,'#b6d9d5',15);
   label(state === 'flying' ? '● LIVE' : '○ STANDBY',884,27,'#acd2ce',15);
   course.gates.forEach(([x,y], index) => {
     const active = index === gate;
@@ -2278,7 +2422,7 @@ function draw() {
     }
   });
   if (course.exit) drawWarehouseExit();
-  else drawLandingPad();
+  if (course.pad) drawLandingPad();
   if (rechargePack && !packCollected) drawBatteryPickup(...rechargePack);
   if (jam > 0) {
     const phase = ((2.5-jam)*2)%1;
@@ -2361,13 +2505,15 @@ function hud() {
   power.classList.toggle('battery-charge',rechargeFlash > 0);
   updateHudText('#power b',battery + '%');
   updateHudText('#gates',(courseIndex === -1 ? (raceSection+1) + '/' + raceSectionCount + ' · Gates ' : 'Intel ') + gate + '/' + course.gates.length);
-  updateHudText('#time',elapsed.toFixed(1) + ' s');
+  updateHudText('#time',(elapsed+(fullRun?.elapsed || 0)).toFixed(1) + ' s');
   updateHudText('#alert',radarLocked ? '◆ RADAR LOCK' : cameraSignal === 'red' ? '◆ SIGNAL DRAIN' : rechargeFlash > 0 ? 'ϟ RECHARGED' : cameraSignal === 'green' ? '● ALLIED FEED' : '○ SIGNAL CLEAR');
   get('#alert').classList.toggle('danger',radarLocked || cameraSignal === 'red');
   power.classList.toggle('hostile',hostile);
   updateHudText('#jamStatus',jam > 0 ? 'Jam ' + jam.toFixed(1) + 's' : courseIndex === freeFlightIndex ? 'Jams ∞' : 'Jams ' + jamsLeft + '/' + maxJams);
   updateFlightButton('#retryFlight','hidden',state !== 'paused');
   updateFlightButton('#endFlight','hidden',state !== 'paused');
+  updateFlightButton('#returnTitle','hidden',state !== 'lost');
+  updateFlightButton('#flightHangar','hidden',state !== 'lost' && state !== 'won');
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
   updateHudText('#best',courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
@@ -2410,12 +2556,18 @@ window.addEventListener('keydown',event => {
     return;
   }
   const paused = inBattle ? battle.paused && !battle.result : currentPage === 'flight' && state === 'paused';
-  if (paused && (key === 'e' || key === 'r')) {
+  if (key === 'e' && (currentPage === 'flight' || inBattle)) {
     event.preventDefault();
     if (!event.repeat) {
-      const control = inBattle ? (key === 'e' ? '#battleExit' : '#battleRestart') :
-        (key === 'e' ? '#endFlight' : '#retryFlight');
-      get(control).click();
+      if (inBattle) leaveBattle();
+      else leaveFlight();
+    }
+    return;
+  }
+  if (paused && key === 'r') {
+    event.preventDefault();
+    if (!event.repeat) {
+      get(inBattle ? '#battleRestart' : '#retryFlight').click();
     }
     return;
   }
@@ -2426,7 +2578,8 @@ window.addEventListener('keydown',event => {
   }
   if (event.repeat) return;
   if (key === 'r') {
-    if (courseIndex === -1 && race.defeated) selectRace();
+    if (fullRun) startFullFlight(true);
+    else if (courseIndex === -1 && race.defeated) selectRace();
     else reset(courseIndex,true,storyFlight);
   }
   if (key === 'c') activateJam();
@@ -2538,11 +2691,18 @@ for (const mode of ['race','free']) {
     arcadeChoice[mode] = event.target.value;
     updatePilotPicker(mode,event.target);
     if (mode === 'race' && race?.rival === event.target.value) selectRace();
-    else if (mode === 'race') refreshRacePilotFaces();
+    else if (mode === 'race') {refreshRacePilotFaces(); renderRaceRivals(raceOpponents(arcadeLoadout(-1).pilot));}
   });
 }
 get('#freeFly').addEventListener('click',() => {reset(freeFlightIndex); showPage('flight');});
-get('#endFlight').addEventListener('click',() => {if (state === 'paused') finish(false,'Run ended.');});
+get('#endFlight').addEventListener('click',leaveFlight);
+get('#returnTitle').addEventListener('click',returnToTitle);
+get('#flightHangar').addEventListener('click',() => showPage('hangar'));
+get('#fullHangar').addEventListener('click',() => showPage('hangar'));
+get('#fullFly').addEventListener('click',() => startFullFlight());
+get('#randomRaceRival').addEventListener('click',() => chooseRaceOpponent('random'));
+get('#raceRival').addEventListener('change',event => chooseRaceOpponent(event.target.value));
+get('#unequipDrone').addEventListener('click',() => equipFrame(0,false));
 get('#backToRacePilots').addEventListener('click',() => {
   selectRace();
   get('#racePilotPicker').click();
@@ -2598,7 +2758,7 @@ get('#backToHangar').addEventListener('click',() => showPage('hangar'));
 function syncGameMusic() {
   const mode = currentPage === 'menu' ? 'menu' : currentPage === 'battle' ? (battle?.mode || get('#battleMode').value) :
     currentPage === 'race' || (currentPage === 'flight' && courseIndex === -1) ? 'race' :
-    currentPage === 'free' || (currentPage === 'flight' && courseIndex === freeFlightIndex) ? 'free' : 'story';
+    currentPage === 'free' || currentPage === 'full' || (currentPage === 'flight' && (fullRun || courseIndex === freeFlightIndex)) ? 'free' : 'story';
   const active = (currentPage === 'flight' && state === 'flying') ||
     (currentPage === 'battle' && battle && !battle.paused && !battle.result);
   const level = active ? .23 : currentPage === 'menu' ? .16 : .095;
@@ -2622,7 +2782,11 @@ function changeAudio(enabled) {
 get('#audio').addEventListener('click',() => changeAudio(!options.sound));
 get('#soundSetting').addEventListener('change',event => changeAudio(event.target.checked));
 get('#pause').addEventListener('click',togglePause);
-get('#retryFlight').addEventListener('click',() => {if (state === 'paused') reset(courseIndex,true,storyFlight);});
+get('#retryFlight').addEventListener('click',() => {
+  if (state !== 'paused') return;
+  if (fullRun) startFullFlight(true);
+  else reset(courseIndex,true,storyFlight);
+});
 action.addEventListener('click',() => nextAction());
 const main = get('main');
 const mainMenu = get('#mainMenu');
@@ -2738,11 +2902,7 @@ function chooseSave(creating) {
 }
 const openingCredits = get('#openingCredits');
 const openingVideo = get('#openingVideo');
-const openingSound = get('#openingSound');
-function setOpeningMute(muted) {
-  openingVideo.muted = muted;
-  openingSound.setAttribute('aria-pressed',String(!muted));
-}
+
 let openingTimeout;
 function finishOpeningCredits() {
   if (openingCredits.hidden) return;
@@ -2754,21 +2914,17 @@ function finishOpeningCredits() {
 get('#touchStart').addEventListener('click',() => {
   get('#startScreen').hidden = true;
   applyAudio(false);
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    openMenu();
-    return;
-  }
   openingCredits.hidden = false;
   get('#skipCredits').focus();
   openingTimeout = setTimeout(finishOpeningCredits,15000);
-  setOpeningMute(savedOptions?.sound === false);
+  openingVideo.currentTime = 0;
+  openingVideo.muted = readData(optionsKey)?.sound === false;
   openingVideo.play().catch(() => {
     if (openingCredits.hidden) return;
-    setOpeningMute(true);
+    openingVideo.muted = true;
     openingVideo.play().catch(finishOpeningCredits);
   });
 });
-openingSound.addEventListener('click',() => setOpeningMute(!openingVideo.muted));
 get('#skipCredits').addEventListener('click',finishOpeningCredits);
 openingVideo.addEventListener('timeupdate',() => {
   get('#openingInspire').hidden = openingVideo.currentTime < 2.5 || openingVideo.currentTime >= 6;

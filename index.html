@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=34">
+<link rel="stylesheet" href="styles.css?v=35">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -33,7 +33,6 @@
     <a id="openingInspire" href="https://www.inspireclothing.art/" target="_blank" rel="noopener"
       aria-label="Visit Team Inspire" hidden></a>
     <div class="opening-controls">
-      <button id="openingSound" type="button" aria-pressed="false">Music</button>
       <button id="skipCredits" type="button">Skip credits</button>
     </div>
   </div>
@@ -74,7 +73,8 @@
 <button data-page="race" aria-pressed="false"><span class="tab-number" aria-hidden="true">04</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 21V4m0 1c5-4 9 4 15 0v10c-6 4-10-4-15 0m5-11v10m5-9v10M5 10c5-4 9 4 15 0"/></svg></span><strong>Race</strong></button>
 <button data-page="characters" aria-pressed="false"><span class="tab-number" aria-hidden="true">05</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M7.5 17c.8-3.6 8.2-3.6 9 0"/></svg></span><strong>Cast</strong></button>
 <button data-page="free" aria-pressed="false"><span class="tab-number" aria-hidden="true">06</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 9 9l-6 2 1 3 6-1 1 5-3 2h8l-3-2 1-5 6 1 1-3-6-2-3-6Z"/></svg></span><strong>Free Flight</strong></button>
-<button data-page="battle" aria-pressed="false"><span class="tab-number" aria-hidden="true">07</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4 4 7 8 9 4-2 8-5 8-9V6l-8-3Zm-3 9h6m-3-3v6"/></svg></span><strong>Drone Battle</strong></button>
+<button data-page="full" aria-pressed="false"><span class="tab-number" aria-hidden="true">07</span><span class="tab-symbol" aria-hidden="true">↗</span><strong>Full Flight</strong></button>
+<button data-page="battle" aria-pressed="false"><span class="tab-number" aria-hidden="true">08</span><span class="tab-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4 4 7 8 9 4-2 8-5 8-9V6l-8-3Zm-3 9h6m-3-3v6"/></svg></span><strong>Drone Battle</strong></button>
 </nav>
 <div class="layout"><section id="page-flight" hidden aria-label="Flight deck">
 <div class="hud"><span id="power">
@@ -103,7 +103,7 @@
 </aside>
 <div id="field">
 <canvas width="960" height="500" aria-label="Top-down drone obstacle course"></canvas>
-<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action" aria-keyshortcuts="Space"></button><button id="retryFlight" aria-keyshortcuts="R" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFlight" aria-keyshortcuts="E" hidden>End run</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
+<div class="overlay"><div class="card"><h2 id="headline"></h2><p id="brief"></p><div class="brief-actions"><button id="action" aria-keyshortcuts="Space"></button><button id="retryFlight" aria-keyshortcuts="R" aria-label="Restart flight" hidden><span aria-hidden="true">↻</span>Retry</button><button id="endFlight" aria-keyshortcuts="E" hidden>End run</button><button id="flightHangar" hidden>Change drone</button><button id="returnTitle" hidden>Title screen</button><button id="backToRacePilots" hidden>Back to pilot selection</button></div></div></div>
 </div>
 <p id="raceLive" hidden aria-live="polite"></p>
 <div class="camera-legend"><span class="friendly">● Green · safe feed</span><span class="hostile">◆ Red · battery drain</span></div>
@@ -127,7 +127,7 @@
 <div class="upgrade-tools"><h2>Practice missions</h2><button id="returnFlight">Return to flight</button></div><p class="practice-note">Practice cleared missions and your current Story mission.</p><nav id="mission-list" aria-label="Mission list"></nav>
 <div class="pager"><button id="prevMission">Previous</button><output id="missionPage"></output><button id="nextMission">Next</button></div>
 </section>
-<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet" data-page-size="6" data-phone-page-size="4"></div>
+<section id="page-hangar" class="panel game-menu" hidden><h2>Drone hangar</h2><canvas id="loadout" width="440" height="168" aria-label="Selected drone illustration"></canvas><div class="loadout-summary"><strong id="loadoutName"></strong><span id="loadoutStats"></span><button id="unequipDrone" hidden>Unequip</button><button id="openUpgrades">Upgrade equipped drone →</button></div><div id="fleet" data-page-size="6" data-phone-page-size="4"></div>
 <p class="hangar-note">Win a Race to earn 160 CR, or finish all three sections to earn 50 CR.</p>
 <button id="openAchievements" type="button" data-game-dialog="achievementsDialog" aria-haspopup="dialog">Achievements <span id="achievementCount"></span></button>
 <dialog id="achievementsDialog" class="game-picker" aria-labelledby="achievementsTitle">
@@ -150,14 +150,24 @@
 <div class="story-scene"><img id="racePortrait" alt=""><div><p id="raceSpeaker"></p><p id="raceQuote"></p></div></div>
 <div class="pilot-picker-control"><button id="racePilotPicker" type="button" data-game-dialog="racePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
 
-<p id="raceMatch"></p>
+<div class="pilot-picker-control race-rival-controls">
+  <button id="chooseRaceRival" type="button" data-game-dialog="raceRivalDialog" aria-haspopup="dialog">Choose opponent</button>
+  <button id="randomRaceRival" type="button">Random opponent</button>
+</div><p id="raceMatch"></p>
 </section>
 <section id="page-free" class="panel game-menu" hidden>
 <div class="arcade-heading"><h2>Free Flight</h2><button id="freeFly">Open flight deck</button></div>
 <p>Fly through endless randomized sectors. Clear each checkpoint and exit east for a fresh battery. Jam is unlimited.</p>
-<p id="freeRecord"></p>
+<img class="free-flight-cover" src="assets/free-flight.webp" loading="lazy" decoding="async" width="960" height="540" alt="Drone over a harbor at blue hour"><p id="freeRecord"></p>
 <div class="pilot-picker-control"><button id="freePilotPicker" type="button" data-game-dialog="freePilotDialog" aria-haspopup="dialog">Choose pilot</button></div>
 
+</section>
+<section id="page-full" class="panel game-menu" hidden>
+  <div class="arcade-heading"><h2>Full Flight</h2><button id="fullFly">Start Full Flight</button></div>
+  <p id="fullAccess"></p>
+  <p>Fly your unlocked Story route in one run. Record all markers, land where required, then keep flying through the east exit.</p>
+  <button type="button" id="fullTimesButton" data-game-dialog="fullTimesDialog" aria-haspopup="dialog">Personal leaderboard</button>
+  <button type="button" id="fullHangar">Change drone</button>
 </section>
 <section id="page-battle" class="panel game-menu" hidden>
   <h2>Drone Battle</h2>
@@ -193,7 +203,7 @@
           <div class="battle-result-card">
             <h3 id="battleRoundHeading"></h3>
             <p id="battleRoundSummary"></p>
-            <button id="battleNextRound" aria-keyshortcuts="Space">Next round</button>
+            <button id="battleResultHangar" type="button" hidden>Change drone</button><button id="battleNextRound" aria-keyshortcuts="Space">Next round</button>
           </div>
         </div>
       </div>
@@ -207,10 +217,10 @@
     <div class="battle-controls">
       <div id="battleStick" class="joystick" role="group" aria-label="Battle steering"><span class="stick-knob"></span></div>
       <div class="battle-weapons">
-        <button id="battleShield" aria-keyshortcuts="C">Shield <kbd>C</kbd></button><button id="battleScatter" aria-keyshortcuts="X">Scatter <kbd>X</kbd></button><button id="battlePulse" aria-keyshortcuts="V">Pulse <kbd>V</kbd></button>
+        <button id="battleShield" aria-keyshortcuts="X">Shield <kbd>X</kbd></button><button id="battleScatter" aria-keyshortcuts="C">Scatter <kbd>C</kbd></button><button id="battlePulse" aria-keyshortcuts="V">Pulse <kbd>V</kbd></button>
       </div>
     </div>
-    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. On a keyboard, V fires Pulse, X fires Scatter, and C raises the shield. Red beams damage hull. Purple turret shots slow drones for 3 seconds. Green packs repair hull and return after 8 seconds.</p>
+    <p class="battle-instructions">Drag the stick or use WASD. Tap Pulse for a straight shot or hold it to charge. On a keyboard, V fires Pulse, C fires Scatter, and X raises the shield. Red beams damage hull. Purple turret shots slow drones for 3 seconds. Green packs repair hull and return after 8 seconds.</p>
   </div>
 </section>
 <section id="page-characters" class="panel game-menu" hidden>
@@ -229,6 +239,21 @@
 </div>
 </main>
 <div id="achievementToast" role="status" aria-live="polite" hidden></div>
+<dialog id="raceRivalDialog" class="game-picker" aria-labelledby="raceRivalTitle">
+  <div class="game-picker-header"><h2 id="raceRivalTitle">Choose opponent</h2><form method="dialog"><button>Done</button></form></div>
+  <label class="arcade-pilot">Opponent <select id="raceRival"></select></label>
+  <div id="raceRivalFaces" class="pilot-faces" data-page-size="6" data-phone-page-size="4"></div>
+</dialog>
+<dialog id="fullTimesDialog" class="game-picker" aria-labelledby="fullTimesTitle">
+  <div class="game-picker-header"><h2 id="fullTimesTitle">Full Flight · Top 13</h2><form method="dialog"><button>Done</button></form></div>
+  <ol id="fullTimes" data-page-size="7" data-phone-page-size="5"></ol><p id="fullTimesEmpty">Complete the full Story route in one run to record a time.</p>
+</dialog>
+<dialog id="fullNameDialog" class="game-picker" aria-labelledby="fullNameTitle">
+  <form method="dialog"><div class="game-picker-header"><h2 id="fullNameTitle">Record Full Flight time</h2></div>
+    <label class="arcade-pilot">Pilot name <input id="fullName" maxlength="28" autocomplete="off"></label>
+    <div class="pager"><button value="cancel">Cancel</button><button value="record">Record time</button></div>
+  </form>
+</dialog>
 <dialog id="racePilotDialog" class="game-picker" aria-labelledby="racePickerTitle">
   <div class="game-picker-header"><h2 id="racePickerTitle">Choose a pilot or drone</h2><form method="dialog"><button>Done</button></form></div>
   <label class="arcade-pilot">Pilot or drone <select id="racePilot"></select></label><div id="racePilotFaces" data-page-size="6" data-phone-page-size="4" class="pilot-faces" role="group" aria-label="Race character portraits"></div>
@@ -260,10 +285,10 @@
 </dialog>
 <script src="north-quay.js"></script>
 <script src="story.js?v=6"></script>
-<script src="race.js?v=3"></script>
+<script src="race.js?v=4"></script>
 <script src="audio.js?v=4"></script>
-<script src="battle.js?v=21"></script>
-<script src="game.js?v=36"></script>
+<script src="battle.js?v=22"></script>
+<script src="game.js?v=37"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

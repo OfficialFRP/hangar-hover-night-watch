@@ -649,6 +649,7 @@ function showBattleResultWindow(final) {
     final ? 'Final score' : 'Round '+battle.round+' complete';
   const earned = final ? battle.matchCredits : battle.roundCredits;
   updateHudText('#battleRoundSummary',summary+' · '+battle.wins+'–'+battle.losses+(earned ? ' · +'+earned+' CR' : ''));
+  get('#battleResultHangar').hidden = !final;
   get('#battleNextRound').textContent = final ? 'Back to setup' :
     battle.matchResult ? 'View battle result' : 'Next round';
   overlay.hidden = false;
@@ -1078,6 +1079,15 @@ function createFullscreenControl(element,button,expandedClass,onResize) {
   return exit;
 }
 let exitBattleFullscreen;
+function leaveBattle() {
+  if (!battle) return;
+  clearBattleInput();
+  exitBattleFullscreen();
+  battle = undefined;
+  renderBattleSetup();
+  syncGameMusic();
+  get('#battleStart').focus({preventScroll:true});
+}
 function initBattleControls() {
   exitBattleFullscreen = createFullscreenControl(get('#battleArena'),get('#battleFullscreen'),'battle-expanded');
   for (const art of [omegaArt,onyxArt,clubAtlas,quayAtlas,storyAtlas,fleetArt]) {
@@ -1094,7 +1104,11 @@ function initBattleControls() {
     syncGameMusic();
   });
   get('#battleStart').addEventListener('click',() => {startBattle(); if (battle) drawBattle();});
-  get('#battleExit').addEventListener('click',() => concludeBattle('Battle ended'));
+  get('#battleExit').addEventListener('click',leaveBattle);
+  get('#battleResultHangar').addEventListener('click',() => {
+    leaveBattle();
+    showPage('hangar');
+  });
   get('#battleRestart').addEventListener('click',() => {
     if (!battle?.paused || battle.result) return;
     battle.countdown = 3;
@@ -1111,11 +1125,7 @@ function initBattleControls() {
       return;
     }
     if (battle.matchResult) {
-      clearBattleInput();
-      exitBattleFullscreen();
-      battle = undefined;
-      renderBattleSetup();
-      get('#battleStart').focus({preventScroll:true});
+      leaveBattle();
       return;
     }
     battle.round++;
@@ -1193,8 +1203,8 @@ function initBattleControls() {
     event.preventDefault();
     if (event.repeat) return;
     if (key === 'v') battlePulseStart('keyboard');
-    if (key === 'x') fireBattleShot(battle.player,'scatter');
-    if (key === 'c') shieldBattleUnit(battle.player);
+    if (key === 'c') fireBattleShot(battle.player,'scatter');
+    if (key === 'x') shieldBattleUnit(battle.player);
   });
   window.addEventListener('keyup',event => {
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;

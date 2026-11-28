@@ -1424,3 +1424,32 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
   #startScreen .start-panel img{width:54px;height:54px}
   .game-picker .arcade-pilot{margin:4px 0}
 }
+
+#skipCredits{border-radius:999px;background:#0b16254f;border-color:#7fa3ae80;padding-inline:12px;font-size:12px}
+.race-rival-controls{display:flex;flex-wrap:wrap;gap:6px}
+.race-rival-controls button{width:auto;flex:1}
+.race-rival-controls #randomRaceRival::after{display:none}
+.free-flight-cover{width:100%;max-height:clamp(110px,24dvh,225px);object-fit:cover;border:1px solid #4a697a;border-radius:8px}
+.pages [data-page=full]{--tab-accent:#afeab9}
+#fullTimes li{padding:7px;border-bottom:1px solid #50617a;font-variant-numeric:tabular-nums}
+#fullName{min-height:44px;font-size:16px}
+.game-picker .pilot-faces button{
+  display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;
+  align-content:start;gap:5px;text-align:center;padding:6px;background:linear-gradient(155deg,#293855,#101827);
+  border:1px solid #55758c;border-radius:6px;
+}
+.game-picker .pilot-faces img{width:min(100%,112px);height:auto;aspect-ratio:1;object-fit:cover;border:1px solid #829bad}
+.game-picker .pilot-faces button[aria-pressed=true]{background:#234343;color:#e4ffef;border-color:#a1ffcc;box-shadow:inset 0 -3px #81eab5}
+@media(max-width:650px),(pointer:coarse){
+  .game-picker .pilot-faces{grid-template-columns:repeat(auto-fit,minmax(min(100%,110px),1fr))}
+  .game-picker .pilot-faces img{width:min(100%,78px)}
+  .free-flight-cover{max-height:140px}
+  #page-flight .brief-actions:has(#flightHangar:not([hidden])){
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;
+  }
+  #page-flight .brief-actions:has(#flightHangar:not([hidden])) button{min-width:0;width:100%;padding-inline:4px}
+}
+@media(orientation:landscape) and (max-height:500px){
+  .game-picker .pilot-faces img{width:min(100%,64px)}
+  .free-flight-cover{max-height:88px}
+}

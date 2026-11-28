@@ -68,7 +68,7 @@ function generateRaceSection(district,index) {
     path.push([left-25,line],[x+width/2+25,line]);
   }
   path.push([902,exit[0]],[960,exit[0]]);
-  const speed = district.wind ? randomBetween(121,132) : randomBetween(128,145);
+  const speed = district.wind ? randomBetween(126,138) : randomBetween(134,151);
   const splits = [0];
   for (let i=1;i<path.length;i++) {
     const [x,y] = path[i];
@@ -92,5 +92,8 @@ function rivalPosition(race,time) {
   const ratio = (local-section.splits[next-1])/(section.splits[next]-section.splits[next-1]);
   const [x,y] = section.path[next-1];
   const [nx,ny] = section.path[next];
-  return [x+(nx-x)*ratio,y+(ny-y)*ratio,Math.atan2(ny-y,nx-x)+Math.PI/2,index];
+  // Ease lateral velocity through obstacle gaps while maintaining forward momentum.
+  const lateral = ratio*ratio*(3-2*ratio);
+  const lateralSpeed = (ny-y)*6*ratio*(1-ratio);
+  return [x+(nx-x)*ratio,y+(ny-y)*lateral,Math.atan2(lateralSpeed,nx-x)+Math.PI/2,index];
 }

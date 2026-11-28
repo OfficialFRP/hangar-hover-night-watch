@@ -1208,11 +1208,19 @@ function fullFlightCount() {
 }
 function fullFlightCourse(source) {
   if (source.exit || !source.pad) return source;
+  const [padX,padY] = source.pad;
+  const padCandidates = [source.pad];
+  for (let dy=-100;dy<=100;dy+=10) {
+    for (let dx=-100;dx<=100;dx+=10) padCandidates.push([padX+dx,padY+dy]);
+  }
+  padCandidates.sort(([x,y],[a,b]) => (x-padX)**2+(y-padY)**2-(a-padX)**2-(b-padY)**2);
+  const pad = padCandidates.find(([x,y]) => x>=40 && x<=915 && y>=40 && y<=460 &&
+    !source.walls.some(wall => touchesStructure(wall,x,y,27))) || source.pad;
   const candidates = Array.from({length:37},(_,index) => 70+10*index)
-    .sort((a,b) => Math.abs(a-source.pad[1])-Math.abs(b-source.pad[1]));
+    .sort((a,b) => Math.abs(a-pad[1])-Math.abs(b-pad[1]));
   const clear = candidates.find(y => !source.walls.some(wall =>
     wall[0]+wall[2] > 909 && y >= wall[1]-24 && y <= wall[1]+wall[3]+24));
-  return {...source,exit:[clear ?? source.pad[1],122],
+  return {...source,pad,exit:[clear ?? pad[1],122],
     intro:'Record every marker, land on the pad, then continue through the east exit.'};
 }
 function flightExitReady() {

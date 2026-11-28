@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="styles.css?v=37">
+<link rel="stylesheet" href="styles.css?v=38">
 
 <section id="startScreen" class="launch-screen" aria-labelledby="startTitle">
   <div class="start-panel">
@@ -138,11 +138,15 @@
 </section>
 <section id="page-upgrades" class="panel game-menu" hidden><h2 id="upgradeTitle">Upgrades</h2><div class="upgrade-tools"><output id="funds"></output><button id="backToHangar">Change drone</button></div><section id="omegaSettings" hidden><h3>Omega XLR tuning</h3><fieldset id="omegaFields" aria-label="Omega XLR flight and combat settings"></fieldset></section><div id="standardUpgrades" data-page-size="1"><section><h3>Flight modules</h3><div id="mods"></div></section><section><h3>Battle modules</h3><div id="battleMods"></div></section></div><p id="purchaseStatus" role="status"></p></section>
 <section id="page-story" class="panel game-menu">
-<div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button></div>
+<div class="case-picker" aria-label="Story cases"><button id="caseOne" aria-pressed="true">Case 01 · Sable Freight</button><button id="caseTwo" aria-pressed="false" disabled>Case 02 · North Quay</button><button id="caseThree" aria-pressed="false" disabled>Case 03 · The Orison</button><button id="openStoryBoard" type="button" aria-pressed="false">Story Board</button></div>
 <label class="story-mission-picker">Story mission <select id="storyMission"></select></label>
 <h2 id="storyTitle">Story</h2>
 <div class="story-scene"><img id="portrait" alt=""><div><p id="speaker"></p><p id="dialogue" aria-live="polite"></p></div></div>
-<div class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext" aria-keyshortcuts="Space">Continue</button></div>
+<div id="storyCampaignNav" class="pager"><button id="storyBack">Back</button><output id="storyStep"></output><button id="storyNext" aria-keyshortcuts="Space">Continue</button></div>
+<div id="storyBoardNav" hidden>
+  <div class="pager"><button id="boardPrevious" aria-label="Previous slide" aria-keyshortcuts="ArrowLeft">←</button><output id="boardStep" aria-live="polite"></output><button id="boardNext" aria-label="Next slide" aria-keyshortcuts="ArrowRight">→</button></div>
+  <div class="story-board-actions"><button id="boardExit" aria-keyshortcuts="Escape">Exit Story Board</button><button id="boardResume">Resume here</button></div>
+</div>
 <button id="restartStory">Replay from mission 01</button>
 </section>
 <section id="page-race" class="panel game-menu" hidden>
@@ -286,9 +290,9 @@
 <script src="north-quay.js"></script>
 <script src="story.js?v=6"></script>
 <script src="race.js?v=5"></script>
-<script src="audio.js?v=6"></script>
+<script src="audio.js?v=7"></script>
 <script src="battle.js?v=22"></script>
-<script src="game.js?v=40"></script>
+<script src="game.js?v=41"></script>
 <!-- Embedded display font: DejaVu Sans Mono Bold (subset)
 Copyright: Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
  Bitstream Vera is a trademark of Bitstream, Inc.

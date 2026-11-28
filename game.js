@@ -580,6 +580,62 @@ let lineIndex = 0;
 let sceneTitle;
 let afterDialogue;
 let lastLineAction;
+let storyBoard = null;
+
+function caseIntroScene(intro) {
+  return [[null,intro.location,null,{...intro,caseIntro:true}]];
+}
+function briefingScene(index) {
+  const [chapter,speaker,line] = campaignBriefs[index];
+  return {title:'Case 0'+(Math.floor(index/12)+1)+' · '+chapter+' / '+courses[index].name,lines:[[speaker,line]]};
+}
+function storyBoardEntries() {
+  return Array.from({length:courses.length+1},(_,index) => {
+    const intro = caseIntros[index];
+    const reveal = campaignReveals[index];
+    return [
+      ...(reveal ? reveal.lines.map((_,line) => ({...reveal,index,line,kind:'reveal'})) : []),
+      ...(intro ? [{title:intro.title,lines:caseIntroScene(intro),index,line:0,kind:'intro'}] : []),
+      ...(index < courses.length ? [{...briefingScene(index),index,line:0,kind:'briefing'}] : [])
+    ];
+  }).flat();
+}
+function openStoryBoard() {
+  if (storyBoard) return;
+  const entries = storyBoardEntries();
+  const matchingLine = entries.findIndex(entry => entry.lines === storyLines && entry.line === lineIndex);
+  const currentMission = entries.findIndex(entry => entry.index === campaignPosition() && entry.title === sceneTitle);
+  storyBoard = {entries,position:Math.max(0,matchingLine >= 0 ? matchingLine : currentMission)};
+  renderStory();
+  get(get('#boardNext').disabled ? '#boardPrevious' : '#boardNext').focus();
+}
+function closeStoryBoard() {
+  storyBoard = null;
+  renderStory();
+  get('#openStoryBoard').focus();
+}
+function moveStoryBoard(direction) {
+  storyBoard.position = clamp(storyBoard.position+direction,0,storyBoard.entries.length-1);
+  renderStory();
+}
+function boardEntryUnlocked(entry) {
+  return entry.index === courses.length ? hasKingAccess() || progress.campaignNext >= courses.length
+    : canPractice(entry.index);
+}
+function continueFromStoryBoard() {
+  const entry = storyBoard.entries[storyBoard.position];
+  if (!boardEntryUnlocked(entry)) return;
+  closeStoryBoard();
+  progress.campaignCursor = entry.index;
+  saveProgress();
+  if (entry.kind === 'reveal') {
+    presentCampaignReveal(entry.index,entry.line);
+  } else if (entry.kind === 'intro') {
+    startBriefing(entry.index);
+  } else {
+    openStoryFlightDeck(entry.index);
+  }
+}
 
 function campaignPosition() {
   return Math.min(progress.campaignCursor ?? progress.campaignNext ?? 0,courses.length);
@@ -591,18 +647,35 @@ function selectStoryMission(index) {
   startBriefing(index);
 }
 function renderStory() {
-  const [speaker,dialogue,link,illustration] = storyLines[lineIndex];
-  get('#storyTitle').textContent = sceneTitle;
+  const entry = storyBoard?.entries[storyBoard.position];
+  const lines = entry?.lines || storyLines;
+  const slide = entry?.line ?? lineIndex;
+  const title = entry?.title || sceneTitle;
+  const [speaker,dialogue,link,illustration] = lines[slide];
+  get('#storyTitle').textContent = title;
+  get('#openStoryBoard').setAttribute('aria-pressed',Boolean(entry));
+  get('#storyBoardNav').hidden = !entry;
+  get('#storyCampaignNav').hidden = Boolean(entry);
+  get('.story-mission-picker').hidden = Boolean(entry);
+  get('#restartStory').hidden = Boolean(entry);
+  if (entry) {
+    get('#boardPrevious').disabled = storyBoard.position === 0;
+    get('#boardNext').disabled = storyBoard.position === storyBoard.entries.length-1;
+    get('#boardStep').textContent = (storyBoard.position+1)+' / '+storyBoard.entries.length;
+    const unlocked = boardEntryUnlocked(entry);
+    get('#boardResume').disabled = !unlocked;
+    get('#boardResume').textContent = unlocked ? 'Resume here' : 'Checkpoint locked';
+  }
   const position = campaignPosition();
   const shownCase = storyLines === campaignReveals[12].lines ? 0 :
     storyLines === campaignReveals[24].lines ? 1 : Math.min(2,Math.floor(position/12));
   storyCases.forEach(([selector,first],index) => {
     const button = get(selector);
-    button.setAttribute('aria-pressed',String(index === shownCase));
+    button.setAttribute('aria-pressed',String(!entry && index === shownCase));
     button.disabled = !hasKingAccess() && (progress.campaignNext || 0) < first;
   });
   const picker = get('#storyMission');
-  picker.replaceChildren(...courses.flatMap((mission,index) => {
+  if (!entry) picker.replaceChildren(...courses.flatMap((mission,index) => {
     if (!canPractice(index)) return [];
     const option = document.createElement('option');
     option.value = String(index);
@@ -618,8 +691,8 @@ function renderStory() {
   scene.classList.toggle('case-intro',Boolean(illustration?.caseIntro));
   if (speaker) {
     const [name,role,portrait] = crew[speaker];
-    const variant = speaker === 'rook' && sceneTitle.includes('Sable’s Signature') ? 7 : portrait;
-    image.src = 'assets/crew-' + (storyLines.length > 1 && variant < 8 ? 'expression-' : '') + variant + '.webp';
+    const variant = speaker === 'rook' && title.includes('Sable’s Signature') ? 7 : portrait;
+    image.src = 'assets/crew-' + (lines.length > 1 && variant < 8 ? 'expression-' : '') + variant + '.webp';
     image.alt = name + ', ' + role;
     get('#speaker').textContent = name + ' · ' + role;
   } else {
@@ -647,10 +720,11 @@ function renderStory() {
   get('#storyBack').disabled = lineIndex === 0;
   get('#storyNext').textContent = lineIndex < storyLines.length-1 ? 'Continue' : lastLineAction;
 }
-function presentScene(title,lines,label,callback) {
+function presentScene(title,lines,label,callback,slide = 0) {
+  storyBoard = null;
   sceneTitle = title;
   storyLines = lines;
-  lineIndex = 0;
+  lineIndex = slide;
   lastLineAction = label;
   afterDialogue = callback;
   showPage('story');
@@ -658,26 +732,30 @@ function presentScene(title,lines,label,callback) {
 function startBriefing(index,showCaseIntro = true) {
   const intro = caseIntros[index];
   if (intro && showCaseIntro) {
-    presentScene(intro.title,[[null,intro.location,null,{...intro,caseIntro:true}]],'Continue to briefing',
+    presentScene(intro.title,caseIntroScene(intro),'Continue to briefing',
       () => startBriefing(index,false));
     return;
   }
-  const [chapter,speaker,line] = campaignBriefs[index];
-  presentScene('Case 0' + (Math.floor(index/12)+1) + ' · ' + chapter + ' / ' + courses[index].name,[[speaker,line]],'Open flight deck',() => {
-    reset(index,false,true);
-    showPage('flight');
-  });
+  const {title,lines} = briefingScene(index);
+  presentScene(title,lines,'Open flight deck',() => openStoryFlightDeck(index));
+}
+function openStoryFlightDeck(index) {
+  reset(index,false,true);
+  showPage('flight');
+}
+function presentCampaignReveal(index,slide = 0) {
+  const {title,lines} = campaignReveals[index];
+  presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : index === 24 ? 'Open Case 03' : 'Next chapter',() => {
+    if (index === courses.length) {showPage('missions'); return;}
+    progress.campaignRevealed = index;
+    saveProgress();
+    startBriefing(index);
+  },slide);
 }
 function resumeCampaign() {
   const index = campaignPosition();
   if (campaignReveals[index] && (index === courses.length || progress.campaignRevealed !== index)) {
-    const {title,lines} = campaignReveals[index];
-    presentScene(title,lines,index === courses.length ? 'Mission select' : index === 12 ? 'Open Case 02' : index === 24 ? 'Open Case 03' : 'Next chapter',() => {
-      if (index === courses.length) {showPage('missions'); return;}
-      progress.campaignRevealed = index;
-      saveProgress();
-      startBriefing(index);
-    });
+    presentCampaignReveal(index);
   } else if (storyFlight && storyMission === index && (state === 'ready' || state === 'paused' || state === 'flying' || state === 'lost')) {
     showPage('flight');
   } else {
@@ -1053,7 +1131,11 @@ function finish(won, message) {
       rankable ? 'Record time' : 'Full Flight setup',rankable ? () => recordFullFlight(total) : () => showPage('full'));
     return;
   }
-  if (courseIndex === -1) {concludeRace(won,message); return;}
+  if (courseIndex === -1) {
+    if (won) concludeRace(true,message);
+    else respawnRacer();
+    return;
+  }
   if (courseIndex === freeFlightIndex) {
     state = 'lost';
     clearInputs();
@@ -1388,6 +1470,18 @@ function advanceFreeSector() {
   rechargeFlash = 1.1;
   get('#raceLive').textContent = 'Sector '+(freeSector+1)+' · '+course.name+' · +'+payout+' CR'+achievementMessage(bonus);
 }
+function respawnRacer() {
+  const [x,y] = course.start;
+  drone = {x,y,vx:0,vy:0,angle:0};
+  drained = -elapsed;
+  jam = 0;
+  tookSignalDamage = false;
+  moveToNextSector(false);
+  rechargeFlash = 1.1;
+  clearInputs();
+  updateHudText('#raceLive','Respawned · Section '+(raceSection+1)+' / '+raceSectionCount);
+  sound('crash');
+}
 function advanceRaceSection() {
   raceSection++;
   course = accessibleCourse(race.sections[raceSection].course);
@@ -1446,13 +1540,13 @@ function resetRoomVisuals() {
   cameraSignal = '';
   radarLocked = false;
 }
-function moveToNextSector() {
+function moveToNextSector(transitionSound = true) {
   gate = scan = landing = 0;
   resetRoomVisuals();
   patrols = planPatrols();
   rechargePack = planRechargePack();
   packCollected = cellCollected = false;
-  sound('scan');
+  if (transitionSound) sound('scan');
 }
 function planRechargePack() {
   const anchors = [course.gates[Math.floor(course.gates.length/2)],course.start];
@@ -2632,7 +2726,7 @@ function hud() {
   updateFlightButton('#returnTitle','hidden',state !== 'lost');
   updateFlightButton('#flightHangar','hidden',state !== 'lost' && state !== 'won');
   updateFlightButton('#jam','disabled',state !== 'flying' || jam > 0 || jamsLeft === 0);
-  updateHudText('#best',storyFlight ? 'Lives '+storyLives+' / 3' : courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s' : 'Rival racing') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
+  updateHudText('#best',storyFlight ? 'Lives '+storyLives+' / 3' : courseIndex === freeFlightIndex ? 'Best '+progress.freeBest+' sectors' : courseIndex === -1 ? (elapsed >= race.finishTime ? 'Rival '+race.finishTime.toFixed(2)+' s · Lives ∞' : 'Lives ∞') : record ? 'Best ' + record.toFixed(1) + ' s' : 'Best —');
 }
 // Advance the current message without stealing Space from form controls or flight braking.
 let advancingWithSpace = false;
@@ -2644,7 +2738,7 @@ window.addEventListener('keydown',event => {
   if (event.key !== ' ' || event.defaultPrevented || event.altKey || event.ctrlKey ||
       event.metaKey || event.shiftKey || get('dialog[open]') ||
       event.target?.closest?.('input, select, textarea, a, summary, [contenteditable]')) return;
-  const next = currentPage === 'story' ? get('#storyNext') :
+  const next = currentPage === 'story' ? get(storyBoard ? '#boardNext' : '#storyNext') :
     currentPage === 'race' ? get('#raceFly') : currentPage === 'free' ? get('#freeFly') :
     currentPage === 'flight' && state !== 'flying' && !overlay.hidden ? action :
     currentPage === 'battle' && !get('#battleRoundOverlay').hidden ? get('#battleNextRound') : null;
@@ -2663,6 +2757,12 @@ window.addEventListener('keydown',event => {
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
       get('dialog[open]') || event.target?.closest?.('input, select, textarea, [contenteditable]')) return;
+  if (currentPage === 'story' && storyBoard && ['ArrowLeft','ArrowRight','Escape'].includes(key)) {
+    event.preventDefault();
+    if (key === 'Escape') closeStoryBoard();
+    else moveStoryBoard(key === 'ArrowLeft' ? -1 : 1);
+    return;
+  }
   const inBattle = currentPage === 'battle' && battle;
   if ((key === 'f' || key === 'p') && (currentPage === 'flight' || inBattle)) {
     event.preventDefault();
@@ -2833,6 +2933,11 @@ get('#backToRacePilots').addEventListener('click',() => {
 get('#raceNow').addEventListener('click',() => {reset(-1,true); showPage('flight');});
 get('#raceFly').addEventListener('click',() => {reset(-1); showPage('flight');});
 get('#returnFlight').addEventListener('click',() => showPage('flight'));
+get('#openStoryBoard').addEventListener('click',() => storyBoard ? closeStoryBoard() : openStoryBoard());
+get('#boardPrevious').addEventListener('click',() => moveStoryBoard(-1));
+get('#boardNext').addEventListener('click',() => moveStoryBoard(1));
+get('#boardExit').addEventListener('click',closeStoryBoard);
+get('#boardResume').addEventListener('click',continueFromStoryBoard);
 get('#storyBack').addEventListener('click',() => {if (lineIndex > 0) {lineIndex--; renderStory();}});
 get('#storyNext').addEventListener('click',() => {
   if (lineIndex >= storyLines.length-1) {afterDialogue(); return;}
@@ -2855,6 +2960,7 @@ get('#storyMission').addEventListener('change',event => selectStoryMission(Numbe
 storyCases.forEach(([selector,first],index) => {
   get(selector).addEventListener('click',() => {
     if (!hasKingAccess() && (progress.campaignNext || 0) < first) return;
+    if (storyBoard) closeStoryBoard();
     const position = campaignPosition();
     const last = storyCases[index+1]?.[1] ?? courses.length+1;
     if (position < first || position >= last) selectStoryMission(first);
@@ -2952,6 +3058,7 @@ function enterGame(page) {
   }
 }
 function openSave(key,saved) {
+  storyBoard = null;
   pendingStoryDoor = null;
   storyRoom = null;
   activeSlot = key;

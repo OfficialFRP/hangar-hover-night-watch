@@ -423,7 +423,7 @@ header h1{
     max-height:100%;overflow:auto;overscroll-behavior:contain;scroll-padding-block:8px;
     background:#171728f2;
   }
-  .case-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-bottom:5px}
+  .case-picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:5px}
   .case-picker button{font-size:clamp(10px,2.8vw,13px);padding:4px}
   .story-mission-picker{display:grid;grid-template-columns:auto minmax(0,1fr);margin:5px 0;gap:6px}
   #storyMission{width:100%;font-size:16px;min-height:44px}
@@ -1460,3 +1460,8 @@ main:has(#page-battle:not([hidden]) #battleArena:not([hidden])) .layout{flex:1;m
   #page-race .arcade-heading,#page-free .arcade-heading,#page-full .arcade-heading{grid-template-columns:minmax(0,1fr)}
   .flight-launch-options{grid-column:1;justify-content:flex-start}
 }
+
+
+.story-board-actions{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}
+.story-board-actions button{min-height:44px}
+#storyBoardNav .pager button{min-width:44px;min-height:44px}
